@@ -117,6 +117,31 @@ def _sub_backslash():
     return core.fill_personal("chemin")
 
 
+# ------------------------------------ extensibilité (test concret du brief) --
+def test_extensibility():
+    """Brief Phase 7 : ajouter un mode = une entrée, RIEN d'autre à toucher.
+    On ajoute un mode factice « Test » et on vérifie qu'il est pris en compte
+    partout (menu, résolution, prompt) sans modifier une seule autre ligne."""
+    print("Extensibilité — ajout d'un mode sans toucher au reste")
+    before = len(modes_registry.all_modes())
+    modes_registry.MODES.append({
+        "id": "test_dummy", "label": "Test", "hotkey": "8",
+        "system_prompt": "Mode de test."})
+    modes_registry._BY_ID["test_dummy"] = modes_registry.MODES[-1]
+    try:
+        check("le mode apparaît dans la liste (menu tray)",
+              len(modes_registry.all_modes()), before + 1)
+        check("résolu par id sans code dédié",
+              modes_registry.get_mode("test_dummy")["label"], "Test")
+        check("son prompt est consommé tel quel",
+              modes_registry.prompt_of("test_dummy"), "Mode de test.")
+        check("accessible par hotkey", modes_registry.by_hotkey("8")["id"],
+              "test_dummy")
+    finally:
+        modes_registry.MODES.pop()
+        modes_registry._BY_ID.pop("test_dummy", None)
+
+
 # --------------------------------------------------- fallback texte brut -----
 def test_format_rules():
     print("Repli texte brut (sans IA)")
@@ -131,6 +156,7 @@ if __name__ == "__main__":
     test_registry()
     test_auto_resolve()
     test_custom_vars()
+    test_extensibility()
     test_format_rules()
     print()
     if _fails:
