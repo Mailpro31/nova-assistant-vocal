@@ -1,11 +1,13 @@
-# CI Nova — vérifications légères et déterministes.
+# CI Nova — vérifications légères et déterministes sur Linux.
 #
-# Volontairement SANS exécution de la suite de tests : test_modes.py importe
-# winext (API Win32, pywin32/pycaw) et ne s'exécute que sous Windows avec les
-# périphériques audio. La CI se limite donc à ce qui est fiable sur Linux :
+# La suite complète test_modes.py importe winext (API Win32, pywin32/pycaw) et
+# ne tourne que sous Windows. Mais classify() est de la logique texte quasi
+# pure : le golden master (test_classify_golden.py) l'exerce hors Windows via un
+# stub déterministe (cf. _classify_harness). La CI vérifie donc :
 #   1. lint ruff (règles à fort signal — cf. pyproject.toml)
-#   2. compilation de tous les modules (attrape erreurs de syntaxe / indentation)
-# Pour exécuter la suite complète : sous Windows, `python test_modes.py`.
+#   2. compilation de tous les modules (erreurs de syntaxe / indentation)
+#   3. golden master de classify() (497 phrases classées à l'identique)
+# Pour la suite complète : sous Windows, `python test_modes.py`.
 
 name: CI
 
@@ -19,7 +21,7 @@ permissions:
 
 jobs:
   quality:
-    name: Lint & compile
+    name: Lint, compile & golden
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,11 +30,14 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Installer ruff (version épinglée pour un lint stable)
-        run: pip install "ruff==0.15.8"
+      - name: Installer les outils (ruff épinglé + numpy pour le golden)
+        run: pip install "ruff==0.15.8" "numpy>=1.24"
 
       - name: Lint (ruff)
         run: ruff check .
 
       - name: Compiler tous les modules Python
         run: python -m compileall -q .
+
+      - name: Golden master de classify()
+        run: python test_classify_golden.py
