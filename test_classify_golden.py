@@ -51,9 +51,18 @@ CONFIG = {
 }
 
 
+# dossier personnel FIGÉ : files_mode.resolve_folder() renvoie os.path.expanduser
+# ("~") pour « ouvre mes téléchargements » ; sans ce gel, la sortie dépendrait
+# du compte (/root en local, /home/runner en CI). Valeur arbitraire mais stable.
+_FIXED_HOME = "/nova-golden-home"
+
+
 def _setup():
-    """Installe les stubs, redirige la base SQLite vers un fichier temporaire,
-    fixe la config, et renvoie le module modes."""
+    """Environnement déterministe (dossier perso figé, stubs, base SQLite
+    temporaire, config fixe) puis renvoie le module modes."""
+    os.environ["HOME"] = _FIXED_HOME
+    os.environ["USERPROFILE"] = _FIXED_HOME
+    os.environ.pop("OneDrive", None)
     import _classify_harness
     modes = _classify_harness.load_modes()
     import core
