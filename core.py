@@ -1336,8 +1336,7 @@ def stt_prompt():
 
 def transcribe_routed(audio, fast=False):
     """Local par défaut ; Groq cloud si opt-in + en ligne + clé.
-    Un échec cloud retombe TOUJOURS sur le local. fast = commandes courtes :
-    hors-ligne, le modèle d'éveil remplace le modèle précis (≈4× plus vif).
+    Un échec cloud retombe TOUJOURS sur le local. fast = commandes courtes.
     Retourne (texte, moteur)."""
     import integrations
     if (CFG.get("stt", {}).get("cloud_enabled") and winext.has_secret("groq")
@@ -1351,10 +1350,13 @@ def transcribe_routed(audio, fast=False):
         except Exception:
             pass
     if fast and len(audio) < 16000 * 8:
-        # commande courte hors-ligne : le modèle d'éveil en beam 3 atteint la
-        # précision du gros modèle (~2,6 s au lieu de ~9,5 s) — le modèle précis
-        # reste pour la dictée et les phrases longues
         try:
+            if gpu_active():
+                # GPU : le gros modèle « small » beam 5 est quasi instantané →
+                # précision maximale (11-12/12) même pour une commande rapide
+                return transcribe(audio), "local-gpu"
+            # CPU : le modèle d'éveil en beam 3 atteint la précision du gros
+            # modèle pour ~2,6 s au lieu de ~9,5 s (le précis reste pour la dictée)
             t = transcribe_quick(audio, prompt=stt_prompt(), beam=3)
             if t:
                 return t, "local-rapide"
