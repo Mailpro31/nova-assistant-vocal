@@ -499,11 +499,17 @@ def transcribe(audio):
         return " ".join(s.text for s in segments).strip()
 
 
-def transcribe_quick(audio, prompt=None):
-    """Transcription rapide (mot d'éveil, aperçus live) : petit modèle, beam 1.
+def transcribe_quick(audio, prompt=None, beam=1):
+    """Transcription rapide avec le petit modèle d'éveil (« base »).
     prompt amorce le modèle (ex. le mot d'éveil : « Nova. » — testé, ça fait
     passer la détection de ratée à fiable). Si le petit modèle n'est pas
-    disponible (téléchargement en cours/échoué), repli sur le principal."""
+    disponible (téléchargement en cours/échoué), repli sur le principal.
+
+    beam :
+      1 (défaut) → mot d'éveil et aperçus live : le plus vif possible.
+      3          → commande courte (transcribe_routed fast) : mesuré, fait
+                   passer l'intention de 6/12 à 8/12 — la précision du gros
+                   modèle — pour seulement +0,2 s (voir bench_stt.py)."""
     try:
         model = get_wake_model()
     except Exception as e:
@@ -512,7 +518,7 @@ def transcribe_quick(audio, prompt=None):
     lock = transcribe_lock if model is _model else quick_lock
     with lock:
         segments, _info = model.transcribe(
-            audio, language=CFG["language"], beam_size=1, vad_filter=True,
+            audio, language=CFG["language"], beam_size=beam, vad_filter=True,
             condition_on_previous_text=False, initial_prompt=prompt)
         return " ".join(s.text for s in segments).strip()
 
@@ -1302,10 +1308,11 @@ def transcribe_routed(audio, fast=False):
         except Exception:
             pass
     if fast and len(audio) < 16000 * 8:
-        # commande courte hors-ligne : le modèle d'éveil répond en ~0,5 s
-        # (le modèle précis reste pour la dictée et les phrases longues)
+        # commande courte hors-ligne : le modèle d'éveil en beam 3 atteint la
+        # précision du gros modèle (~2,6 s au lieu de ~9,5 s) — le modèle précis
+        # reste pour la dictée et les phrases longues
         try:
-            t = transcribe_quick(audio, prompt=stt_prompt())
+            t = transcribe_quick(audio, prompt=stt_prompt(), beam=3)
             if t:
                 return t, "local-rapide"
         except Exception:
