@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#141826">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Nova — Mobile</title>
+  <script>
+    /* Charge style.css et app.js en propageant le jeton d'appairage
+       éventuel (?k=...) : le serveur exige ce jeton sur chaque requête. */
+    (function () {
+      var k = new URLSearchParams(location.search).get("k") || "";
+      var q = k ? "?k=" + encodeURIComponent(k) : "";
+      var css = document.createElement("link");
+      css.rel = "stylesheet";
+      css.href = "style.css" + q;
+      document.head.appendChild(css);
+      var js = document.createElement("script");
+      js.src = "app.js" + q;
+      document.head.appendChild(js);
+    })();
+  </script>
+</head>
+<body class="state-idle">
+
+  <header>
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7"
+             stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        </svg>
+      </div>
+      <div>
+        <div class="title">Nova</div>
+        <div class="subtitle">Accès mobile</div>
+      </div>
+    </div>
+    <div id="badge" class="badge off">
+      <span id="dot" class="dot"></span>
+      <span id="conn-label">connexion…</span>
+    </div>
+  </header>
+
+  <!-- Bandeau discret : origine HTTP, le micro navigateur peut être bloqué -->
+  <div id="warn" class="warn" hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="9"/>
+      <line x1="12" y1="8" x2="12" y2="12"/>
+      <line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+    <div>
+      Origine non sécurisée (HTTP) : le navigateur peut bloquer le micro.
+      Dans Chrome, ouvrez <code>chrome://flags/#unsafely-treat-insecure-origin-as-secure</code>,
+      ajoutez l'adresse de cette page, activez, puis relancez le navigateur.
+    </div>
+    <button id="warn-close" aria-label="Fermer">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <line x1="6" y1="6" x2="18" y2="18"/>
+        <line x1="18" y1="6" x2="6" y2="18"/>
+      </svg>
+    </button>
+  </div>
+
+  <main>
+
+    <!-- Dernier échange -->
+    <section id="echange" class="card" hidden>
+      <div class="row-label">Dernier échange</div>
+      <div id="user-text" class="bubble user" hidden></div>
+      <div id="nova-text" class="bubble nova" hidden></div>
+      <button id="btn-play" class="ghost-btn" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polygon points="6 4 20 12 6 20 6 4"/>
+        </svg>
+        Écouter
+      </button>
+    </section>
+
+    <!-- Minuteurs en cours (remplis depuis /state) -->
+    <section id="timers" class="chips" hidden></section>
+
+    <div class="center">
+      <div id="status" class="status">En attente</div>
+
+      <!-- Barres animées pendant l'écoute -->
+      <div id="bars" class="bars" aria-hidden="true">
+        <span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span>
+      </div>
+
+      <div class="mic-zone">
+        <button id="mic-btn" aria-label="Parler à Nova">
+          <svg id="ic-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="23"/>
+            <line x1="8" y1="23" x2="16" y2="23"/>
+          </svg>
+          <svg id="ic-stop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
+            <rect x="7" y="7" width="10" height="10" rx="1.5"/>
+          </svg>
+        </button>
+        <div id="mic-label">Appuyer pour parler</div>
+      </div>
+    </div>
+
+    <!-- Champ texte alternatif -->
+    <form id="cmd-form" autocomplete="off">
+      <input id="cmd-input" type="text" inputmode="text" enterkeyhint="send"
+             placeholder="Ou écrivez une commande…" aria-label="Commande texte">
+      <button id="cmd-send" type="submit" aria-label="Envoyer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="22" y1="2" x2="11" y2="13"/>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+      </button>
+    </form>
+
+  </main>
+
+  <noscript>Cette page nécessite JavaScript.</noscript>
+
+</body>
+</html>

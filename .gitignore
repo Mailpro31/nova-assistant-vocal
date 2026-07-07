@@ -1,0 +1,56 @@
+# ─────────────────────────────────────────────────────────────
+#  Nova — .gitignore
+#  RIEN de personnel ni de sensible ne doit partir sur GitHub.
+# ─────────────────────────────────────────────────────────────
+
+# Secrets & données utilisateur (JAMAIS versionnés)
+# clés API chiffrées DPAPI :
+secrets.json
+.env
+.env.*
+# réglages locaux (profil actif, statut fournisseurs) :
+config.json
+# automatisations perso :
+commands.json
+# notes dictées :
+notes.json
+# SQLite : historique, mémoire, contacts, adresse… :
+nova.db
+nova.db-wal
+nova.db-shm
+nova.log
+# script TTS généré au runtime :
+novatts.ps1
+jarvis_*.json
+
+# Environnements Python
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Build PyInstaller
+build/
+dist/
+*.spec
+*.manifest
+
+# Outils / caches internes
+.impeccable/
+**/.impeccable/
+
+# OS / éditeurs
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# Modèles Whisper téléchargés localement (lourds, re-téléchargés au besoin)
+models/
+*.bin
+*.pt
