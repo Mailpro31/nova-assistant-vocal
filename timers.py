@@ -53,10 +53,14 @@ def parse_duration(text):
     if re.search(r"\bet demie?\b", t):
         total += 1800 if "heure" in t or re.search(r"\d\s*h\b", t) else 30
     if total == 0:
-        # nombre seul : on suppose des minutes (« minuteur de 10 »)
-        m = re.search(r"\b(\d+)\b", t)
-        if m:
-            total = int(m.group(1)) * 60
+        # nombre seul : on suppose des minutes (« minuteur de 10 »), MAIS jamais
+        # si une unité NON gérée est présente (« 3 jours », « 2 semaines ») —
+        # sinon « rappelle-moi dans 3 jours » deviendrait 3 minutes. On renvoie
+        # None : le handler répond « durée illisible » plutôt qu'un faux minuteur.
+        if not re.search(r"\b(?:jours?|semaines?|mois|ans?|annees?)\b", t):
+            m = re.search(r"\b(\d+)\b", t)
+            if m:
+                total = int(m.group(1)) * 60
     return total or None
 
 

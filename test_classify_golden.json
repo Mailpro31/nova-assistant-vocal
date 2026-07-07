@@ -69,6 +69,11 @@
   ""
  ],
  "ajuster minuteur": null,
+ "allume   la  lumière   du   salon": [
+  "home",
+  "on:light.salon",
+  "salon"
+ ],
  "allume la lampe de la chambre": [
   "home",
   "on:light.chambre",
@@ -531,6 +536,11 @@
   ""
  ],
  "merci de fermer chrome": null,
+ "mets  la  musique": [
+  "media",
+  "playPause",
+  ""
+ ],
  "mets chrome et word côte à côte": [
   "window",
   "split",
@@ -567,6 +577,11 @@
   "bright:light.salon",
   "40"
  ],
+ "mets la luminosité à 80 pourcent": [
+  "home",
+  "bright:light.salon",
+  "80"
+ ],
  "mets la lumière de la chambre à 30 %": [
   "home",
   "bright:light.chambre",
@@ -581,6 +596,11 @@
   "home",
   "bright:light.salon",
   "40"
+ ],
+ "mets la lumière du salon à 50 pour cent": [
+  "home",
+  "bright:light.salon",
+  "50"
  ],
  "mets la musique": [
   "media",
@@ -631,6 +651,7 @@
  ],
  "mets-toi en veille dans 10 minutes": null,
  "micro sélectionnable": null,
+ "minuteur de 2 jours": null,
  "mode boulot": null,
  "modules 2.14 importables": null,
  "mon agenda": [
@@ -949,6 +970,11 @@
   "10 minutes",
   "sortir"
  ],
+ "rappelle-moi dans 3 jours de payer": [
+  "timer",
+  "3 jours",
+  "payer"
+ ],
  "rappelle-moi dans une heure de rappeler paul": [
   "timer",
   "une heure",
@@ -1011,6 +1037,16 @@
  "routine": null,
  "routine « au boulot »": null,
  "routine « mode boulot »": null,
+ "règle la luminosité de l'écran à 60 pour cent": [
+  "bright",
+  "set:60",
+  ""
+ ],
+ "règle la luminosité à 70 pour cent": [
+  "home",
+  "bright:light.salon",
+  "70"
+ ],
  "règle la température à 19": [
   "home",
   "clim:climate.salon",

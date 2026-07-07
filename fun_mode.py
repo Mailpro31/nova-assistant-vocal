@@ -210,7 +210,11 @@ def nombre(a=1, b=100):
 def mot_de_passe(longueur=16):
     """Mot de passe robuste — JAMAIS lu à voix haute ni écrit dans
     l'historique (différence de sécurité volontaire avec JARVIS)."""
-    n = max(8, min(64, int(longueur or 16)))
+    try:
+        longueur = int(longueur or 16)
+    except (TypeError, ValueError):
+        longueur = 16
+    n = max(8, min(64, longueur))
     alphabet = string.ascii_letters + string.digits + "!@#$%^&*()-_=+"
     rng = random.SystemRandom()
     return "".join(rng.choice(alphabet) for _ in range(n))

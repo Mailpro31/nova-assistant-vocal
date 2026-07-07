@@ -117,7 +117,8 @@ RE_LIGHT_COLOR = re.compile(
     r"^mets?\s+(?:la lumi[eè]re (?:du |de la |de l'|des )?)?(.*?)\s+en\s+(\w+)$")
 RE_LIGHT_PCT = re.compile(
     r"^(?:mets?|regle|baisse|monte) (?:la )?(?:lumi[eè]re|luminosite|lampe)"
-    r"(?: (?:du |de la |de l'|des )?(.*?))? (?:a |sur )?(\d{1,3})\s*%?$")
+    r"(?: (?:du |de la |de l'|des )?(.*?))? (?:a |sur )?(\d{1,3})"
+    r"\s*(?:%|pour ?cents?)?$")
 RE_PLUG = re.compile(
     r"^(allume|eteins|coupe|active|desactive|branche|debranche)"
     r"(?:r|z)?\s+(?:la |le |les )?prise\s+(?:du |de la |de l'|des )?(.*)$")
@@ -219,7 +220,7 @@ RE_POWER_CONFIRM = re.compile(r"^confirme l[' ]arret(?: du pc)?$")
 #    du salon à 40 % » reste Home Assistant
 RE_BRIGHT_SET = re.compile(
     r"^(?:mets?|regle|baisse|monte|augmente|diminue) (?:la )?luminosite"
-    r"(?: de l'ecran)?(?: a| sur)? (\d{1,3})\s*%?$")
+    r"(?: de l'ecran)?(?: a| sur)? (\d{1,3})\s*(?:%|pour ?cents?)?$")
 RE_BRIGHT_REL = re.compile(
     r"^(monte|augmente|baisse|diminue|reduis) (?:la )?luminosite(?: de l'ecran)?$")
 

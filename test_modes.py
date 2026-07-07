@@ -300,6 +300,20 @@ r = modes.classify("arrête le minuteur")
 check('classify "arrête le minuteur" -> timer_cancel',
       r is not None and r[0] == "timer_cancel", str(r))
 
+# --- régressions trouvées au fuzzing (2026-07) ---
+check("normalize : espaces multiples réduits",
+      core.normalize("mets  la   musique") == "mets la musique")
+check("classify robuste aux espaces multiples",
+      (modes.classify("mets  la  musique") or ("",))[0] == "media")
+check("parse_duration : jours/semaines/mois non gérés -> None (pas de faux minuteur)",
+      timers.parse_duration("3 jours") is None
+      and timers.parse_duration("2 semaines") is None
+      and timers.parse_duration("1 mois") is None
+      and timers.parse_duration("5 minutes") == 300)
+check("« pour cent » accepté pour la luminosité écran (comme le volume)",
+      (modes.classify("règle la luminosité de l'écran à 60 pour cent") or ("",))[0]
+      == "bright")
+
 # --- Nova 2.7 : garde-fou média « phrase entière » ---
 r = modes.classify("monte le son s'il te plaît")
 check("media couvre la phrase -> volUp", r is not None and r[0] == "media"
@@ -666,6 +680,8 @@ check("conversion km/miles", cls("50 km en miles") == "info")
 check("mot de passe", cls("genere un mot de passe de 20 caracteres") == "info")
 check("mot de passe : 16-64 chars", len(fun_mode.mot_de_passe(20)) == 20
       and len(fun_mode.mot_de_passe(200)) == 64)
+check("mot_de_passe robuste à une longueur non numérique",
+      len(fun_mode.mot_de_passe("abc")) == 16 and len(fun_mode.mot_de_passe("24")) == 24)
 check("compte à rebours Noël", cls("combien de jours avant noel") == "info")
 check("batterie", cls("combien de batterie") == "sysinfo")
 check("corbeille : vider", cls("vide la corbeille") == "trash")

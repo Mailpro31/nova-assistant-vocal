@@ -142,7 +142,10 @@ def _merge(base, override):
 
 def normalize(text):
     text = unicodedata.normalize("NFD", text.lower())
-    return "".join(c for c in text if unicodedata.category(c) != "Mn")
+    text = "".join(c for c in text if unicodedata.category(c) != "Mn")
+    # réduit les espaces multiples (« mets  la  musique » du STT) et les bords :
+    # sinon une commande à double espace ne matcherait aucune règle
+    return re.sub(r"\s+", " ", text).strip()
 
 
 def log_err(context, err):
