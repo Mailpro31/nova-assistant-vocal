@@ -27,12 +27,10 @@ def _install_stubs():
         # Filet : toute autre fonction winext éventuellement touchée renvoie
         # un no-op déterministe (jamais appelée par classify aujourd'hui, mais
         # protège le harnais d'un changement futur).
-        def _missing(name):
-            def _noop(*_a, **_k):
-                return None
-            return _noop
+        def _noop(*_a, **_k):
+            return None
 
-        winext.__getattr__ = _missing
+        winext.__getattr__ = lambda _name: _noop
         sys.modules["winext"] = winext
 
     # sounddevice n'est importé qu'à l'usage micro (jamais par classify), mais

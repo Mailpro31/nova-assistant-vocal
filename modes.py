@@ -14,7 +14,7 @@ import threading
 import time
 import urllib.parse
 import webbrowser
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 import core
 import files_mode
@@ -2834,8 +2834,7 @@ def _do_screenshot(_target, _body, _raw):
 
 def _date_fr(date_str):
     """'2026-07-10' → 'le 10 juillet' (mois en toutes lettres)."""
-    import datetime
-    d = datetime.date.fromisoformat(date_str)
+    d = date.fromisoformat(date_str)
     return f"le {d.day} {_MOIS[d.month - 1]}"
 
 
@@ -2846,10 +2845,10 @@ def _do_timer(target, body, _raw):
         # daté (« rappelle-moi dans 3 jours de payer ») — heure par défaut 9 h
         fut = timers.parse_future(target)
         if fut:
-            date, hhmm = fut
-            storage.reminder_add(body, hhmm, date=date)
+            d_iso, hhmm = fut
+            storage.reminder_add(body, hhmm, date=d_iso)
             h, mn = hhmm.split(":")
-            quand = f"{_date_fr(date)} à {int(h)} h {mn}"
+            quand = f"{_date_fr(d_iso)} à {int(h)} h {mn}"
             return {"ok": True,
                     "reply": (f"Je te rappellerai « {body} » {quand}" if body
                               else f"Rappel programmé {quand}"),
