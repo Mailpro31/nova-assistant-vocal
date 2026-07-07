@@ -1242,27 +1242,47 @@ def active_vocabulary():
 
 
 def stt_prompt():
-    """Amorce Whisper avec les mots que Nova doit reconnaître à coup sûr :
-    mots-clés de l'app, vocabulaire du profil, noms d'automatisations et de
-    contacts. Améliore nettement la reconnaissance des noms propres."""
-    words = ["Nova", "YouTube", "WhatsApp", "Spotify", "Deezer", "Gmail",
-             "bloc-notes", "minuteur", "écran", "regarde mon écran",
-             "Chrome", "volume"]
-    words += active_vocabulary()
+    """Amorce Whisper avec les mots que Nova doit reconnaître à coup sûr.
+
+    Ordre = du plus PERSONNEL au plus générique, pour que rien d'irremplaçable
+    ne soit tronqué par le plafond : contacts, automatisations et vocabulaire du
+    profil d'abord ; puis verbes de commande (orientent la reconnaissance ET
+    l'intention) ; puis noms propres d'applis/sites tirés des tables de modes.py
+    (que Whisper déforme souvent) ; puis quelques villes pour la navigation.
+    Mesuré (bench_stt.py) : +1 à +2 intentions et WER en nette baisse sur le
+    chemin commande, pour une latence quasi inchangée."""
+    perso = list(active_vocabulary())
     try:
-        words += [a["name"] for a in get_automations()][:10]
+        perso += [a["name"] for a in get_automations()][:12]
         pid = CFG.get("active_profile", "")
         p = storage.get_profile(pid) if pid else None
-        words += [c.get("name", "") for c in (p or {}).get("contacts", [])][:10]
+        perso += [c.get("name", "") for c in (p or {}).get("contacts", [])][:12]
     except Exception:
         pass
+
+    generic = ["Nova", "ouvre", "lance", "mets", "joue", "appelle", "envoie",
+               "rappelle", "monte", "baisse", "allume", "éteins", "va à",
+               "cherche", "note", "minuteur", "volume", "écran",
+               "regarde mon écran"]
+    try:                                   # import paresseux : modes.py importe core
+        import modes
+        generic += list(modes.SITES)[:24]  # youtube, gmail, maps, spotify, netflix…
+        generic += list(modes.APPS)[:12]   # bloc-notes, calculatrice, word, excel…
+    except Exception:
+        generic += ["YouTube", "Spotify", "Deezer", "Netflix", "WhatsApp",
+                    "Gmail", "Google Maps", "Chrome"]
+    generic += ["Paris", "Lyon", "Marseille", "Bordeaux", "gare de Lyon"]
+
     seen, out = set(), []
-    for w in words:
+    for w in perso + generic:
         w = (w or "").strip()
         if w and w.lower() not in seen:
             seen.add(w.lower())
             out.append(w)
-    return ", ".join(out)[:220]
+    s = ", ".join(out)
+    if len(s) > 520:                       # coupe sur une frontière d'item, pas en plein mot
+        s = s[:520].rsplit(", ", 1)[0]
+    return s
 
 
 def transcribe_routed(audio, fast=False):
