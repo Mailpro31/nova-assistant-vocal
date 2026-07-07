@@ -295,6 +295,50 @@ _model_lock = threading.Lock()
 _model_state = {"status": "non chargé"}
 transcribe_lock = threading.Lock()   # le modèle ne gère qu'une transcription à la fois
 
+# Device STT résolu UNE seule fois : GPU (cuda/float16) si disponible, sinon
+# CPU (int8). Sur cette machine, le GPU rend « small » quasi instantané (~500×
+# vs CPU) → précision maximale sans compromis de latence. Repli automatique et
+# définitif si l'init GPU échoue (autre machine, pilote absent, cuDNN manquant,
+# VRAM pleine) : Nova démarre toujours.
+_DEVICE = {"device": "", "compute": ""}
+
+
+def _resolve_device():
+    """(device, compute_type), mémorisé. Préférence via CFG['stt']['device'] :
+    'auto' (défaut) / 'cuda' / 'cpu'. 'auto' prend le GPU s'il est présent."""
+    if _DEVICE["device"]:
+        return _DEVICE["device"], _DEVICE["compute"]
+    pref = (CFG.get("stt", {}) or {}).get("device", "auto")
+    if pref in ("auto", "cuda", "gpu"):
+        try:
+            import ctranslate2
+            if ctranslate2.get_cuda_device_count() > 0:
+                _DEVICE.update(device="cuda", compute="float16")
+                return _DEVICE["device"], _DEVICE["compute"]
+        except Exception as e:
+            log_err("gpu_detect", e)
+    _DEVICE.update(device="cpu", compute="int8")
+    return _DEVICE["device"], _DEVICE["compute"]
+
+
+def gpu_active():
+    """Vrai si le STT tourne sur le GPU (résout le device au besoin)."""
+    return _resolve_device()[0] == "cuda"
+
+
+def _load_whisper(name):
+    """Charge un WhisperModel sur le device résolu, avec repli CPU DÉFINITIF si
+    le GPU refuse (cuDNN absent, VRAM pleine…) — pour que Nova démarre toujours."""
+    from faster_whisper import WhisperModel
+    dev, comp = _resolve_device()
+    if dev == "cuda":
+        try:
+            return WhisperModel(name, device="cuda", compute_type=comp)
+        except Exception as e:
+            log_err("gpu_load", e)
+            _DEVICE.update(device="cpu", compute="int8")   # bascule CPU pour de bon
+    return WhisperModel(name, device="cpu", compute_type="int8")
+
 
 def get_model():
     global _model
@@ -302,9 +346,8 @@ def get_model():
         if _model is None:
             _model_state["status"] = "chargement…"
             try:
-                from faster_whisper import WhisperModel
-                _model = WhisperModel(CFG["whisper_model"], device="cpu", compute_type="int8")
-                _model_state["status"] = "prêt"
+                _model = _load_whisper(CFG["whisper_model"])
+                _model_state["status"] = "prêt (%s)" % _DEVICE["device"].upper()
             except Exception as e:
                 _model_state["status"] = f"erreur : {e}"
                 raise
@@ -322,16 +365,16 @@ quick_lock = threading.Lock()
 
 
 def get_wake_model():
-    """Petit modèle dédié au mot d'éveil et aux aperçus live (tiny par défaut :
-    réagit en une fraction de seconde là où small prend plusieurs secondes)."""
+    """Petit modèle dédié au mot d'éveil et aux aperçus live (base par défaut :
+    réagit en une fraction de seconde là où small prend plusieurs secondes).
+    Chargé sur le même device que le modèle principal (GPU si dispo)."""
     global _wake_model, _wake_model_name
     name = CFG.get("wake_model", "tiny")
     if name == CFG.get("whisper_model"):
         return get_model()
     with _wake_model_lock:
         if _wake_model is None or _wake_model_name != name:
-            from faster_whisper import WhisperModel
-            _wake_model = WhisperModel(name, device="cpu", compute_type="int8")
+            _wake_model = _load_whisper(name)
             _wake_model_name = name
     return _wake_model
 
