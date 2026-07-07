@@ -2832,9 +2832,28 @@ def _do_screenshot(_target, _body, _raw):
 
 # ------------------------------------------------- minuteurs & rappels ------
 
+def _date_fr(date_str):
+    """'2026-07-10' → 'le 10 juillet' (mois en toutes lettres)."""
+    import datetime
+    d = datetime.date.fromisoformat(date_str)
+    return f"le {d.day} {_MOIS[d.month - 1]}"
+
+
 def _do_timer(target, body, _raw):
     secs = timers.parse_duration(target)
     if not secs:
+        # durée en jours / semaines / mois : pas un minuteur court mais un rappel
+        # daté (« rappelle-moi dans 3 jours de payer ») — heure par défaut 9 h
+        fut = timers.parse_future(target)
+        if fut:
+            date, hhmm = fut
+            storage.reminder_add(body, hhmm, date=date)
+            h, mn = hhmm.split(":")
+            quand = f"{_date_fr(date)} à {int(h)} h {mn}"
+            return {"ok": True,
+                    "reply": (f"Je te rappellerai « {body} » {quand}" if body
+                              else f"Rappel programmé {quand}"),
+                    "final": body or quand, "detail": f"{date} {hhmm}"}
         return {"ok": False, "reply": "Je n'ai pas compris la durée",
                 "final": target, "detail": "durée illisible"}
     core.start_timer(secs, body)

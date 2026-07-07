@@ -36,13 +36,18 @@ def parse_duration(text):
     t = " " + text.lower().strip() + " "
     for w, v in _WORD_NUMBERS.items():
         t = re.sub(rf"\b{w}\b", str(v), t)
+    # unité « longue » (jours+) présente → ce n'est PAS un minuteur court :
+    # parse_future gère le rappel daté. Sans ça « 3 jours » deviendrait 3 min
+    # et « 2 semaines à 15h » serait lu comme 15 heures.
+    if re.search(r"\b(?:jours?|semaines?|mois|ans?|annees?)\b", t):
+        return None
     if re.search(r"\bquart d'?heure\b", t):
         return 900
     if re.search(r"\bdemi[- ]?heure\b", t):
         return 1800
     total = 0
-    # « 1 h 30 » : minutes collées après l'heure sans unité
-    m = re.search(r"(\d+)\s*h(?:eures?)?\s+(\d{1,2})\b(?!\s*(?:h|min|s))", t)
+    # « 1 h 30 » / « 1h30 » : minutes collées après l'heure sans unité
+    m = re.search(r"(\d+)\s*h(?:eures?)?\s*(\d{1,2})\b(?!\s*(?:h|min|s))", t)
     if m:
         total = int(m.group(1)) * 3600 + int(m.group(2)) * 60
         t = t[:m.start()] + t[m.end():]
@@ -53,15 +58,41 @@ def parse_duration(text):
     if re.search(r"\bet demie?\b", t):
         total += 1800 if "heure" in t or re.search(r"\d\s*h\b", t) else 30
     if total == 0:
-        # nombre seul : on suppose des minutes (« minuteur de 10 »), MAIS jamais
-        # si une unité NON gérée est présente (« 3 jours », « 2 semaines ») —
-        # sinon « rappelle-moi dans 3 jours » deviendrait 3 minutes. On renvoie
-        # None : le handler répond « durée illisible » plutôt qu'un faux minuteur.
-        if not re.search(r"\b(?:jours?|semaines?|mois|ans?|annees?)\b", t):
-            m = re.search(r"\b(\d+)\b", t)
-            if m:
-                total = int(m.group(1)) * 60
+        # nombre seul : on suppose des minutes (« minuteur de 10 »)
+        m = re.search(r"\b(\d+)\b", t)
+        if m:
+            total = int(m.group(1)) * 60
     return total or None
+
+
+_FUTURE_UNITS = {
+    "jour": 1, "jours": 1, "semaine": 7, "semaines": 7,
+    "mois": 30, "an": 365, "ans": 365, "annee": 365, "annees": 365,
+}
+
+
+def parse_future(text, today=None):
+    """« dans 3 jours », « 2 semaines à 15h », « 1 mois » → (date 'YYYY-MM-DD',
+    'HH:MM'), ou None si pas d'offset en jours+. Sert aux rappels lointains, que
+    parse_duration refuse volontairement. mois≈30 j, an≈365 j (approximation
+    assumée). Heure par défaut 09:00, sauf « à Hh(MM) » explicite. today
+    (datetime.date) est injectable pour les tests."""
+    import datetime
+    t = text.lower()
+    for w, v in _WORD_NUMBERS.items():
+        t = re.sub(rf"\b{w}\b", str(v), t)
+    m = re.search(r"(\d+)\s*(jours?|semaines?|mois|ans?|annees?)\b", t)
+    if not m:
+        return None
+    days = int(m.group(1)) * _FUTURE_UNITS.get(m.group(2), 1)
+    hhmm = "09:00"
+    tm = re.search(r"\b(?:a|à)\s+(\d{1,2})\s*(?:h(?:eures?)?|:)\s*(\d{1,2})?", t)
+    if tm:
+        h, mn = int(tm.group(1)), int(tm.group(2) or 0)
+        if 0 <= h <= 23 and 0 <= mn <= 59:
+            hhmm = f"{h:02d}:{mn:02d}"
+    base = today or datetime.date.today()
+    return (base + datetime.timedelta(days=days)).strftime("%Y-%m-%d"), hhmm
 
 
 def human(seconds):

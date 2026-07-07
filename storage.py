@@ -237,15 +237,17 @@ def conv_recent(limit=30):
 
 # ------------------------------------------ rappels à heure fixe (JARVIS) ---
 
-def reminder_add(text, hhmm, daily=False):
+def reminder_add(text, hhmm, daily=False, date=None):
+    """date : 'YYYY-MM-DD' explicite (rappel futur « dans 3 jours »). Sinon
+    aujourd'hui (ponctuel) ou vide (quotidien)."""
     rid = uuid.uuid4().hex[:8]
+    if date is None:
+        date = "" if daily else time.strftime("%Y-%m-%d")
     with _lock:
         _db().execute(
             "INSERT INTO reminders(id, text, time, date, triggered, created_at)"
             " VALUES(?,?,?,?,0,?)",
-            (rid, text.strip()[:300], hhmm,
-             "" if daily else time.strftime("%Y-%m-%d"),
-             int(time.time() * 1000)))
+            (rid, text.strip()[:300], hhmm, date, int(time.time() * 1000)))
         _db().commit()
     return rid
 

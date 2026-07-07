@@ -333,8 +333,56 @@ def calcule(n):
 
 # ----------------------------------------------------------- conversions ----
 
+# conversions linéaires génériques (facteur vers l'unité de base de la dimension).
+# Complète les conversions bespoke km↔miles / °C↔°F sans y toucher.
+_CONV_UNITS = {}
+
+
+def _conv_reg(dim, factor, display, *words):
+    for w in words:
+        _CONV_UNITS[w] = (dim, factor, display)
+
+
+# longueur (base : mètre)
+_conv_reg("long", 1.0, "mètres", "metre", "metres", "m")
+_conv_reg("long", 0.01, "centimètres", "centimetre", "centimetres", "cm")
+_conv_reg("long", 0.001, "millimètres", "millimetre", "millimetres", "mm")
+_conv_reg("long", 1000.0, "kilomètres", "kilometre", "kilometres", "km")
+_conv_reg("long", 0.0254, "pouces", "pouce", "pouces")
+_conv_reg("long", 0.3048, "pieds", "pied", "pieds")
+# masse (base : gramme)
+_conv_reg("masse", 1.0, "grammes", "gramme", "grammes", "g")
+_conv_reg("masse", 1000.0, "kilos", "kilo", "kilos", "kilogramme", "kilogrammes", "kg")
+_conv_reg("masse", 453.592, "livres", "livre", "livres")
+_conv_reg("masse", 28.3495, "onces", "once", "onces")
+_conv_reg("masse", 1_000_000.0, "tonnes", "tonne", "tonnes")
+# volume (base : litre)
+_conv_reg("vol", 1.0, "litres", "litre", "litres", "l")
+_conv_reg("vol", 0.001, "millilitres", "millilitre", "millilitres", "ml")
+_conv_reg("vol", 0.01, "centilitres", "centilitre", "centilitres", "cl")
+_conv_reg("vol", 0.1, "décilitres", "decilitre", "decilitres", "dl")
+
+_CONV_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*([a-z]+)\s+en\s+([a-z]+)")
+
+
+def _convert_linear(n):
+    """« 5 kg en livres », « 2 metres en cm », « 1 litre en ml » → phrase, ou
+    None. Ne convertit qu'entre unités d'une MÊME dimension (masse/long/vol)."""
+    m = _CONV_RE.search(n)
+    if not m:
+        return None
+    a = _CONV_UNITS.get(m.group(2))
+    b = _CONV_UNITS.get(m.group(3))
+    if not a or not b or a[0] != b[0]:
+        return None
+    res = round(float(m.group(1).replace(",", ".")) * a[1] / b[1], 3)
+    if res == int(res):
+        res = int(res)
+    return f"{m.group(1)} {a[2]} font {res} {b[2]}"
+
+
 def convertit(n):
-    """Conversions locales : km↔miles, °C↔°F. Retourne une phrase ou None."""
+    """Conversions locales : km↔miles, °C↔°F, masse/longueur/volume. Phrase ou None."""
     m = re.search(r"(\d+(?:[.,]\d+)?)\s*(?:km|kilometres?)\s+en\s+miles?", n)
     if m:
         v = float(m.group(1).replace(",", "."))
@@ -351,7 +399,7 @@ def convertit(n):
     if m:
         v = float(m.group(1).replace(",", "."))
         return f"{m.group(1)} degrés Fahrenheit font {round((v - 32) * 5 / 9, 1)} degrés Celsius"
-    return None
+    return _convert_linear(n)
 
 
 def convertit_devise(n, taux_live=None):

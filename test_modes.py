@@ -314,6 +314,18 @@ check("« pour cent » accepté pour la luminosité écran (comme le volume)",
       (modes.classify("règle la luminosité de l'écran à 60 pour cent") or ("",))[0]
       == "bright")
 
+# --- durées & conversions (améliorations 2026-07) ---
+import datetime as _dt
+check("parse_duration « 1h30 » collé -> 5400 s",
+      timers.parse_duration("1h30") == 5400 and timers.parse_duration("2h15") == 8100)
+check("parse_future « dans 3 jours » -> +3 j à 9 h",
+      timers.parse_future("3 jours", today=_dt.date(2026, 1, 1)) == ("2026-01-04", "09:00"))
+check("parse_future « 2 semaines à 15h » -> +14 j à 15 h",
+      timers.parse_future("2 semaines à 15h", today=_dt.date(2026, 1, 1))
+      == ("2026-01-15", "15:00"))
+check("parse_duration ignore les unités longues (« 2 semaines à 15h » ≠ 15 h)",
+      timers.parse_duration("2 semaines à 15h") is None)
+
 # --- Nova 2.7 : garde-fou média « phrase entière » ---
 r = modes.classify("monte le son s'il te plaît")
 check("media couvre la phrase -> volUp", r is not None and r[0] == "media"
@@ -677,6 +689,11 @@ check("calcul sans eval : code arbitraire rejeté",
       all(_calc_rejects(x) for x in
           ("__import__('os').system('x')", "(1).__class__", "lambda: 1")))
 check("conversion km/miles", cls("50 km en miles") == "info")
+check("conversions masse/longueur/volume (fun_mode.convertit)",
+      "livres" in (fun_mode.convertit("5 kg en livres") or "")
+      and "font" in (fun_mode.convertit("2 metres en cm") or "")
+      and "millilitres" in (fun_mode.convertit("1 litre en ml") or "")
+      and fun_mode.convertit("5 kg en litres") is None)
 check("mot de passe", cls("genere un mot de passe de 20 caracteres") == "info")
 check("mot de passe : 16-64 chars", len(fun_mode.mot_de_passe(20)) == 20
       and len(fun_mode.mot_de_passe(200)) == 64)
