@@ -792,50 +792,50 @@ RE_DISMISS = re.compile(
 
 # ------------------------------------------------------------ classifieur ---
 
-def classify(text):
-    """Retourne (mode, target, body) ou None si aucune règle ne matche."""
-    n = core.normalize(text).strip(" .!?")
-    if not n:
-        return None
-    cfg = core.CFG
+def _classify_pc(n):
+    """Contrôle du PC : alimentation (veille/annuler/confirmer/redémarrer/arrêt
+    avec délai), désinstallation de programme, antivirus Defender, écriture par
+    vision (« écris X dans le champ Y »). (…) ou None."""
+    # alimentation du PC (veille / arrêt / redémarrage, avec confirmation)
+    if RE_POWER_SLEEP.match(n):
+        return ("power", "sleep", "")
+    if RE_POWER_CANCEL.match(n):
+        return ("power", "cancel", "")
+    if RE_POWER_CONFIRM.match(n):
+        return ("power", "off_do", "")
+    if RE_POWER_REBOOT.match(n):
+        return ("power", "reboot", "")
+    m = RE_POWER_OFF.match(n)
+    if m:
+        delay = (m.group(1) or "").strip()
+        if delay and timers.parse_duration(delay):
+            return ("power", f"off:{timers.parse_duration(delay)}", delay)
+        return ("power", "off_ask", "")
 
-    trig = core.normalize(cfg.get("modes", {}).get("emergency", {}).get("trigger", "urgence"))
-    if trig and (n.count(trig) >= 2 or "mode urgence" in n or "sos sos" in n):
-        return ("emergency", "", text)
+    # désinstallation : le désinstallateur OFFICIEL s'ouvre (il confirme lui-même)
+    m = RE_UNINSTALL.match(n)
+    if m:
+        return ("uninstall", m.group(1).strip(" .!?"), "")
+    if RE_PROGRAMS.match(n):
+        return ("uninstall", "@list", "")
 
-    n = core.strip_politeness(n)
+    # antivirus Windows Defender (phrase explicite)
+    if RE_AV.match(n):
+        return ("antivirus", "", "")
 
-    # mise en veille : tout en haut, match plein ancré — la conversation
-    # s'arrête sans bruit (« merci », « c'est tout », « stop »…)
-    if RE_DISMISS.match(n.strip(" .!?,")):
-        return ("dismiss", "", "")
+    # écriture par vision : « écris bonjour dans le champ de recherche »
+    # (traitée dans app.py — capture + localisation + clic + frappe)
+    m = RE_VISION_WRITE.match(n)
+    if m:
+        return ("visionwrite", (m.group(2) or "le champ de recherche").strip(),
+                m.group(1).strip())
+    return None
 
-    # choix vocal en attente (résultats YouTube) : « le deuxième » — TTL 90 s
-    if PENDING_CHOICE["items"]:
-        if time.time() - PENDING_CHOICE["t"] > 90:
-            PENDING_CHOICE["items"] = []
-        else:
-            m = RE_CHOICE.match(n)
-            if m:
-                w = m.group(1)
-                if w.startswith("numero "):
-                    idx = int(w.split()[1]) - 1
-                elif w.isdigit():
-                    idx = int(w) - 1
-                else:
-                    idx = _ORDINAUX.get(w, 99)
-                if idx == -1 or 0 <= idx < len(PENDING_CHOICE["items"]):
-                    return ("yt_choice", str(idx), "")
 
-    m = RE_PROFILE.match(n)
-    if m and "profil" in n:
-        return ("system", m.group(1).strip(), "")
-
-    # raccourci vocal exact (« colle », « plein écran », « verrouille »…)
-    sc = SHORTCUTS_VOICE.get(n)
-    if sc:
-        return ("shortcut", sc[0], sc[1])
-
+def _classify_memory(n):
+    """Mémoire durable : retenir un fait (ou un rappel si vraie unité de temps),
+    oublier un fait / rétracter, rappel local hors-ligne d'un fait mémorisé
+    (« c'est quoi ma plaque ? »). (…) ou None."""
     # mémoire longue : retenir / oublier un fait durable
     m = RE_REMEMBER.match(n)
     if m:
@@ -873,339 +873,52 @@ def classify(text):
                         return ("recall", f["fact"], "")
             except Exception:
                 pass
+    return None
 
-    if RE_BRIEFING.match(n):
-        return ("briefing", "", "")
 
-    # domotique : seulement si des entités Home Assistant sont configurées
-    if cfg.get("ha_entities"):
-        d = _classify_home(n)
-        if d:
-            return d
+def _classify_messaging(n):
+    """Appels, messages (à un contact, dictée, libre), webcam, puis « où est X »
+    et restaurants (filtres anti-faux-positifs JARVIS). (…) ou None."""
+    m = RE_CALL.match(n)
+    if m:
+        return ("call", m.group(1).strip(), "")
 
-    # luminosité de l'ÉCRAN — après la domotique (une lumière HA nommée
-    # garde la priorité), avant tout le reste
-    m = RE_BRIGHT_SET.match(n)
-    if m and 0 <= int(m.group(1)) <= 100:
-        return ("bright", "set:" + m.group(1), "")
-    m = RE_BRIGHT_REL.match(n)
+    m = RE_MSG_TO.match(n)
     if m:
-        sign = "-" if m.group(1).startswith(("baisse", "diminue", "reduis")) else "+"
-        return ("bright", "rel:" + sign + "15", "")
+        return ("message", m.group(1).strip(), m.group(2).strip())
+    m = RE_MSG_DIS.match(n)
+    if m:
+        return ("message", m.group(1).strip(), m.group(2).strip())
+    m = RE_MSG_FREE.match(n)
+    if m:
+        return ("message", "", m.group(1).strip())
 
-    # alimentation du PC (veille / arrêt / redémarrage, avec confirmation)
-    if RE_POWER_SLEEP.match(n):
-        return ("power", "sleep", "")
-    if RE_POWER_CANCEL.match(n):
-        return ("power", "cancel", "")
-    if RE_POWER_CONFIRM.match(n):
-        return ("power", "off_do", "")
-    if RE_POWER_REBOOT.match(n):
-        return ("power", "reboot", "")
-    m = RE_POWER_OFF.match(n)
-    if m:
-        delay = (m.group(1) or "").strip()
-        if delay and timers.parse_duration(delay):
-            return ("power", f"off:{timers.parse_duration(delay)}", delay)
-        return ("power", "off_ask", "")
+    # webcam (vision) : déclencheurs explicites — traité dans app.py
+    if RE_CAMERA.search(n):
+        return ("camera", "", "")
 
-    # désinstallation : le désinstallateur OFFICIEL s'ouvre (il confirme lui-même)
-    m = RE_UNINSTALL.match(n)
+    # « où est X » / restaurants → cartes (filtres anti-faux-positifs JARVIS)
+    m = RE_WHEREIS.match(n)
+    if m and not _WHEREIS_SKIP.search(m.group(1)):
+        return ("whereis", m.group(1).strip(), "")
+    if n in ("d'autres restaurants", "d autres restaurants",
+             "autres restaurants", "encore des restaurants"):
+        return ("resto", "@more", "")
+    m = RE_RESTO.match(n)
     if m:
-        return ("uninstall", m.group(1).strip(" .!?"), "")
-    if RE_PROGRAMS.match(n):
-        return ("uninstall", "@list", "")
+        place = (m.group(1) or m.group(2) or "").strip(" .!?")
+        place = re.sub(r"^(?:a|à|au|aux|pres de|proche de|autour de)\s+", "", place)
+        if place in ("moi", "ici", "proximite", "cote", "de moi", "pres"):
+            place = ""
+        return ("resto", place, "")
+    return None
 
-    # antivirus Windows Defender (phrase explicite)
-    if RE_AV.match(n):
-        return ("antivirus", "", "")
 
-    # écriture par vision : « écris bonjour dans le champ de recherche »
-    # (traitée dans app.py — capture + localisation + clic + frappe)
-    m = RE_VISION_WRITE.match(n)
-    if m:
-        return ("visionwrite", (m.group(2) or "le champ de recherche").strip(),
-                m.group(1).strip())
-
-    # routines / mode boulot (« au boulot », « mode X »)
-    routines = {core.normalize(k): k for k in (cfg.get("routines") or {})}
-    rm = re.match(r"^(?:mode|lance (?:le |la )?mode|demarre (?:le |la )?mode)\s+(.+)$", n)
-    key = None
-    if rm and core.normalize(rm.group(1).strip()) in routines:
-        key = routines[core.normalize(rm.group(1).strip())]
-    elif n in ("au boulot", "on bosse", "je bosse", "mode travail", "mode bureau") \
-            and "boulot" in routines:
-        key = routines["boulot"]
-    if key:
-        return ("routine", key, "")
-
-    # IPTV : « mets la télé », « zappe sur TF1 » (si une playlist est chargée)
-    m = RE_IPTV.match(n)
-    if m and (cfg.get("iptv") or {}).get("source"):
-        chaine = (m.group(1) or m.group(2) or m.group(3) or "").strip(" .!?")
-        return ("iptv", chaine, "")
-
-    # fichiers : trier / chercher un fichier (le tri exige un dossier connu),
-    # variantes JARVIS : par date, par type et date, « ce dossier », création
-    m = RE_SORT.match(n)
-    if m:
-        arg = m.group(1).strip()
-        by_type_date = bool(re.search(r"\bpar type et (?:par )?date$", arg))
-        by_date = bool(re.search(r"\bpar (?:date|annee|mois)$", arg))
-        arg = re.sub(r"\s+par type et (?:par )?date$"
-                     r"|\s+par (?:date|annee|mois|categorie|type)$", "", arg).strip()
-        if arg in ("ce dossier", "le dossier") and LAST_FOLDER["path"]:
-            arg = "@last"
-        if arg == "@last" or files_mode.resolve_folder(arg):
-            kind = "sortdatetype" if by_type_date else \
-                ("sortdate" if by_date else "sort")
-            return ("files", kind + ":" + arg, "")
-    m = RE_MKDIR.match(n)
-    if m:
-        return ("files", "mkdir:" + m.group(1).strip(" .!?"),
-                (m.group(2) or "").strip())
-    if RE_QUAD.match(n):
-        return ("files", "quad", "")
-    m = RE_FIND_FILE.match(n)
-    if m:
-        return ("files", "find:" + m.group(1).strip(" ?."), "")
-
-    # listes vocales
-    m = RE_LIST_ADD.match(n)
-    if m:
-        lst = "taches" if (m.group(2) or "").replace("â", "a") in \
-            ("taches", "a faire", "à faire") else "courses"
-        return ("list", "add:" + lst, m.group(1).strip())
-    m = RE_LIST_SHOW.match(n)
-    if m:
-        g = m.group(1) if m.lastindex else ""
-        lst = "taches" if (g or "").replace("â", "a") in \
-            ("taches", "a faire", "à faire") else "courses"
-        return ("list", "show:" + lst, "")
-    m = RE_LIST_CLEAR.match(n)
-    if m:
-        lst = "taches" if (m.group(1) or "") in ("taches", "tâches") else "courses"
-        return ("list", "clear:" + lst, "")
-
-    # contenu d'un dossier : « liste mes téléchargements » (APRÈS les listes)
-    m = RE_LIST_FOLDER.match(n)
-    if m:
-        arg = m.group(1).strip(" ?.")
-        if arg not in ("liste",) and files_mode.resolve_folder(arg) \
-                and arg in files_mode.FOLDERS:
-            return ("files", "ls:" + arg, "")
-
-    # Obsidian (le mot « obsidian » est obligatoire dans la phrase)
-    m = RE_OBS_CREATE.match(n)
-    if m:
-        return ("obsidian", "create:" + m.group(1).strip(),
-                (m.group(2) or "").strip())
-    m = RE_OBS_READ.match(n)
-    if m:
-        return ("obsidian", "read:" + m.group(1).strip(" .!?"), "")
-    m = RE_OBS_DEL.match(n)
-    if m:
-        return ("obsidian", "del:" + m.group(1).strip(" .!?"), "")
-    if RE_OBS_LIST.match(n):
-        return ("obsidian", "list", "")
-    m = RE_OBS_SEARCH.match(n)
-    if m:
-        return ("obsidian", "search:" + m.group(1).strip(), "")
-
-    # notes à la voix : lire les dernières / tout effacer (phrase complète)
-    if RE_NOTES_SHOW.match(n):
-        return ("notes_voice", "show", "")
-    if RE_NOTES_CLEAR.match(n):
-        return ("notes_voice", "clear", "")
-
-    # capture d'écran complète horodatée (« capture complète » —
-    # « capture d'écran » reste le raccourci Win+Shift+S de découpe)
-    if RE_FULLSHOT.match(n):
-        return ("screenshot", "", "")
-
-    # agenda Google (lecture) — avant resolve_open (« mon agenda » ≠ le site)
-    if RE_AGENDA.match(n):
-        return ("agenda", "", "")
-
-    # Google Docs / Sheets à la voix
-    m = RE_GDOC_CREATE.match(n)
-    if m:
-        return ("gdoc", "create", (m.group(1) or "").strip(" .!?"))
-    m = RE_GDOC_APPEND.match(n)
-    if m:
-        return ("gdoc", "append", m.group(1).strip())
-    m = RE_GSHEET.match(n)
-    if m:
-        return ("gdoc", "sheet", (m.group(1) or "").strip(" .!?"))
-
-    # YouTube API : recherche avec choix vocal, résumé, tendances, chaînes
-    m = RE_YT_SEARCH.match(n)
-    if m:
-        return ("youtube", "search", m.group(1).strip())
-    m = RE_YT_RESUME.match(n)
-    if m:
-        return ("youtube", "resume", (m.group(1) or "").strip())
-    m = RE_YT_TREND.match(n)
-    if m:
-        return ("youtube", "trend", m.group(1) or "")
-    m = RE_YT_CHANNEL.match(n)
-    if m:
-        return ("youtube", "channel", m.group(1).strip(" .!?"))
-    m = RE_YT_LAST.match(n)
-    if m:
-        return ("youtube", "last", m.group(1).strip(" .!?"))
-
-    # sport : classement AVANT résultats (« classement de la ligue 1 »)
-    m = RE_SPORT_TABLE.match(n)
-    if m:
-        return ("sport", "table", m.group(1).strip(" .!?"))
-    m = RE_SPORT_RES.match(n)
-    if m:
-        return ("sport", "res", m.group(1).strip(" .!?"))
-    m = RE_SPORT_NEXT.match(n)
-    if m:
-        return ("sport", "next", m.group(1).strip(" .!?"))
-
-    # corbeille (phrase exacte — « ouvre la corbeille » reste une ouverture)
-    if RE_TRASH.match(n):
-        return ("trash", "", "")
-
-    # recherche d'images — AVANT resolve_open (« montre-moi des photos de
-    # chats » ne doit pas partir en ouverture d'appli)
-    m = RE_IMAGES.match(n)
-    if m:
-        return ("images", m.group(1).strip(), "")
-
-    # « lis mes mails » : lecture directe si Google est connecté (sinon Gmail web)
-    if RE_MAILS.match(n):
-        return ("mails", "", "")
-
-    # sites et applis connus (« ouvre notion », « va sur youtube ») : instantané,
-    # AVANT la navigation pour que « va sur youtube » n'ouvre pas Google Maps
-    op = resolve_open(n)
-    if op:
-        return ("open", op[1], op[2])
-
-    if RE_TIMER_CANCEL.match(n):
-        return ("timer_cancel", "", "")
-
-    # rappels à heure FIXE (JARVIS) — AVANT les rappels relatifs « dans X »
-    m = RE_REMIND_AT_B.match(n)
-    if m:
-        h, mn = int(m.group(1)), int(m.group(2) or 0)
-        texte = m.group(3).strip(" ,.")
-        if 0 <= h <= 23 and 0 <= mn <= 59 and len(texte) > 1:
-            daily = bool(re.search(r"tous les jours|chaque jour|quotidien", texte))
-            texte = re.sub(r"\s*(?:tous les jours|chaque jour|quotidien(?:nement)?)\s*$",
-                           "", texte).strip(" ,.")
-            return ("timer_at", f"{h:02d}:{mn:02d}" + ("|d" if daily else ""), texte)
-    m = RE_REMIND_AT_A.match(n)
-    if m and " dans " not in n:
-        texte = m.group(1).strip(" ,.")
-        h, mn = int(m.group(2)), int(m.group(3) or 0)
-        if 0 <= h <= 23 and 0 <= mn <= 59 and len(texte) > 1:
-            daily = bool(m.group(4))
-            return ("timer_at", f"{h:02d}:{mn:02d}" + ("|d" if daily else ""), texte)
-
-    # ajustement / comptage — AVANT le mot-clé minuteur générique
-    m = RE_TIMER_ADJ_ADD.match(n)
-    if m and timers.parse_duration(m.group(1)):
-        return ("timer_adjust", "+" + str(timers.parse_duration(m.group(1))), "")
-    m = RE_TIMER_ADJ_SUB.match(n)
-    if m and timers.parse_duration(m.group(1)):
-        return ("timer_adjust", "-" + str(timers.parse_duration(m.group(1))), "")
-    if RE_TIMER_COUNT.match(n):
-        return ("timer_count", "", "")
-
-    m = RE_REMIND_A.match(n)
-    if m:
-        return ("timer", m.group(1).strip(), m.group(2).strip())
-    m = RE_REMIND_B.match(n)
-    if m:
-        return ("timer", m.group(2).strip(), m.group(1).strip())
-    m = RE_TIMER_WORD.search(n)
-    if m:
-        tail = n[m.end():].lstrip(" ,")
-        for pfx in ("de ", "d'", "sur "):
-            if tail.startswith(pfx):
-                tail = tail[len(pfx):]
-                break
-        label = ""
-        lm = re.search(r"\bpour (.+)$", tail)
-        if lm and not timers.parse_duration(lm.group(1)):
-            label = lm.group(1).strip(" ,.!?")
-            tail = tail[:lm.start()].strip(" ,")
-        # la durée valide l'intention ; sinon (question, statut…) → IA
-        src = tail if timers.parse_duration(tail) else n
-        if timers.parse_duration(src):
-            return ("timer", src, label)
-
-    # heure dans une autre ville — AVANT l'heure locale
-    m = RE_TIME_CITY.match(n)
-    if m and m.group(1).strip() in fun_mode.FUSEAUX:
-        return ("info", "city_time", m.group(1).strip())
-
-    if RE_TIME.match(n):
-        return ("time", "", n)
-
-    # ── infos locales hors-ligne (JARVIS) ──
-    m = RE_CAPITALE.match(n)
-    if m and fun_mode.capitale(m.group(1)):
-        return ("info", "capitale", m.group(1).strip())
-    m = RE_MONNAIE.match(n)
-    if m and fun_mode.monnaie(m.group(1)):
-        return ("info", "monnaie", m.group(1).strip())
-    m = RE_SPELL.match(n)
-    if m:
-        return ("info", "spell", m.group(1).strip())
-    m = RE_OTAN.match(n)
-    if m:
-        return ("info", "otan", m.group(1))
-    if RE_JOKE.search(n):
-        return ("fun", "blague", "")
-    if RE_QUOTE.search(n):
-        return ("fun", "citation", "")
-    if RE_COIN.match(n):
-        return ("info", "coin", "")
-    m = RE_DICE.match(n)
-    if m:
-        return ("info", "dice", m.group(1) or "6")
-    m = RE_RANDNUM.match(n)
-    if m:
-        return ("info", "rand", f"{m.group(1) or 1}|{m.group(2) or 100}")
-    m = RE_PASSWORD.match(n)
-    if m:
-        return ("info", "password", m.group(1) or "16")
-    if RE_COUNTDOWN.search(n) and fun_mode.compte_a_rebours(n):
-        return ("info", "countdown", n)
-    calc = fun_mode.calcule(n)
-    if calc:
-        return ("info", "calc", calc)
-    conv = fun_mode.convertit(n)
-    if conv:
-        return ("info", "conv", conv)
-    if fun_mode.convertit_devise(n):
-        return ("info", "devise", n)
-    if RE_SYS_BATT.search(n):
-        return ("sysinfo", "batterie", "")
-    if RE_SYS_CPU.search(n):
-        return ("sysinfo", "cpu", "")
-    if RE_SYS_RAM.search(n):
-        return ("sysinfo", "ram", "")
-    if RE_SYS_UP.search(n):
-        return ("sysinfo", "uptime", "")
-
-    if RE_WEATHER.search(n):
-        mc = RE_WEATHER_CITY.search(n)
-        city = mc.group(1).strip() if mc else ""
-        if city in ("demain", "aujourd'hui", "ce soir", "l'exterieur", "l'instant"):
-            city = ""
-        return ("weather", city, "")
-
-    m = RE_CALENDAR.match(n)
-    if m:
-        return ("calendar", m.group(1).strip(), "")
-
+def _classify_media_audio(n):
+    """Musique et audio, dans l'ordre : playlist attitrée (« mets de la
+    musique »), titre nommé, contexte Spotify (playlist/album/artiste), genre
+    sans service, itinéraire, volume (système/relatif/par appli/mute), fenêtres
+    (côte à côte, bascule), puis commandes média génériques. (…) ou None."""
     # « mets de la musique » (sans titre précis) → playlist attitrée.
     # AVANT RE_MUSIC ; « mets LA musique » sans « de » reste une reprise média
     if re.match(r"^(?:mets?|joue|lance|mets moi|met moi)"
@@ -1286,6 +999,410 @@ def classify(text):
             if len(extra) <= 1:
                 return ("media", action, "")
             break
+    return None
+
+
+def _classify_youtube_sport(n):
+    """YouTube Data (recherche + choix vocal, résumé, tendances, chaînes) puis
+    sport (classement AVANT résultats, prochain match). (…) ou None."""
+    # YouTube API : recherche avec choix vocal, résumé, tendances, chaînes
+    m = RE_YT_SEARCH.match(n)
+    if m:
+        return ("youtube", "search", m.group(1).strip())
+    m = RE_YT_RESUME.match(n)
+    if m:
+        return ("youtube", "resume", (m.group(1) or "").strip())
+    m = RE_YT_TREND.match(n)
+    if m:
+        return ("youtube", "trend", m.group(1) or "")
+    m = RE_YT_CHANNEL.match(n)
+    if m:
+        return ("youtube", "channel", m.group(1).strip(" .!?"))
+    m = RE_YT_LAST.match(n)
+    if m:
+        return ("youtube", "last", m.group(1).strip(" .!?"))
+
+    # sport : classement AVANT résultats (« classement de la ligue 1 »)
+    m = RE_SPORT_TABLE.match(n)
+    if m:
+        return ("sport", "table", m.group(1).strip(" .!?"))
+    m = RE_SPORT_RES.match(n)
+    if m:
+        return ("sport", "res", m.group(1).strip(" .!?"))
+    m = RE_SPORT_NEXT.match(n)
+    if m:
+        return ("sport", "next", m.group(1).strip(" .!?"))
+    return None
+
+
+def _classify_obsidian_notes(n):
+    """Obsidian (mot « obsidian » obligatoire) : créer, lire, supprimer, lister,
+    chercher ; plus les notes vocales : lire les dernières, tout effacer.
+    (…) ou None."""
+    # Obsidian (le mot « obsidian » est obligatoire dans la phrase)
+    m = RE_OBS_CREATE.match(n)
+    if m:
+        return ("obsidian", "create:" + m.group(1).strip(),
+                (m.group(2) or "").strip())
+    m = RE_OBS_READ.match(n)
+    if m:
+        return ("obsidian", "read:" + m.group(1).strip(" .!?"), "")
+    m = RE_OBS_DEL.match(n)
+    if m:
+        return ("obsidian", "del:" + m.group(1).strip(" .!?"), "")
+    if RE_OBS_LIST.match(n):
+        return ("obsidian", "list", "")
+    m = RE_OBS_SEARCH.match(n)
+    if m:
+        return ("obsidian", "search:" + m.group(1).strip(), "")
+
+    # notes à la voix : lire les dernières / tout effacer (phrase complète)
+    if RE_NOTES_SHOW.match(n):
+        return ("notes_voice", "show", "")
+    if RE_NOTES_CLEAR.match(n):
+        return ("notes_voice", "clear", "")
+    return None
+
+
+def _classify_files(n):
+    """Fichiers et listes vocales : tri (par type/date), création de dossier,
+    mosaïque, recherche, listes de courses/tâches, contenu de dossier. Le tri
+    et le listing exigent un dossier connu. (…) ou None."""
+    # fichiers : trier / chercher un fichier (le tri exige un dossier connu),
+    # variantes JARVIS : par date, par type et date, « ce dossier », création
+    m = RE_SORT.match(n)
+    if m:
+        arg = m.group(1).strip()
+        by_type_date = bool(re.search(r"\bpar type et (?:par )?date$", arg))
+        by_date = bool(re.search(r"\bpar (?:date|annee|mois)$", arg))
+        arg = re.sub(r"\s+par type et (?:par )?date$"
+                     r"|\s+par (?:date|annee|mois|categorie|type)$", "", arg).strip()
+        if arg in ("ce dossier", "le dossier") and LAST_FOLDER["path"]:
+            arg = "@last"
+        if arg == "@last" or files_mode.resolve_folder(arg):
+            kind = "sortdatetype" if by_type_date else \
+                ("sortdate" if by_date else "sort")
+            return ("files", kind + ":" + arg, "")
+    m = RE_MKDIR.match(n)
+    if m:
+        return ("files", "mkdir:" + m.group(1).strip(" .!?"),
+                (m.group(2) or "").strip())
+    if RE_QUAD.match(n):
+        return ("files", "quad", "")
+    m = RE_FIND_FILE.match(n)
+    if m:
+        return ("files", "find:" + m.group(1).strip(" ?."), "")
+
+    # listes vocales
+    m = RE_LIST_ADD.match(n)
+    if m:
+        lst = "taches" if (m.group(2) or "").replace("â", "a") in \
+            ("taches", "a faire", "à faire") else "courses"
+        return ("list", "add:" + lst, m.group(1).strip())
+    m = RE_LIST_SHOW.match(n)
+    if m:
+        g = m.group(1) if m.lastindex else ""
+        lst = "taches" if (g or "").replace("â", "a") in \
+            ("taches", "a faire", "à faire") else "courses"
+        return ("list", "show:" + lst, "")
+    m = RE_LIST_CLEAR.match(n)
+    if m:
+        lst = "taches" if (m.group(1) or "") in ("taches", "tâches") else "courses"
+        return ("list", "clear:" + lst, "")
+
+    # contenu d'un dossier : « liste mes téléchargements » (APRÈS les listes)
+    m = RE_LIST_FOLDER.match(n)
+    if m:
+        arg = m.group(1).strip(" ?.")
+        if arg not in ("liste",) and files_mode.resolve_folder(arg) \
+                and arg in files_mode.FOLDERS:
+            return ("files", "ls:" + arg, "")
+    return None
+
+
+def _classify_timers(n):
+    """Minuteurs et rappels : annulation, heure fixe (JARVIS), ajustement,
+    comptage, rappels relatifs « dans X », mot-clé minuteur. (…) ou None."""
+    if RE_TIMER_CANCEL.match(n):
+        return ("timer_cancel", "", "")
+
+    # rappels à heure FIXE (JARVIS) — AVANT les rappels relatifs « dans X »
+    m = RE_REMIND_AT_B.match(n)
+    if m:
+        h, mn = int(m.group(1)), int(m.group(2) or 0)
+        texte = m.group(3).strip(" ,.")
+        if 0 <= h <= 23 and 0 <= mn <= 59 and len(texte) > 1:
+            daily = bool(re.search(r"tous les jours|chaque jour|quotidien", texte))
+            texte = re.sub(r"\s*(?:tous les jours|chaque jour|quotidien(?:nement)?)\s*$",
+                           "", texte).strip(" ,.")
+            return ("timer_at", f"{h:02d}:{mn:02d}" + ("|d" if daily else ""), texte)
+    m = RE_REMIND_AT_A.match(n)
+    if m and " dans " not in n:
+        texte = m.group(1).strip(" ,.")
+        h, mn = int(m.group(2)), int(m.group(3) or 0)
+        if 0 <= h <= 23 and 0 <= mn <= 59 and len(texte) > 1:
+            daily = bool(m.group(4))
+            return ("timer_at", f"{h:02d}:{mn:02d}" + ("|d" if daily else ""), texte)
+
+    # ajustement / comptage — AVANT le mot-clé minuteur générique
+    m = RE_TIMER_ADJ_ADD.match(n)
+    if m and timers.parse_duration(m.group(1)):
+        return ("timer_adjust", "+" + str(timers.parse_duration(m.group(1))), "")
+    m = RE_TIMER_ADJ_SUB.match(n)
+    if m and timers.parse_duration(m.group(1)):
+        return ("timer_adjust", "-" + str(timers.parse_duration(m.group(1))), "")
+    if RE_TIMER_COUNT.match(n):
+        return ("timer_count", "", "")
+
+    m = RE_REMIND_A.match(n)
+    if m:
+        return ("timer", m.group(1).strip(), m.group(2).strip())
+    m = RE_REMIND_B.match(n)
+    if m:
+        return ("timer", m.group(2).strip(), m.group(1).strip())
+    m = RE_TIMER_WORD.search(n)
+    if m:
+        tail = n[m.end():].lstrip(" ,")
+        for pfx in ("de ", "d'", "sur "):
+            if tail.startswith(pfx):
+                tail = tail[len(pfx):]
+                break
+        label = ""
+        lm = re.search(r"\bpour (.+)$", tail)
+        if lm and not timers.parse_duration(lm.group(1)):
+            label = lm.group(1).strip(" ,.!?")
+            tail = tail[:lm.start()].strip(" ,")
+        # la durée valide l'intention ; sinon (question, statut…) → IA
+        src = tail if timers.parse_duration(tail) else n
+        if timers.parse_duration(src):
+            return ("timer", src, label)
+    return None
+
+
+def _classify_infos(n):
+    """Infos locales hors-ligne (JARVIS) : heure d'une ville, heure locale,
+    capitales, monnaies, épellation, OTAN, blagues, tirages, mot de passe,
+    compte à rebours, calcul, conversions, état système. (mode, …) ou None."""
+    # heure dans une autre ville — AVANT l'heure locale
+    m = RE_TIME_CITY.match(n)
+    if m and m.group(1).strip() in fun_mode.FUSEAUX:
+        return ("info", "city_time", m.group(1).strip())
+
+    if RE_TIME.match(n):
+        return ("time", "", n)
+
+    # ── infos locales hors-ligne (JARVIS) ──
+    m = RE_CAPITALE.match(n)
+    if m and fun_mode.capitale(m.group(1)):
+        return ("info", "capitale", m.group(1).strip())
+    m = RE_MONNAIE.match(n)
+    if m and fun_mode.monnaie(m.group(1)):
+        return ("info", "monnaie", m.group(1).strip())
+    m = RE_SPELL.match(n)
+    if m:
+        return ("info", "spell", m.group(1).strip())
+    m = RE_OTAN.match(n)
+    if m:
+        return ("info", "otan", m.group(1))
+    if RE_JOKE.search(n):
+        return ("fun", "blague", "")
+    if RE_QUOTE.search(n):
+        return ("fun", "citation", "")
+    if RE_COIN.match(n):
+        return ("info", "coin", "")
+    m = RE_DICE.match(n)
+    if m:
+        return ("info", "dice", m.group(1) or "6")
+    m = RE_RANDNUM.match(n)
+    if m:
+        return ("info", "rand", f"{m.group(1) or 1}|{m.group(2) or 100}")
+    m = RE_PASSWORD.match(n)
+    if m:
+        return ("info", "password", m.group(1) or "16")
+    if RE_COUNTDOWN.search(n) and fun_mode.compte_a_rebours(n):
+        return ("info", "countdown", n)
+    calc = fun_mode.calcule(n)
+    if calc:
+        return ("info", "calc", calc)
+    conv = fun_mode.convertit(n)
+    if conv:
+        return ("info", "conv", conv)
+    if fun_mode.convertit_devise(n):
+        return ("info", "devise", n)
+    if RE_SYS_BATT.search(n):
+        return ("sysinfo", "batterie", "")
+    if RE_SYS_CPU.search(n):
+        return ("sysinfo", "cpu", "")
+    if RE_SYS_RAM.search(n):
+        return ("sysinfo", "ram", "")
+    if RE_SYS_UP.search(n):
+        return ("sysinfo", "uptime", "")
+    return None
+
+
+def classify(text):
+    """Retourne (mode, target, body) ou None si aucune règle ne matche."""
+    n = core.normalize(text).strip(" .!?")
+    if not n:
+        return None
+    cfg = core.CFG
+
+    trig = core.normalize(cfg.get("modes", {}).get("emergency", {}).get("trigger", "urgence"))
+    if trig and (n.count(trig) >= 2 or "mode urgence" in n or "sos sos" in n):
+        return ("emergency", "", text)
+
+    n = core.strip_politeness(n)
+
+    # mise en veille : tout en haut, match plein ancré — la conversation
+    # s'arrête sans bruit (« merci », « c'est tout », « stop »…)
+    if RE_DISMISS.match(n.strip(" .!?,")):
+        return ("dismiss", "", "")
+
+    # choix vocal en attente (résultats YouTube) : « le deuxième » — TTL 90 s
+    if PENDING_CHOICE["items"]:
+        if time.time() - PENDING_CHOICE["t"] > 90:
+            PENDING_CHOICE["items"] = []
+        else:
+            m = RE_CHOICE.match(n)
+            if m:
+                w = m.group(1)
+                if w.startswith("numero "):
+                    idx = int(w.split()[1]) - 1
+                elif w.isdigit():
+                    idx = int(w) - 1
+                else:
+                    idx = _ORDINAUX.get(w, 99)
+                if idx == -1 or 0 <= idx < len(PENDING_CHOICE["items"]):
+                    return ("yt_choice", str(idx), "")
+
+    m = RE_PROFILE.match(n)
+    if m and "profil" in n:
+        return ("system", m.group(1).strip(), "")
+
+    # raccourci vocal exact (« colle », « plein écran », « verrouille »…)
+    sc = SHORTCUTS_VOICE.get(n)
+    if sc:
+        return ("shortcut", sc[0], sc[1])
+
+    r = _classify_memory(n)
+    if r is not None:
+        return r
+
+    if RE_BRIEFING.match(n):
+        return ("briefing", "", "")
+
+    # domotique : seulement si des entités Home Assistant sont configurées
+    if cfg.get("ha_entities"):
+        d = _classify_home(n)
+        if d:
+            return d
+
+    # luminosité de l'ÉCRAN — après la domotique (une lumière HA nommée
+    # garde la priorité), avant tout le reste
+    m = RE_BRIGHT_SET.match(n)
+    if m and 0 <= int(m.group(1)) <= 100:
+        return ("bright", "set:" + m.group(1), "")
+    m = RE_BRIGHT_REL.match(n)
+    if m:
+        sign = "-" if m.group(1).startswith(("baisse", "diminue", "reduis")) else "+"
+        return ("bright", "rel:" + sign + "15", "")
+
+    r = _classify_pc(n)
+    if r is not None:
+        return r
+
+    # routines / mode boulot (« au boulot », « mode X »)
+    routines = {core.normalize(k): k for k in (cfg.get("routines") or {})}
+    rm = re.match(r"^(?:mode|lance (?:le |la )?mode|demarre (?:le |la )?mode)\s+(.+)$", n)
+    key = None
+    if rm and core.normalize(rm.group(1).strip()) in routines:
+        key = routines[core.normalize(rm.group(1).strip())]
+    elif n in ("au boulot", "on bosse", "je bosse", "mode travail", "mode bureau") \
+            and "boulot" in routines:
+        key = routines["boulot"]
+    if key:
+        return ("routine", key, "")
+
+    # IPTV : « mets la télé », « zappe sur TF1 » (si une playlist est chargée)
+    m = RE_IPTV.match(n)
+    if m and (cfg.get("iptv") or {}).get("source"):
+        chaine = (m.group(1) or m.group(2) or m.group(3) or "").strip(" .!?")
+        return ("iptv", chaine, "")
+
+    r = _classify_files(n)
+    if r is not None:
+        return r
+
+    r = _classify_obsidian_notes(n)
+    if r is not None:
+        return r
+
+    # capture d'écran complète horodatée (« capture complète » —
+    # « capture d'écran » reste le raccourci Win+Shift+S de découpe)
+    if RE_FULLSHOT.match(n):
+        return ("screenshot", "", "")
+
+    # agenda Google (lecture) — avant resolve_open (« mon agenda » ≠ le site)
+    if RE_AGENDA.match(n):
+        return ("agenda", "", "")
+
+    # Google Docs / Sheets à la voix
+    m = RE_GDOC_CREATE.match(n)
+    if m:
+        return ("gdoc", "create", (m.group(1) or "").strip(" .!?"))
+    m = RE_GDOC_APPEND.match(n)
+    if m:
+        return ("gdoc", "append", m.group(1).strip())
+    m = RE_GSHEET.match(n)
+    if m:
+        return ("gdoc", "sheet", (m.group(1) or "").strip(" .!?"))
+
+    r = _classify_youtube_sport(n)
+    if r is not None:
+        return r
+
+    # corbeille (phrase exacte — « ouvre la corbeille » reste une ouverture)
+    if RE_TRASH.match(n):
+        return ("trash", "", "")
+
+    # recherche d'images — AVANT resolve_open (« montre-moi des photos de
+    # chats » ne doit pas partir en ouverture d'appli)
+    m = RE_IMAGES.match(n)
+    if m:
+        return ("images", m.group(1).strip(), "")
+
+    # « lis mes mails » : lecture directe si Google est connecté (sinon Gmail web)
+    if RE_MAILS.match(n):
+        return ("mails", "", "")
+
+    # sites et applis connus (« ouvre notion », « va sur youtube ») : instantané,
+    # AVANT la navigation pour que « va sur youtube » n'ouvre pas Google Maps
+    op = resolve_open(n)
+    if op:
+        return ("open", op[1], op[2])
+
+    r = _classify_timers(n)
+    if r is not None:
+        return r
+
+    r = _classify_infos(n)
+    if r is not None:
+        return r
+
+    if RE_WEATHER.search(n):
+        mc = RE_WEATHER_CITY.search(n)
+        city = mc.group(1).strip() if mc else ""
+        if city in ("demain", "aujourd'hui", "ce soir", "l'exterieur", "l'instant"):
+            city = ""
+        return ("weather", city, "")
+
+    m = RE_CALENDAR.match(n)
+    if m:
+        return ("calendar", m.group(1).strip(), "")
+
+    r = _classify_media_audio(n)
+    if r is not None:
+        return r
 
     # fermeture d'application (JARVIS) — APRÈS média (« stoppe la musique »)
     # et raccourcis (« ferme la fenêtre ») ; cible connue exigée, sinon IA
@@ -1301,38 +1418,9 @@ def classify(text):
         if tgt and (tgt in APPS or tgt in custom or winext.find_window(tgt)):
             return ("close", tgt, "")
 
-    m = RE_CALL.match(n)
-    if m:
-        return ("call", m.group(1).strip(), "")
-
-    m = RE_MSG_TO.match(n)
-    if m:
-        return ("message", m.group(1).strip(), m.group(2).strip())
-    m = RE_MSG_DIS.match(n)
-    if m:
-        return ("message", m.group(1).strip(), m.group(2).strip())
-    m = RE_MSG_FREE.match(n)
-    if m:
-        return ("message", "", m.group(1).strip())
-
-    # webcam (vision) : déclencheurs explicites — traité dans app.py
-    if RE_CAMERA.search(n):
-        return ("camera", "", "")
-
-    # « où est X » / restaurants → cartes (filtres anti-faux-positifs JARVIS)
-    m = RE_WHEREIS.match(n)
-    if m and not _WHEREIS_SKIP.search(m.group(1)):
-        return ("whereis", m.group(1).strip(), "")
-    if n in ("d'autres restaurants", "d autres restaurants",
-             "autres restaurants", "encore des restaurants"):
-        return ("resto", "@more", "")
-    m = RE_RESTO.match(n)
-    if m:
-        place = (m.group(1) or m.group(2) or "").strip(" .!?")
-        place = re.sub(r"^(?:a|à|au|aux|pres de|proche de|autour de)\s+", "", place)
-        if place in ("moi", "ici", "proximite", "cote", "de moi", "pres"):
-            place = ""
-        return ("resto", place, "")
+    r = _classify_messaging(n)
+    if r is not None:
+        return r
 
     # aide vocale : « que peux-tu faire ? »
     if n in _HELP_PHRASES:
