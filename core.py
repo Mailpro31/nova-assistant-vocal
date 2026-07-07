@@ -1346,8 +1346,8 @@ def stt_prompt():
         pid = CFG.get("active_profile", "")
         p = storage.get_profile(pid) if pid else None
         perso += [c.get("name", "") for c in (p or {}).get("contacts", [])][:12]
-    except Exception:
-        pass
+    except Exception as e:
+        log_err("stt_prompt_perso", e)
 
     generic = ["Nova", "ouvre", "lance", "mets", "joue", "appelle", "envoie",
                "rappelle", "monte", "baisse", "allume", "éteins", "va à",
@@ -1387,8 +1387,8 @@ def transcribe_routed(audio, fast=False):
                 model=CFG["stt"].get("cloud_model", "whisper-large-v3-turbo"),
                 prompt=stt_prompt())
             return text, "cloud"
-        except Exception:
-            pass
+        except Exception as e:
+            log_err("stt_cloud", e)
     if fast and len(audio) < 16000 * 8:
         try:
             if gpu_active():
@@ -1400,8 +1400,8 @@ def transcribe_routed(audio, fast=False):
             t = transcribe_quick(audio, prompt=stt_prompt(), beam=3)
             if t:
                 return t, "local-rapide"
-        except Exception:
-            pass
+        except Exception as e:
+            log_err("stt_wake", e)
     return transcribe(audio), "local"
 
 

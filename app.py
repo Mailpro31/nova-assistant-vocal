@@ -816,8 +816,8 @@ LLM_CTX = collections.deque(maxlen=30)  # 15 derniers échanges user/assistant (
 try:
     # contexte persistant : la conversation survit au redémarrage (SQLite local)
     LLM_CTX.extend(storage.conv_recent(30))
-except Exception:
-    pass
+except Exception as e:
+    core.log_err("conv_load", e)
 
 # slots multi-tours (JARVIS) : « ouvre » tout seul → « J'ouvre quoi ? »
 PENDING_SLOT = {"kind": None, "t": 0.0}
@@ -834,8 +834,8 @@ def run_command(text, engine, allow_split=True):
     classified = None
     try:
         classified = modes.classify(text)
-    except Exception:
-        pass
+    except Exception as e:
+        core.log_err("classify", e)
 
     # mise en veille (« merci », « c'est tout », « au revoir »…) : on se range
     # sans bruit — pas de TTS, pas de réécoute, fin de la session
@@ -1124,8 +1124,8 @@ def _handle_llm(result, text, engine):
     try:   # et persistante : la conversation survit au redémarrage (local)
         storage.conv_add("user", text)
         storage.conv_add("assistant", _json.dumps(result, ensure_ascii=False))
-    except Exception:
-        pass
+    except Exception as e:
+        core.log_err("conv_persist", e)
     if result.get("steps"):
         done, total, blocked = core.execute_steps(result["steps"], text)
         reply = blocked or result.get("reply") or "C'est fait"
@@ -1222,8 +1222,8 @@ def _finish(mode, text, reply, engine, ok, final="", priority_tts=False):
             try:
                 storage.conv_add("user", text)
                 storage.conv_add("assistant", entry)
-            except Exception:
-                pass
+            except Exception as e:
+                core.log_err("conv_persist", e)
     say(reply, priority=priority_tts)
     follow = (ok and core.CFG.get("continuous_conversation", True)
               and not engine.startswith(("texte", "mobile"))
@@ -2337,8 +2337,8 @@ def register_hotkeys():
             continue
         try:
             _hotkey_handles.append(keyboard.add_hotkey(combo, fn))
-        except ValueError:
-            pass
+        except ValueError as e:
+            core.log_err("hotkey", e)
 
 
 # ------------------------------------------------------------------ tray ----
