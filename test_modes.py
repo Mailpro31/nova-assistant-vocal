@@ -694,6 +694,10 @@ check("conversions masse/longueur/volume (fun_mode.convertit)",
       and "font" in (fun_mode.convertit("2 metres en cm") or "")
       and "millilitres" in (fun_mode.convertit("1 litre en ml") or "")
       and fun_mode.convertit("5 kg en litres") is None)
+check("conversions de durée (heures/minutes/jours)",
+      "120 minutes" in (fun_mode.convertit("2 heures en minutes") or "")
+      and "24 heures" in (fun_mode.convertit("1 jour en heures") or "")
+      and fun_mode.convertit("2 heures en kilos") is None)
 check("mot de passe", cls("genere un mot de passe de 20 caracteres") == "info")
 check("mot de passe : 16-64 chars", len(fun_mode.mot_de_passe(20)) == 20
       and len(fun_mode.mot_de_passe(200)) == 64)

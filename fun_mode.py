@@ -361,6 +361,12 @@ _conv_reg("vol", 1.0, "litres", "litre", "litres", "l")
 _conv_reg("vol", 0.001, "millilitres", "millilitre", "millilitres", "ml")
 _conv_reg("vol", 0.01, "centilitres", "centilitre", "centilitres", "cl")
 _conv_reg("vol", 0.1, "décilitres", "decilitre", "decilitres", "dl")
+# durée (base : seconde) — « 2 heures en minutes », « 1 jour en secondes »
+_conv_reg("duree", 1.0, "secondes", "seconde", "secondes")
+_conv_reg("duree", 60.0, "minutes", "minute", "minutes")
+_conv_reg("duree", 3600.0, "heures", "heure", "heures")
+_conv_reg("duree", 86400.0, "jours", "jour", "jours")
+_conv_reg("duree", 604800.0, "semaines", "semaine", "semaines")
 
 _CONV_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*([a-z]+)\s+en\s+([a-z]+)")
 
