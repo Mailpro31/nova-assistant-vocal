@@ -8,7 +8,6 @@ Intégrations réseau (portées de RoadSpeak) :
 """
 
 import io
-import json
 import threading
 import time
 import wave
