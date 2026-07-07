@@ -13,6 +13,13 @@ pyinstaller --noconfirm --noconsole --onedir --name Nova --icon icon.ico ^
   --add-data "ui;ui" ^
   --add-data "icon.png;." ^
   app.py
+
+rem --- DLLs CUDA (accélération GPU) : copiées à côté de l'exe pour que
+rem     CTranslate2 les trouve (cuBLAS + cuDNN, ~1,8 Go). Sans GPU, Nova les
+rem     ignore et tourne sur CPU. Absentes si les paquets nvidia-*-cu12 ne sont
+rem     pas installés : pip install nvidia-cublas-cu12 nvidia-cuda-runtime-cu12 nvidia-cudnn-cu12
+for /d %%D in (.venv\Lib\site-packages\nvidia\*) do if exist "%%D\bin" copy /y "%%D\bin\*.dll" "dist\Nova\" >nul
+
 copy /y config.json "dist\Nova\" >nul
 copy /y commands.json "dist\Nova\" >nul
 if exist notes.json copy /y notes.json "dist\Nova\" >nul
