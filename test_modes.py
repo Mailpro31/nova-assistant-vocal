@@ -27,6 +27,16 @@ def check(name, cond, extra=""):
         FAIL.append(name)
 
 
+def _calc_rejects(expr):
+    """True si l'évaluateur arithmétique refuse `expr` (lève une exception),
+    c.-à-d. n'exécute aucun code arbitraire."""
+    try:
+        fun_mode._safe_eval(expr)
+        return False
+    except Exception:
+        return True
+
+
 # --- classifieur ---
 cases = [
     ("envoie un message à paul que j'arrive dans dix minutes", "message", "paul"),
@@ -642,6 +652,16 @@ check("calcul mental", fun_mode.calcule("combien font 12 fois 8") == "Ça fait 9
 check("racine carrée", fun_mode.calcule("calcule la racine de 16") == "Ça fait 4")
 check("« x » jamais global (pas de piège taxi)",
       fun_mode.calcule("calcule taxi sur paris") is None)
+check("calcul : division / puissance / addition",
+      fun_mode.calcule("calcule 10 divise par 4") == "Ça fait 2.5"
+      and fun_mode.calcule("calcule 2 puissance 10") == "Ça fait 1024"
+      and fun_mode.calcule("combien font 2 plus 2") == "Ça fait 4")
+check("calcul sans eval : évaluateur AST équivalent",
+      fun_mode._safe_eval("sqrt(16)/2") == 2.0
+      and fun_mode._safe_eval("(2+3)*4") == 20)
+check("calcul sans eval : code arbitraire rejeté",
+      all(_calc_rejects(x) for x in
+          ("__import__('os').system('x')", "(1).__class__", "lambda: 1")))
 check("conversion km/miles", cls("50 km en miles") == "info")
 check("mot de passe", cls("genere un mot de passe de 20 caracteres") == "info")
 check("mot de passe : 16-64 chars", len(fun_mode.mot_de_passe(20)) == 20

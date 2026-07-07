@@ -6,7 +6,9 @@ conversions, tirages aléatoires, mot de passe, comptes à rebours.
 Données + logique pure — le routage vocal reste dans modes.classify().
 """
 
+import ast
 import math
+import operator
 import random
 import re
 import string
@@ -216,6 +218,53 @@ def mot_de_passe(longueur=16):
 
 # --------------------------------------------------------- calcul mental ----
 
+# Évaluateur arithmétique sans eval() : seuls nombres, + - * / ** (unaire
+# inclus), parenthèses, sqrt(), pi et e sont autorisés ; tout le reste lève
+# une exception (→ repli IA). Remplace un eval() sandboxé pour supprimer toute
+# surface d'exécution de code arbitraire, à comportement identique.
+_CALC_NAMES = {"pi": math.pi, "e": math.e}
+_CALC_FUNCS = {"sqrt": math.sqrt}
+_CALC_BINOPS = {
+    ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,
+    ast.Div: operator.truediv, ast.Pow: operator.pow,
+}
+_CALC_UNARY = {ast.UAdd: operator.pos, ast.USub: operator.neg}
+
+
+def _eval_node(node):
+    if isinstance(node, ast.Constant):
+        if isinstance(node.value, bool) or not isinstance(node.value, (int, float)):
+            raise ValueError("constante interdite")
+        return node.value
+    if isinstance(node, ast.BinOp):
+        op = _CALC_BINOPS.get(type(node.op))
+        if op is None:
+            raise ValueError("opérateur interdit")
+        return op(_eval_node(node.left), _eval_node(node.right))
+    if isinstance(node, ast.UnaryOp):
+        op = _CALC_UNARY.get(type(node.op))
+        if op is None:
+            raise ValueError("opérateur unaire interdit")
+        return op(_eval_node(node.operand))
+    if isinstance(node, ast.Name):
+        if node.id in _CALC_NAMES:
+            return _CALC_NAMES[node.id]
+        raise ValueError("nom interdit")
+    if isinstance(node, ast.Call):
+        if (isinstance(node.func, ast.Name) and node.func.id in _CALC_FUNCS
+                and len(node.args) == 1 and not node.keywords):
+            return _CALC_FUNCS[node.func.id](_eval_node(node.args[0]))
+        raise ValueError("appel interdit")
+    raise ValueError("expression interdite")
+
+
+def _safe_eval(expr):
+    """Évalue une expression arithmétique restreinte sans eval(). Le strip()
+    reproduit la tolérance d'eval() aux espaces de bord : ast.parse(mode="eval")
+    lèverait sinon IndentationError sur un espace initial."""
+    return _eval_node(ast.parse(expr.strip(), mode="eval").body)
+
+
 _CALC_PREFIX = re.compile(
     r"^(?:combien (?:font|fait|ca fait|est[- ]ce que ca fait)|ca fait combien"
     r"|calcule(?:[- ]moi)?|quel est le resultat de|quelle est la racine)\s*", re.I)
@@ -268,8 +317,7 @@ def calcule(n):
         except ValueError:
             return None                     # exposant non trivial → IA
     try:
-        val = eval(expr, {"__builtins__": None},
-                   {"sqrt": math.sqrt, "pi": math.pi, "e": math.e})
+        val = _safe_eval(expr)
     except Exception:
         return None
     if isinstance(val, float):
