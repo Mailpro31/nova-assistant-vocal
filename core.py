@@ -386,6 +386,8 @@ def get_model():
             try:
                 _model = _load_whisper(CFG["whisper_model"])
                 _model_state["status"] = "prêt (%s)" % _DEVICE["device"].upper()
+                log_err("stt_device", "modèle « %s » chargé sur %s/%s"
+                        % (CFG["whisper_model"], _DEVICE["device"], _DEVICE["compute"]))
             except Exception as e:
                 _model_state["status"] = f"erreur : {e}"
                 raise

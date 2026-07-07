@@ -29,6 +29,12 @@ requests>=2.28.0
 # --- Fuseaux horaires (« quelle heure à Tokyo ») ---
 tzdata>=2024.1
 
+# ---------- ACCÉLÉRATION GPU (facultatif : ~500× plus rapide, sinon repli CPU) ----------
+# GPU NVIDIA + pilote récent (CUDA 12+). Sans ces paquets, Nova tourne sur CPU.
+# nvidia-cublas-cu12          # cuBLAS (cublas64_12.dll)
+# nvidia-cuda-runtime-cu12    # runtime CUDA (cudart64_12.dll — dép. de cuBLAS)
+# nvidia-cudnn-cu12           # cuDNN (cuDNN 9 ; ctranslate2 embarque déjà cudnn64_9)
+
 # ---------- OPTIONNEL (imports paresseux, Nova dégrade proprement si absent) ----------
 # pvporcupine>=3.0.0        # mot d'éveil Porcupine (alternative à Whisper)
 # opencv-python>=4.8.0      # webcam (« regarde-moi »)
