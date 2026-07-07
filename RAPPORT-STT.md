@@ -116,10 +116,49 @@ alternatif (Parakeet / ONNX CPU) n'apporterait rien de décisif ici et :
 - le brief demandait de **ne pas forcer** l'intégration dans ce cas et de rester
   sur faster-whisper — ce que je fais.
 
-**Seul vrai levier restant, hors cadre :** activer le **GPU** (GTX 1650) via une
-**mise à jour du pilote NVIDIA** (→ CUDA 12) + le bundling cuDNN/cuBLAS. Cela
-rendrait `small`/beam 5 quasi instantané. À envisager plus tard si tu veux la
-précision maximale sans compromis de latence.
+**Seul vrai levier restant, hors cadre STT-CPU :** activer le **GPU** (GTX 1650)
+via une **mise à jour du pilote NVIDIA** (→ CUDA 12) + le bundling cuDNN/cuBLAS.
+→ Fait ensuite (Phase 2 ci-dessous).
+
+---
+
+## 7. Phase 2 — GPU (réalisée après mise à jour du pilote)
+
+Le pilote a été mis à jour (451.67 → 610.74, CUDA 13.3). CTranslate2 voit alors
+le GPU et `small`/float16 devient utilisable.
+
+**Changements (branche `stt-gpu`, 5 commits) :**
+- Résolution de device unique **cuda/float16 sinon cpu/int8**, avec **repli CPU
+  définitif** si l'init GPU échoue → Nova démarre toujours (même sans GPU).
+- Sur GPU, le chemin commande utilise directement le modèle précis `small`
+  beam 5 (le compromis à deux modèles n'a de sens que sur CPU).
+- Mise sur le `PATH` des DLLs CUDA (`nvidia-*-cu12` : cuBLAS + cudart + cuDNN),
+  indispensable pour les dépendances transitives ; ~1,8 Go embarqués dans l'exe.
+- Statut modèle + `nova.log` indiquent le device (« prêt (CUDA) »).
+
+**Résultats mesurés (voix réelle, chemin commande) :**
+
+| Condition | CPU Phase 1 | **GPU (small b5)** |
+|---|---|---|
+| propre | 9/12 · 2,6 s | **11/12 · ~1,9 s** |
+| +5 dB | 9/12 | **12/12** |
+| 0 dB | 9/12 | **12/12** |
+| −5 dB | 9/12 | **10/12 · ~3,0 s** |
+
+- **Commandes** : précision **10–12/12** (quasi parfaite à faible/moyen bruit)
+  vs 9/12 CPU — gain réel mais modeste, latence comparable (~2 s).
+- **Dictée / phrases longues** : de **9–11 s à ~2 s** (~5× plus rapide) — c'est
+  là le gain majeur du GPU.
+- **Honnêteté de mesure :** le « ~500× / quasi instantané » entrevu au début
+  était un **artefact** (audio de bruit blanc supprimé par le VAD → 0 encodage).
+  Le vrai facteur sur le même modèle `small`/beam 5 est **~5×** (9–11 s → ~2 s).
+- **Coûts :** exe `dist\Nova` **~2,3 Go** (DLLs CUDA), **démarrage à froid ~13 s**
+  pour la 1ʳᵉ commande (chargement modèle + autotuning cuDNN), puis régime stable.
+- **Vérifié :** l'exe packagé apparaît bien comme **processus GPU dans
+  `nvidia-smi`** ; `test_wake` + `test_pipeline` passent sur GPU.
+
+**Repli garanti :** sur une machine sans GPU (ou sans les DLLs), la détection
+retombe sur CPU et on récupère exactement le comportement Phase 1.
 
 ---
 
