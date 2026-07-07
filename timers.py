@@ -93,8 +93,11 @@ def parse_future(text, today=None):
     if not m:
         return None
     days = int(m.group(1)) * _FUTURE_UNITS.get(m.group(2), 1)
+    if days > 36525:            # > ~100 ans : hors de portée d'un rappel
+        return None
     hhmm = "09:00"
-    tm = re.search(r"\b(?:a|à)\s+(\d{1,2})\s*(?:h(?:eures?)?|:)\s*(\d{1,2})?", t)
+    # « à 14h », « à 14h30 », « à 14:30 » et « à 14 » (le STT omet souvent le « h »)
+    tm = re.search(r"\b(?:a|à)\s+(\d{1,2})(?:\s*(?:h(?:eures?)?|:)\s*(\d{1,2})?)?", t)
     if tm:
         h, mn = int(tm.group(1)), int(tm.group(2) or 0)
         if 0 <= h <= 23 and 0 <= mn <= 59:
@@ -168,6 +171,17 @@ notify_reminder = None   # callback(text) — branché par app.py
 _rem_fired = {}          # id → date du dernier déclenchement (anti-doublon)
 
 
+def _reminder_due(r, today, hhmm):
+    """Un rappel doit-il se déclencher maintenant ? Un rappel daté DÉPASSÉ (PC
+    éteint le jour J) est rattrapé au prochain lancement au lieu d'être perdu."""
+    if r["triggered"] and r["date"]:
+        return False                     # daté déjà déclenché
+    if r["date"] and r["date"] > today:
+        return False                     # daté pour plus tard
+    overdue = bool(r["date"]) and r["date"] < today
+    return overdue or r["time"] <= hhmm
+
+
 def start_reminder_loop():
     import storage
 
@@ -177,11 +191,7 @@ def start_reminder_loop():
                 hhmm = time.strftime("%H:%M")
                 today = time.strftime("%Y-%m-%d")
                 for r in storage.reminders_list():
-                    if r["triggered"] and r["date"]:
-                        continue                    # daté déjà déclenché
-                    if r["date"] and r["date"] != today:
-                        continue                    # daté pour un autre jour
-                    if r["time"] <= hhmm and _rem_fired.get(r["id"]) != today:
+                    if _reminder_due(r, today, hhmm) and _rem_fired.get(r["id"]) != today:
                         _rem_fired[r["id"]] = today
                         if r["date"]:
                             storage.reminder_mark(r["id"])

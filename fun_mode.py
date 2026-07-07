@@ -371,6 +371,16 @@ _conv_reg("duree", 604800.0, "semaines", "semaine", "semaines")
 _CONV_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*([a-z]+)\s+en\s+([a-z]+)")
 
 
+def _fmt_conv(x):
+    """Nombre lisible : entier si exact, sinon assez de décimales pour garder
+    ~3 chiffres significatifs. Évite « 0 » pour une valeur non nulle (« 1 mm en
+    km » = 0.000001, pas 0) et la notation scientifique."""
+    if x == int(x):
+        return str(int(x))
+    ndig = max(3, 3 - int(math.floor(math.log10(abs(x)))))
+    return f"{x:.{ndig}f}".rstrip("0").rstrip(".")
+
+
 def _convert_linear(n):
     """« 5 kg en livres », « 2 metres en cm », « 1 litre en ml » → phrase, ou
     None. Ne convertit qu'entre unités d'une MÊME dimension (masse/long/vol)."""
@@ -381,10 +391,8 @@ def _convert_linear(n):
     b = _CONV_UNITS.get(m.group(3))
     if not a or not b or a[0] != b[0]:
         return None
-    res = round(float(m.group(1).replace(",", ".")) * a[1] / b[1], 3)
-    if res == int(res):
-        res = int(res)
-    return f"{m.group(1)} {a[2]} font {res} {b[2]}"
+    res = float(m.group(1).replace(",", ".")) * a[1] / b[1]
+    return f"{m.group(1)} {a[2]} font {_fmt_conv(res)} {b[2]}"
 
 
 def convertit(n):

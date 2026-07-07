@@ -327,6 +327,17 @@ check("parse_future « 2 semaines à 15h » -> +14 j à 15 h",
       == ("2026-01-15", "15:00"))
 check("parse_duration ignore les unités longues (« 2 semaines à 15h » ≠ 15 h)",
       timers.parse_duration("2 semaines à 15h") is None)
+# régressions /code-review (2026-07)
+check("parse_future accepte l'heure sans « h » (STT) : « à 14 » -> 14:00",
+      timers.parse_future("3 jours à 14", today=_dt.date(2026, 1, 1)) == ("2026-01-04", "14:00"))
+check("parse_future plafonne les horizons absurdes (pas d'OverflowError)",
+      timers.parse_future("9999 ans", today=_dt.date(2026, 1, 1)) is None
+      and timers.parse_future("100 ans", today=_dt.date(2026, 1, 1)) is not None)
+check("rappel daté dépassé (PC éteint le jour J) est rattrapé, pas perdu",
+      timers._reminder_due({"triggered": False, "date": "2026-01-05", "time": "18:00"},
+                           "2026-01-10", "12:00") is True
+      and timers._reminder_due({"triggered": False, "date": "2026-01-20", "time": "09:00"},
+                               "2026-01-10", "12:00") is False)
 
 # --- Nova 2.7 : garde-fou média « phrase entière » ---
 r = modes.classify("monte le son s'il te plaît")
@@ -696,6 +707,9 @@ check("conversions masse/longueur/volume (fun_mode.convertit)",
       and "font" in (fun_mode.convertit("2 metres en cm") or "")
       and "millilitres" in (fun_mode.convertit("1 litre en ml") or "")
       and fun_mode.convertit("5 kg en litres") is None)
+check("conversion sous le plancher d'arrondi n'affiche pas « 0 » (régression)",
+      "0.000001" in (fun_mode.convertit("1 gramme en tonnes") or "")
+      and "5 kilos font 11.023 livres" == fun_mode.convertit("5 kg en livres"))
 check("conversions de durée (heures/minutes/jours)",
       "120 minutes" in (fun_mode.convertit("2 heures en minutes") or "")
       and "24 heures" in (fun_mode.convertit("1 jour en heures") or "")
