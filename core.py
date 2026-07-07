@@ -301,6 +301,43 @@ transcribe_lock = threading.Lock()   # le modèle ne gère qu'une transcription 
 # définitif si l'init GPU échoue (autre machine, pilote absent, cuDNN manquant,
 # VRAM pleine) : Nova démarre toujours.
 _DEVICE = {"device": "", "compute": ""}
+_cuda_path_done = False
+
+
+def _setup_cuda_dll_path():
+    """Rend les DLLs CUDA (cublas64_12, cudart64_12, cudnn…) trouvables par
+    CTranslate2. Elles vivent dans les paquets nvidia-*-cu12 (dev) ou à côté de
+    l'exe (build figé). On les met sur le PATH — indispensable pour les
+    dépendances transitives (cublas → cudart) qu'os.add_dll_directory seul ne
+    couvre pas. Idempotent ; sans GPU/paquets, ne fait rien."""
+    global _cuda_path_done
+    if _cuda_path_done:
+        return
+    _cuda_path_done = True
+    import glob
+    dirs = []
+    if getattr(sys, "frozen", False):                 # exe : DLLs copiées à côté
+        dirs.append(os.path.dirname(sys.executable))
+    try:
+        import nvidia                                 # dev : paquets pip nvidia-*-cu12
+        for base in list(nvidia.__path__):
+            dirs += glob.glob(os.path.join(base, "*", "bin"))
+    except Exception:
+        pass
+    try:
+        import ctranslate2                            # cudnn64_9 embarqué
+        dirs.append(os.path.dirname(ctranslate2.__file__))
+    except Exception:
+        pass
+    seen = set()
+    for d in dirs:
+        if d and d not in seen and os.path.isdir(d):
+            seen.add(d)
+            os.environ["PATH"] = d + os.pathsep + os.environ.get("PATH", "")
+            try:
+                os.add_dll_directory(d)
+            except Exception:
+                pass
 
 
 def _resolve_device():
@@ -310,6 +347,7 @@ def _resolve_device():
         return _DEVICE["device"], _DEVICE["compute"]
     pref = (CFG.get("stt", {}) or {}).get("device", "auto")
     if pref in ("auto", "cuda", "gpu"):
+        _setup_cuda_dll_path()
         try:
             import ctranslate2
             if ctranslate2.get_cuda_device_count() > 0:
