@@ -1,0 +1,53 @@
+# ==========================================================
+#  Nova — assistant vocal Windows — métadonnées & outillage
+# ==========================================================
+# Ce fichier ne change RIEN à l'exécution (Nova se lance toujours par
+# `python app.py`). Il sert au packaging optionnel et à la configuration
+# de l'outil de qualité `ruff` (lint), utilisé en CI.
+
+[project]
+name = "nova-assistant-vocal"
+version = "2.14"
+description = "Assistant vocal Windows offline-first (bleu nuit, façon macOS)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+
+# Dépendances : la source de vérité reste requirements.txt (installation
+# recommandée). Recopiées ici pour l'outillage qui lit pyproject.
+dependencies = [
+    "faster-whisper>=1.0.0",
+    "sounddevice>=0.4.6",
+    "numpy>=1.24.0",
+    "pywebview>=4.0.0",
+    "pystray>=0.19.0",
+    "Pillow>=10.0.0",
+    "keyboard>=0.13.5",
+    "pycaw>=20230407",
+    "comtypes>=1.4.0",
+    "psutil>=5.9.0",
+    "pywin32>=306",
+    "edge-tts>=6.1.0",
+    "requests>=2.28.0",
+    "tzdata>=2024.1",
+]
+
+# ---------------------------------------------------------------- ruff ------
+# Périmètre volontairement resserré aux règles à FORT SIGNAL et sans faux
+# positif sur ce dépôt : erreurs réelles (pyflakes F : imports/variables
+# inutilisés, noms indéfinis), erreurs d'imports (E4), de syntaxe/instructions
+# (E7 : except nu, comparaisons à None, lambda affectée…), erreurs de parsing
+# (E9) et avertissements (W : séquences d'échappement invalides…).
+# Volontairement PAS E501 (longueur de ligne) : l'imposer forcerait à
+# reformater ~13 000 lignes, gros diff risqué sans gain fonctionnel.
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["F", "E4", "E7", "E9", "W"]
+
+[tool.ruff.lint.per-file-ignores]
+# Les tests importent chaque module juste avant le bloc qui l'exerce
+# (placement d'import volontaire, plus lisible qu'un bloc d'imports en tête).
+"test_modes.py" = ["E402"]

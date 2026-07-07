@@ -1,0 +1,38 @@
+# CI Nova — vérifications légères et déterministes.
+#
+# Volontairement SANS exécution de la suite de tests : test_modes.py importe
+# winext (API Win32, pywin32/pycaw) et ne s'exécute que sous Windows avec les
+# périphériques audio. La CI se limite donc à ce qui est fiable sur Linux :
+#   1. lint ruff (règles à fort signal — cf. pyproject.toml)
+#   2. compilation de tous les modules (attrape erreurs de syntaxe / indentation)
+# Pour exécuter la suite complète : sous Windows, `python test_modes.py`.
+
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Lint & compile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Installer ruff (version épinglée pour un lint stable)
+        run: pip install "ruff==0.15.8"
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Compiler tous les modules Python
+        run: python -m compileall -q .
