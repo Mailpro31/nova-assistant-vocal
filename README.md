@@ -98,7 +98,7 @@ webhooks (IFTTT / Zapier / Home Assistant).
 |---|---|
 | `app.py` | Fenêtre, pilule tkinter, boucle d'éveil, orchestration |
 | `core.py` | Config, STT (Whisper/Groq), agent multi-IA, TTS |
-| `modes.py` | Classifieur vocal + handlers (~1 800 lignes de grammaire FR) |
+| `modes.py` | Classifieur vocal + handlers (~2 900 lignes de grammaire FR) |
 | `winext.py` | Windows natif : DPAPI, volume, fenêtres, vision, MCI |
 | `storage.py` | SQLite (historique, mémoire, listes, rappels, profils) |
 | `integrations.py` | Météo, Gmail/Docs, Spotify, Home Assistant, Twilio |
