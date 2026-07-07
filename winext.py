@@ -736,6 +736,42 @@ def list_windows():
     return out
 
 
+def active_window_title():
+    """Titre de la fenêtre au premier plan (« Boîte de réception - Gmail »,
+    « WhatsApp », « claude.ai/new — Chrome »…), ou "" si indéterminé.
+    Base de détection du mode Automatique (auto_mode.py)."""
+    try:
+        user32 = ctypes.windll.user32
+        h = user32.GetForegroundWindow()
+        if not h:
+            return ""
+        n = user32.GetWindowTextLengthW(h)
+        if not n:
+            return ""
+        buf = ctypes.create_unicode_buffer(n + 1)
+        user32.GetWindowTextW(h, buf, n + 1)
+        return buf.value or ""
+    except Exception:
+        return ""
+
+
+def active_process_name():
+    """Nom de l'exécutable au premier plan en minuscules (« outlook.exe »,
+    « slack.exe », « code.exe »…), ou "" si indéterminé. Complète le titre
+    pour les apps de bureau dont le titre est peu parlant."""
+    try:
+        user32 = ctypes.windll.user32
+        h = user32.GetForegroundWindow()
+        if not h:
+            return ""
+        pid = ctypes.c_ulong()
+        user32.GetWindowThreadProcessId(h, ctypes.byref(pid))
+        import psutil
+        return psutil.Process(pid.value).name().lower()
+    except Exception:
+        return ""
+
+
 def find_window(name):
     """Fenêtre dont le titre contient name (le titre le plus court gagne :
     c'est en général la fenêtre principale de l'appli)."""

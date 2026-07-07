@@ -26,7 +26,6 @@ import wave
 import numpy as np
 
 import core
-import modes
 
 # La console Windows redirigée est en cp1252 : force l'UTF-8 pour les
 # caractères « ═ » « » « → » des tableaux, sinon UnicodeEncodeError.
@@ -39,24 +38,17 @@ SR = 16000
 CACHE = os.path.join(os.environ.get("TEMP", "."), "nova_bench_wav")
 os.makedirs(CACHE, exist_ok=True)
 
-# Commandes représentatives d'un usage EN CONDUITE (courtes, mains occupées).
-# (phrase, intention attendue de modes.classify) — l'intention est ce qui
-# compte vraiment : « dix minutes » et « 10 minutes » donnent le même timer.
-CASES = [
-    ("Nova appelle Paul", "call"),
-    ("mets un minuteur de dix minutes", "timer"),
-    ("va à la gare de Lyon", "navigation"),
-    ("mets du jazz sur Spotify", "music"),
-    ("monte le son", "media"),
-    ("envoie un message à Marie j'arrive bientôt", "message"),
-    ("quelle est la météo à Paris", "weather"),
-    ("ouvre Google Maps", "open"),
-    ("rappelle-moi d'acheter du pain dans une heure", "timer"),
-    ("mets la chanson suivante", "media"),
-    ("mets le volume à trente", "volume"),
-    ("ouvre Spotify", "open"),
+# Phrases représentatives d'une DICTÉE (v3 Speechly-lite) : messages, notes,
+# e-mails courts. On mesure la fidélité de la transcription (WER) et la latence,
+# ce qui compte pour une app de dictée collée au curseur.
+PHRASES = [
+    "bonjour Marie j'espère que tu vas bien je voulais confirmer notre rendez-vous de demain",
+    "il faut que je pense à envoyer le rapport avant midi et à rappeler le client",
+    "note pour la réunion préparer les chiffres du trimestre et valider le budget",
+    "merci beaucoup pour ton retour je reviens vers toi très vite",
+    "j'aimerais réserver une table pour quatre personnes samedi soir vers vingt heures",
+    "peux-tu m'envoyer le lien du document quand tu auras un moment s'il te plaît",
 ]
-PHRASES = [c[0] for c in CASES]
 
 # variantes orthographiques qui ne sont PAS des erreurs pour l'assistant
 _DIGITS = {"zero": "0", "un": "1", "une": "1", "deux": "2", "trois": "3",
@@ -136,19 +128,8 @@ def mix_snr(speech, snr_db, seed):
 
 # ----------------------------------------------------------------- mesure ----
 
-def intent_ok(hyp, expected):
-    """L'intention est-elle correctement reconnue ? (le vrai objectif d'un
-    assistant : « dix minutes » ou « 10 minutes » donnent le même timer)."""
-    try:
-        r = modes.classify(hyp)
-    except Exception:
-        r = None
-    return r is not None and r[0] == expected
-
-
 def run(snr_levels, paths):
     print(f"Modèles : whisper_model={core.CFG['whisper_model']}  "
-          f"wake_model={core.CFG['wake_model']}  "
           f"compute=int8  prompt={len(core.stt_prompt())} car.\n")
     core.transcribe(np.zeros(SR, dtype=np.float32))          # préchauffage
     core.transcribe_quick(np.zeros(SR, dtype=np.float32))
@@ -156,23 +137,20 @@ def run(snr_levels, paths):
     results = {}
     for label, fn in paths:
         print(f"═══ Chemin « {label} » ═══")
-        print(f"  {'condition':<11} {'WER':>6}  {'intention':>10}  {'latence':>8}")
+        print(f"  {'condition':<11} {'WER':>6}  {'latence':>8}")
         for snr in snr_levels:
-            wers, lats, hits = [], [], 0
-            for i, (phrase, exp) in enumerate(CASES):
+            wers, lats = [], []
+            for i, phrase in enumerate(PHRASES):
                 clean = synth(phrase)
                 audio = clean if snr is None else mix_snr(clean, snr, seed=i + 1)
                 t0 = time.time()
                 hyp = fn(audio)
                 lats.append(time.time() - t0)
                 wers.append(wer(phrase, hyp))
-                hits += intent_ok(hyp, exp)
             tag = "propre" if snr is None else f"SNR {snr:+d} dB"
             mw, ml = float(np.mean(wers)), float(np.mean(lats))
-            print(f"  {tag:<11} {mw:5.1f}%  {hits:2d}/{len(CASES)} ok  {ml:6.2f}s")
-            results[f"{label}/{tag}"] = {"wer": round(mw, 1),
-                                         "intent": f"{hits}/{len(CASES)}",
-                                         "lat": round(ml, 2)}
+            print(f"  {tag:<11} {mw:5.1f}%  {ml:6.2f}s")
+            results[f"{label}/{tag}"] = {"wer": round(mw, 1), "lat": round(ml, 2)}
         print()
     return results
 

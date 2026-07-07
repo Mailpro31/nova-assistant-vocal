@@ -1,0 +1,139 @@
+# -*- coding: utf-8 -*-
+"""Tests logiques v3 (Speechly-lite) exécutables hors Windows.
+
+Couvre ce qui est vérifiable sans micro/tray/IA : le registre de modes, la table
+de résolution du mode Automatique (fonction pure) et la substitution des Custom
+Variables. Le reste (push-to-talk, collage curseur, reformulation IA, pystray)
+se valide sur Windows — voir le rapport de handoff.
+
+Lancer :  python test_v3.py
+"""
+
+import sys
+import types
+
+
+def _stub_winext():
+    """winext touche le Win32 natif à l'import → stub déterministe sous Linux/CI
+    (même principe que l'ancien harnais classify). core.py fait `import winext`."""
+    if "winext" not in sys.modules:
+        w = types.ModuleType("winext")
+        w.has_secret = lambda *_a, **_k: False
+        w.get_secret = lambda *_a, **_k: ""
+        w.active_window_title = lambda: ""
+        w.active_process_name = lambda: ""
+        w.paste_into_active_app = lambda *_a, **_k: True
+        w.__getattr__ = lambda _n: (lambda *_a, **_k: None)
+        sys.modules["winext"] = w
+    sys.modules.setdefault("sounddevice", types.ModuleType("sounddevice"))
+
+
+_stub_winext()
+
+import core                     # noqa: E402
+import modes_registry           # noqa: E402
+import auto_mode                # noqa: E402
+
+_fails = []
+
+
+def check(label, got, want):
+    ok = got == want
+    print(f"  [{'OK ' if ok else 'FAIL'}] {label}: {got!r}" +
+          ("" if ok else f"  (attendu {want!r})"))
+    if not ok:
+        _fails.append(label)
+
+
+# --------------------------------------------------- registre de modes -------
+def test_registry():
+    print("Registre de modes")
+    check("7 modes", len(modes_registry.all_modes()), 7)
+    check("ids", modes_registry.mode_ids(),
+          ["auto", "voice_to_text", "email", "prompt_engineer", "todo",
+           "messages", "notes"])
+    check("auto sans prompt figé", modes_registry.prompt_of("auto"), None)
+    check("email a un prompt", bool(modes_registry.prompt_of("email")), True)
+    check("hotkey 3 → email", modes_registry.by_hotkey("3")["id"], "email")
+    check("label todo", modes_registry.label_of("todo"), "To-do lister")
+    check("id inconnu → défaut auto", modes_registry.get_mode("xxx")["id"], "auto")
+    # invariant : chaque hotkey 1..7 est unique et mappe un mode
+    keys = [m["hotkey"] for m in modes_registry.all_modes()]
+    check("hotkeys uniques 1..7", sorted(keys), ["1", "2", "3", "4", "5", "6", "7"])
+
+
+# --------------------------------------------------- mode Automatique --------
+def test_auto_resolve():
+    print("Mode Automatique — résolution app → mode (fonction pure)")
+    cases = [
+        ("Boîte de réception - Gmail", "chrome.exe", "email"),
+        ("Courrier - Outlook", "outlook.exe", "email"),
+        ("WhatsApp", "whatsapp.exe", "messages"),
+        ("Slack | général", "slack.exe", "messages"),
+        ("Microsoft Teams", "ms-teams.exe", "messages"),
+        ("claude.ai/new — Google Chrome", "chrome.exe", "prompt_engineer"),
+        ("ChatGPT", "chrome.exe", "prompt_engineer"),
+        ("Notion — Projet Nova", "notion.exe", "notes"),
+        ("Obsidian v1.5", "obsidian.exe", "notes"),
+        ("Microsoft To Do", "todo.exe", "todo"),
+        ("Todoist", "todoist.exe", "todo"),
+        ("Visual Studio Code", "code.exe", "voice_to_text"),  # défaut : dictée brute
+        ("", "", "voice_to_text"),
+    ]
+    for title, proc, want in cases:
+        check(f"{title or '(vide)'} / {proc or '-'}",
+              auto_mode.resolve(title, proc), want)
+    check("current_mode ne lève jamais (winext stubbé)",
+          auto_mode.current_mode(), "voice_to_text")
+
+
+# --------------------------------------------------- Custom Variables --------
+def test_custom_vars():
+    print("Custom Variables — substitution locale")
+    core.CFG["custom_vars"] = [
+        {"trigger": "IBAN", "value": "FR76 3000 1000 0100"},
+        {"trigger": "mon boss", "value": "Monsieur Dupont"},
+    ]
+    core.CFG["active_profile"] = ""     # pas de profil → pas d'accès DB
+    check("IBAN remplacé", core.fill_personal("voici mon IBAN merci"),
+          "voici mon FR76 3000 1000 0100 merci")
+    check("casse ignorée", core.fill_personal("voici mon iban"),
+          "voici mon FR76 3000 1000 0100")
+    check("frontière de mot (ribambelle intact)",
+          core.fill_personal("une ribambelle"), "une ribambelle")
+    check("multi-mot", core.fill_personal("demande à mon boss"),
+          "demande à Monsieur Dupont")
+    check("valeur avec backslash non interprétée",
+          _sub_backslash(), r"chemin C:\Users\x")
+    # dédoublonnage + nettoyage
+    clean = core.save_custom_variables([
+        {"trigger": "a", "value": "1"}, {"trigger": "A", "value": "2"},
+        {"trigger": "", "value": "x"}, {"trigger": "b", "value": ""}])
+    check("save dédoublonne (casse) et filtre vides", len(clean), 1)
+
+
+def _sub_backslash():
+    core.CFG["custom_vars"] = [{"trigger": "chemin", "value": r"chemin C:\Users\x"}]
+    return core.fill_personal("chemin")
+
+
+# --------------------------------------------------- fallback texte brut -----
+def test_format_rules():
+    print("Repli texte brut (sans IA)")
+    check("majuscule + point", core.format_rules("bonjour tout le monde"),
+          "Bonjour tout le monde.")
+    check("espaces réduits", core.format_rules("  salut   toi  "), "Salut toi.")
+    check("ponctuation conservée", core.format_rules("ça va ?"), "Ça va ?")
+    check("vide → vide", core.format_rules("   "), "")
+
+
+if __name__ == "__main__":
+    test_registry()
+    test_auto_resolve()
+    test_custom_vars()
+    test_format_rules()
+    print()
+    if _fails:
+        print(f"❌ {len(_fails)} échec(s) : {', '.join(_fails)}")
+        sys.exit(1)
+    print("✅ Tous les tests logiques v3 passent.")

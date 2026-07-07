@@ -8,15 +8,11 @@ analyse du PC et gestion des modèles locaux.
 import json
 import os
 import re
-import shutil
-import subprocess
 import sys
 import threading
 import time
 import unicodedata
-import urllib.parse
 import uuid
-import webbrowser
 
 import numpy as np
 
@@ -26,6 +22,10 @@ import winext
 APP_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
 
 DEFAULT_CONFIG = {
+    # --- v3 (Speechly-lite) ---
+    "ptt_key": "f9",          # push-to-talk : touche MAINTENUE = parle, relâchée = colle
+    "mode": "auto",           # mode de reformulation courant (registre modes_registry)
+    "custom_vars": [],         # Custom Variables : [{"trigger","value"}], 100 % local
     "hotkey": "ctrl+alt+space",
     "note_hotkey": "ctrl+alt+n",
     "dictation_hotkey": "ctrl+alt+d",
@@ -500,10 +500,12 @@ def _mic_kw():
 
 
 def record_audio(on_level=None, frames_out=None, frames_lock=None, cancel=None,
-                 end_silence=None, min_voiced=0.0):
+                 end_silence=None, min_voiced=0.0, stop=None):
     """Enregistre jusqu'au silence. on_level(rms) est appelé à chaque bloc (pour
     l'animation) ; frames_out/frames_lock permettent la transcription partielle
     live ; cancel (threading.Event) interrompt et renvoie None (clic ailleurs) ;
+    stop (threading.Event) TERMINE et CONSERVE l'audio — base du push-to-talk :
+    on relâche la touche, l'enregistrement s'arrête et ce qui a été dit est gardé ;
     end_silence remplace silence_seconds (commandes = plus réactif que dictée) ;
     min_voiced (s) : filtre pré-ASR JARVIS — un enregistrement qui contient
     moins de voix que ça (ou trop faible en moyenne) est jeté au lieu d'être
@@ -525,6 +527,8 @@ def record_audio(on_level=None, frames_out=None, frames_lock=None, cancel=None,
             while True:
                 if cancel is not None and cancel.is_set():
                     return "cancel"
+                if stop is not None and stop.is_set():
+                    return "ok"        # touche relâchée : on garde ce qui est dit
                 block, _ = stream.read(int(sr * 0.1))
                 if frames_lock:
                     with frames_lock:
@@ -1178,15 +1182,24 @@ def format_rules(text):
     return t
 
 
-def format_message(text):
-    """Reformate un message dicté (ponctuation, majuscules) — IA si dispo."""
+_DEFAULT_REFORMULATE = (
+    "Tu reformates des messages dictés à la voix. Corrige ponctuation et "
+    "majuscules, garde le sens exact, reste bref.")
+
+
+def format_message(text, system_prompt=None):
+    """Moteur de reformulation générique, partagé par tous les modes du registre.
+
+    `system_prompt` = consigne propre au mode choisi (Voice to text, E-mail,
+    Prompt Engineer…). None → reformulation générique par défaut. Le vocabulaire
+    personnel de l'utilisateur est toujours injecté pour préserver les noms
+    propres. Repli SANS IA (`format_rules`) si l'IA échoue ou est hors ligne :
+    le curseur ne reçoit jamais du vide (garde-fou Phase 5b)."""
     vocab = active_vocabulary()
-    out = llm_complete(
-        "Tu reformates des messages dictés à la voix. Corrige ponctuation et majuscules, "
-        "garde le sens exact, reste bref. "
-        + (f"Vocabulaire propre à l'utilisateur : {', '.join(vocab)}. " if vocab else "")
-        + "Réponds UNIQUEMENT avec le message reformulé, rien d'autre.",
-        text)
+    system = (system_prompt or _DEFAULT_REFORMULATE) + " " + (
+        f"Vocabulaire propre à l'utilisateur : {', '.join(vocab)}. " if vocab else "")
+    system += "Réponds UNIQUEMENT avec le texte reformulé, rien d'autre."
+    out = llm_complete(system, text)
     return out or format_rules(text)
 
 
@@ -1219,16 +1232,50 @@ def personal_info():
     return (p or {}).get("personal", {}) or {}
 
 
+def custom_variables():
+    """« Custom Variables » façon Speechly : quand l'utilisateur dit `trigger`,
+    on colle `value` (ex. « IBAN » → un RIB complet). Définies dans les Réglages,
+    stockées dans la config (100 % local, JAMAIS envoyées à une IA).
+    Retourne [(trigger, value)] nettoyé."""
+    out = []
+    for v in CFG.get("custom_vars", []) or []:
+        trig = (v.get("trigger") or "").strip()
+        val = (v.get("value") or "").strip()
+        if trig and val:
+            out.append((trig, val))
+    return out
+
+
+def save_custom_variables(items):
+    """Enregistre la liste des Custom Variables (dédoublonnée sur le trigger,
+    insensible à la casse). Retourne la liste propre effectivement stockée."""
+    clean, seen = [], set()
+    for it in items or []:
+        trig = (it.get("trigger") or "").strip()
+        val = (it.get("value") or "").strip()
+        key = trig.lower()
+        if trig and val and key not in seen:
+            seen.add(key)
+            clean.append({"trigger": trig, "value": val})
+    save_config({"custom_vars": clean})
+    return clean
+
+
 def fill_personal(text):
+    """Substitution locale : champs de profil (« mon adresse » → …) PUIS Custom
+    Variables utilisateur. Tout se fait AVANT tout envoi IA, jamais transmis."""
     if not text:
         return text
     info = personal_info()
-    if not info:
-        return text
     for key, rx in _PERSONAL_PATTERNS:
         val = (info.get(key) or "").strip()
         if val:
-            text = rx.sub(val, text)
+            text = rx.sub(lambda _m, v=val: v, text)
+    for trig, val in custom_variables():
+        # \b…\b : « IBAN » ne matche pas « ribambelle » ; casse ignorée ;
+        # remplacement via lambda pour ne pas interpréter \1, \\ dans la valeur
+        text = re.sub(r"\b" + re.escape(trig) + r"\b",
+                      lambda _m, v=val: v, text, flags=re.IGNORECASE)
     return text
 
 
@@ -1356,13 +1403,8 @@ def stt_prompt():
                "rappelle", "monte", "baisse", "allume", "éteins", "va à",
                "cherche", "note", "minuteur", "volume", "écran",
                "regarde mon écran"]
-    try:                                   # import paresseux : modes.py importe core
-        import modes
-        generic += list(modes.SITES)[:24]  # youtube, gmail, maps, spotify, netflix…
-        generic += list(modes.APPS)[:12]   # bloc-notes, calculatrice, word, excel…
-    except Exception:
-        generic += ["YouTube", "Spotify", "Deezer", "Netflix", "WhatsApp",
-                    "Gmail", "Google Maps", "Chrome"]
+    generic += ["YouTube", "Spotify", "Deezer", "Netflix", "WhatsApp", "Gmail",
+                "Google Maps", "Chrome", "Word", "Excel", "Notion", "Slack"]
     generic += ["Paris", "Lyon", "Marseille", "Bordeaux", "gare de Lyon"]
 
     seen, out = set(), []
@@ -1407,305 +1449,3 @@ def transcribe_routed(audio, fast=False):
             log_err("stt_wake", e)
     return transcribe(audio), "local"
 
-
-# --------------------------------------------------------------- exécution --
-
-# commandes shell manifestement destructrices : jamais exécutées, même si l'IA les propose
-_SHELL_BLOCK = re.compile(
-    r"format\s+[a-z]:|del\s+/[fsq]|erase\s+/[fsq]|rmdir\s+/s|\brd\s+/s|rm\s+-rf"
-    r"|diskpart|cipher\s+/w|vssadmin\s+delete|bcdedit|mkfs|dd\s+if="
-    r"|reg\s+delete\s+hk(lm|ey_local_machine)|remove-item\s+.*-recurse"
-    r"|shutdown\s+/s\s+/t\s+[0-5]\b",   # arrêt immédiat : réservé au mode power confirmé
-    re.IGNORECASE)
-
-
-def shell_blocked(cmd):
-    return bool(_SHELL_BLOCK.search(cmd or ""))
-
-
-def _auto_pause(prev, cur):
-    """Pause implicite quand l'IA a oublié le wait entre une ouverture
-    (app, page, commande) et une frappe clavier : l'app doit avoir le focus."""
-    return 1.5 if prev in ("open_app", "open_url", "shell") \
-        and cur in ("type_text", "keys") else 0.0
-
-
-def _timer_web_path(seconds):
-    secs = int(seconds)
-    return f"{secs // 60}minutes" if secs >= 60 and secs % 60 == 0 \
-        else f"{secs}seconds"
-
-
-def start_timer(seconds, label=""):
-    """Minuteur : moteur interne (alerte vocale prioritaire, annulation,
-    liste) + compte à rebours VISIBLE dans un onglet (les vraies applis du
-    PC en priorité — réglage timer_style)."""
-    import timers as _timers
-    tid = _timers.start(seconds, label)
-    if CFG.get("timer_style", "web") == "web":
-        try:
-            webbrowser.open("https://e.ggtimer.com/" + _timer_web_path(seconds))
-        except Exception as e:
-            log_err("timer web", e)
-    return tid
-
-
-def execute_steps(steps, spoken=""):
-    """Exécute la séquence d'actions renvoyée par l'IA.
-    Retourne (réussies, total, motif_de_blocage)."""
-    import timers as _timers
-    done = 0
-    prev = None
-    for s in steps:
-        a = s.get("action")
-        target = (s.get("target") or "").strip()
-        args = (s.get("args") or "").strip()
-        pause = _auto_pause(prev, a)
-        if pause:
-            time.sleep(pause)
-        prev = a
-        try:
-            if a == "type_text":
-                import keyboard
-                time.sleep(0.15)
-                keyboard.write(fill_personal(target), delay=0.004)
-            elif a == "media":
-                if not winext.send_media_key(target):
-                    continue
-            elif a == "timer":
-                secs = _timers.parse_duration(target)
-                if not secs:
-                    continue
-                start_timer(secs, args)
-            elif a == "wait":
-                try:
-                    time.sleep(min(8.0, max(0.0, float(str(target).replace(",", ".")))))
-                except ValueError:
-                    continue
-            elif a == "shell":
-                if shell_blocked(target):
-                    return done, len(steps), "Commande refusée par sécurité"
-                subprocess.Popen(target, shell=True)
-            elif a == "note":
-                add_note(target)
-            elif a == "fact":
-                if target.strip():
-                    storage.add_fact(target.strip())
-            elif a == "home":
-                import modes as _modes
-                if not _modes.home_step(target, args):
-                    continue
-            elif a in ("file_rename", "file_move"):
-                import files_mode as _fm
-                src = _fm.find_file(target)
-                fn = _fm.safe_rename if a == "file_rename" else _fm.safe_move
-                if not src or not fn(src, args):
-                    continue
-            elif a in ("open_url", "open_app", "web_search", "keys"):
-                if not execute({"action": a, "target": target, "args": args, "text": spoken}):
-                    continue
-            else:
-                continue
-            done += 1
-        except Exception as e:
-            log_err(f"step {a}", e)
-    return done, len(steps), ""
-
-def execute(action):
-    a = action.get("type") or action.get("action")
-    target = (action.get("target") or "").strip()
-    args = (action.get("args") or "").strip()
-    if a == "open_url":
-        if not target.lower().startswith(("http://", "https://")):
-            target = "https://" + target
-        webbrowser.open(target)
-    elif a == "open_app":
-        if args:
-            subprocess.Popen(f'start "" "{target}" {args}', shell=True)
-        else:
-            try:
-                os.startfile(target)
-            except OSError:
-                subprocess.Popen(f'start "" "{target}"', shell=True)
-    elif a == "web_search":
-        webbrowser.open("https://www.google.com/search?q=" + urllib.parse.quote(target))
-    elif a == "keys":
-        t = target.replace("windows", "win").strip().lower()
-        if t.replace(" ", "") == "win+l":
-            # Win+L simulé est filtré par Windows (sécurité) : appel natif
-            import ctypes
-            ctypes.windll.user32.LockWorkStation()
-        else:
-            import keyboard
-            keyboard.send(t)
-    elif a == "shell":
-        subprocess.Popen(target, shell=True)
-    elif a == "webhook":
-        import requests
-        if not target.lower().startswith(("http://", "https://")):
-            return False
-        r = requests.post(target, timeout=8, json={
-            "source": "nova", "text": action.get("text", ""), "args": args})
-        return r.status_code < 400
-    elif a == "note":
-        add_note(target)
-    else:
-        return False
-    return True
-
-
-AUTO_SUGGEST_SYSTEM = (
-    "Tu crées des automatisations pour Nova, un assistant vocal Windows. "
-    "L'utilisateur décrit ce qu'il veut ; réponds UNIQUEMENT avec un objet JSON :\n"
-    '{"name": "...", "phrases": ["déclencheur vocal", ...], '
-    '"action": {"type": "open_url|open_app|keys|shell|webhook", "target": "...", "args": ""}, '
-    '"reply": "confirmation très courte"}\n'
-    "- phrases : 1 à 3 déclencheurs courts en français, naturels à dire à voix haute.\n"
-    "- open_url : target = URL complète. open_app : exécutable Windows (notepad, calc), "
-    "URI (spotify:, ms-settings:) ou chemin ; arguments éventuels dans args.\n"
-    "- keys : raccourci clavier (ex. win+l, ctrl+shift+s). "
-    "shell : commande Windows (ex. shutdown /s /t 3600). "
-    "webhook : URL appelée en POST (IFTTT, Zapier, Home Assistant).\n"
-    "Choisis l'action la plus simple et la plus sûre qui réalise la demande."
-)
-
-
-def suggest_automation(desc):
-    """L'IA transforme une description libre en automatisation prête à valider."""
-    out = llm_complete(AUTO_SUGGEST_SYSTEM, desc, timeout=18)
-    if not out:
-        return None
-    try:
-        data = _extract_json(out)
-        act = data.get("action") or {}
-        phrases = [p.strip() for p in (data.get("phrases") or [])
-                   if isinstance(p, str) and p.strip()]
-        if act.get("type") not in ("open_url", "open_app", "keys", "shell", "webhook") \
-                or not phrases or not (act.get("target") or "").strip():
-            return None
-        return {"name": (data.get("name") or phrases[0])[:60], "phrases": phrases[:3],
-                "action": {"type": act["type"], "target": act["target"].strip(),
-                           "args": (act.get("args") or "").strip()},
-                "reply": (data.get("reply") or "").strip()}
-    except Exception:
-        return None
-
-
-# ------------------------------------------------------------ interprète ----
-
-def interpret(text):
-    """Retourne (résultat, source) où source ∈ règle/note/recherche/ia/aucune."""
-    n = normalize(text).strip(" .!?")
-
-    for trig in NOTE_TRIGGERS:
-        if n.startswith(normalize(trig)):
-            content = text.strip()[len(trig):].strip(" ,.:") or text
-            return {"action": "note", "target": content, "reply": "Note enregistrée"}, "note"
-
-    for auto in get_automations():
-        if auto.get("enabled", True) is False:
-            continue
-        for phrase in auto.get("phrases", []):
-            if matches_phrase(normalize(phrase), n):
-                act = dict(auto["action"])
-                act["reply"] = auto.get("reply") or auto["name"]
-                return {"action": act.get("type"), "target": act.get("target"),
-                        "args": act.get("args", ""), "reply": act["reply"]}, "règle"
-
-    m = re.search(r"\b(?:recherche|cherche|google)\s+(.{2,})", n)
-    if m:
-        return {"action": "web_search", "target": m.group(1),
-                "reply": f"Je cherche « {m.group(1)} »"}, "recherche"
-
-    result = ask_llm(text)
-    if result:
-        return result, "ia"
-    return None, "aucune"
-
-
-# ------------------------------------------------------------- analyse PC ---
-
-MODEL_CATALOG = [
-    {"name": "llama3.2:1b",   "size_gb": 1.3, "min_ram": 4,  "desc": "Ultra léger, très rapide"},
-    {"name": "qwen2.5:1.5b",  "size_gb": 1.0, "min_ram": 4,  "desc": "Léger, bon en français"},
-    {"name": "llama3.2:3b",   "size_gb": 2.0, "min_ram": 8,  "desc": "Bon équilibre vitesse/qualité"},
-    {"name": "qwen2.5:3b",    "size_gb": 1.9, "min_ram": 8,  "desc": "Recommandé pour les commandes vocales"},
-    {"name": "mistral:7b",    "size_gb": 4.4, "min_ram": 16, "desc": "Modèle français réputé"},
-    {"name": "qwen2.5:7b",    "size_gb": 4.7, "min_ram": 16, "desc": "Très bonne compréhension"},
-    {"name": "llama3.1:8b",   "size_gb": 4.9, "min_ram": 16, "desc": "Polyvalent, très populaire"},
-    {"name": "qwen2.5:14b",   "size_gb": 9.0, "min_ram": 32, "desc": "Haute qualité (PC puissant)"},
-]
-
-
-def pc_info():
-    import psutil
-    ram_gb = round(psutil.virtual_memory().total / (1024 ** 3))
-    gpu = None
-    try:
-        out = subprocess.run(
-            ["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader"],
-            capture_output=True, text=True, timeout=5,
-            creationflags=subprocess.CREATE_NO_WINDOW)
-        if out.returncode == 0 and out.stdout.strip():
-            gpu = out.stdout.strip().split("\n")[0]
-    except Exception:
-        pass
-    installed = ollama_models()
-    return {
-        "ram_gb": ram_gb,
-        "cpu_cores": os.cpu_count(),
-        "gpu": gpu,
-        "ollama_installed": shutil.which("ollama") is not None,
-        "ollama_running": installed is not None,
-        "installed_models": installed or [],
-    }
-
-
-def suggest_models():
-    info = pc_info()
-    ram = info["ram_gb"]
-    out = []
-    for m in MODEL_CATALOG:
-        fits = ram >= m["min_ram"]
-        out.append({**m, "fits": fits,
-                    "installed": any(x.startswith(m["name"]) for x in info["installed_models"]),
-                    "recommended": fits and m["min_ram"] >= max(
-                        (c["min_ram"] for c in MODEL_CATALOG if ram >= c["min_ram"]), default=4)})
-    return {"pc": info, "models": out}
-
-
-_pulls = {}
-
-
-def ollama_pull(model):
-    """Lance `ollama pull` en arrière-plan ; suivre via pull_status()."""
-    if model in _pulls and _pulls[model]["status"] == "en cours":
-        return True
-    _pulls[model] = {"status": "en cours", "progress": ""}
-
-    def run():
-        try:
-            proc = subprocess.Popen(
-                ["ollama", "pull", model],
-                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                text=True, encoding="utf-8", errors="replace",
-                creationflags=subprocess.CREATE_NO_WINDOW)
-            for line in proc.stdout:
-                line = line.strip()
-                if line:
-                    _pulls[model]["progress"] = line[-80:]
-            proc.wait()
-            _pulls[model]["status"] = "terminé" if proc.returncode == 0 else "erreur"
-        except FileNotFoundError:
-            _pulls[model]["status"] = "erreur"
-            _pulls[model]["progress"] = "Ollama n'est pas installé (ollama.com)"
-        except Exception as e:
-            _pulls[model]["status"] = "erreur"
-            _pulls[model]["progress"] = str(e)
-
-    threading.Thread(target=run, daemon=True).start()
-    return True
-
-
-def pull_status():
-    return _pulls
