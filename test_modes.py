@@ -313,6 +313,8 @@ check("parse_duration : jours/semaines/mois non gérés -> None (pas de faux min
 check("« pour cent » accepté pour la luminosité écran (comme le volume)",
       (modes.classify("règle la luminosité de l'écran à 60 pour cent") or ("",))[0]
       == "bright")
+check("« pour cent » accepté pour le volume par application (cohérence des 6 regex)",
+      modes.classify("monte le son de spotify de 30 pour cent") == ("volume", "app", "+30|spotify"))
 
 # --- durées & conversions (améliorations 2026-07) ---
 import datetime as _dt

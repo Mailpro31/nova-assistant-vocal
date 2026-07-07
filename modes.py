@@ -971,7 +971,7 @@ def _classify_media_audio(n):
         return ("volume", "rel", sign + m.group(2))
     # volume d'UNE application : « monte le son de spotify (de 30) » (JARVIS)
     m = re.match(r"^(monte|augmente|baisse|diminue) le (?:son|volume)"
-                 r" (?:de |du |d')(.+?)(?:\s+de\s+(\d{1,3}))?\s*%?$", n)
+                 r" (?:de |du |d')(.+?)(?:\s+de\s+(\d{1,3}))?\s*(?:%|pour ?cents?)?$", n)
     if m and not m.group(2).strip().isdigit():
         sign = "-" if m.group(1).startswith(("baisse", "diminue")) else "+"
         amt = m.group(3) or "20"
@@ -2155,8 +2155,7 @@ def _do_timer_at(target, texte, _raw):
     hhmm, _, flag = target.partition("|")
     daily = flag == "d"
     storage.reminder_add(texte, hhmm, daily)
-    h, mn = hhmm.split(":")
-    when = f"{int(h)} h {mn}"
+    when = _heure_fr(hhmm)
     return {"ok": True,
             "reply": f"Je te rappellerai « {texte} » à {when}"
                      + (" tous les jours" if daily else ""),
@@ -2838,6 +2837,12 @@ def _date_fr(date_str):
     return f"le {d.day} {_MOIS[d.month - 1]}"
 
 
+def _heure_fr(hhmm):
+    """'09:00' → '9 h 00' (heure parlée)."""
+    h, mn = hhmm.split(":")
+    return f"{int(h)} h {mn}"
+
+
 def _do_timer(target, body, _raw):
     secs = timers.parse_duration(target)
     if not secs:
@@ -2847,12 +2852,11 @@ def _do_timer(target, body, _raw):
         if fut:
             d_iso, hhmm = fut
             storage.reminder_add(body, hhmm, date=d_iso)
-            h, mn = hhmm.split(":")
-            quand = f"{_date_fr(d_iso)} à {int(h)} h {mn}"
+            quand = f"{_date_fr(d_iso)} à {_heure_fr(hhmm)}"
             return {"ok": True,
                     "reply": (f"Je te rappellerai « {body} » {quand}" if body
                               else f"Rappel programmé {quand}"),
-                    "final": body or quand, "detail": f"{date} {hhmm}"}
+                    "final": body or quand, "detail": f"{d_iso} {hhmm}"}
         return {"ok": False, "reply": "Je n'ai pas compris la durée",
                 "final": target, "detail": "durée illisible"}
     core.start_timer(secs, body)
