@@ -650,6 +650,7 @@ _tray_icon = None
 # ============================================================ push-to-talk ===
 _ptt_active = threading.Event()   # une session est en cours
 _ptt_stop = threading.Event()     # la touche a été relâchée
+_ptt_down = threading.Event()     # la touche est physiquement enfoncée
 _ptt_handles = []
 
 
@@ -720,6 +721,15 @@ def _ptt_session():
 
 
 def _on_ptt_press(_e=None):
+    # Le clavier ré-émet « press » en rafale tant que la touche est tenue
+    # (auto-répétition). `_ptt_down` garde le fait qu'une frappe est déjà en
+    # cours : on ignore ces répétitions ET on ne relance PAS de session tant
+    # que la touche n'a pas été relâchée. Sans ce garde-fou, si une session
+    # atteint `max_record_seconds` alors que la touche est encore tenue, la
+    # répétition suivante démarrerait une nouvelle session → boucle sans fin.
+    if _ptt_down.is_set():
+        return
+    _ptt_down.set()
     if _ptt_active.is_set():
         return
     _ptt_active.set()
@@ -728,6 +738,7 @@ def _on_ptt_press(_e=None):
 
 
 def _on_ptt_release(_e=None):
+    _ptt_down.clear()
     _ptt_stop.set()
 
 
@@ -736,7 +747,7 @@ def _rebind_ptt():
     global _ptt_handles
     for h in _ptt_handles:
         try:
-            keyboard.remove_hotkey(h)
+            keyboard.unhook(h)      # handles de on_press_key/on_release_key
         except Exception:
             pass
     _ptt_handles = []

@@ -131,6 +131,19 @@ GMEM_MOVEABLE_ZEROINIT = 0x2042
 def set_clipboard(text):
     u32 = ctypes.windll.user32
     k32 = ctypes.windll.kernel32
+    # Types explicites OBLIGATOIRES : sous Windows 64 bits, les HANDLE/pointeurs
+    # font 8 octets. Sans restype/argtypes, ctypes suppose un int 32 bits et
+    # TRONQUE le handle renvoyé par GlobalAlloc/GlobalLock → pointeur invalide →
+    # memmove sur une adresse corrompue → collage cassé à chaque dictée.
+    k32.GlobalAlloc.restype = ctypes.c_void_p
+    k32.GlobalAlloc.argtypes = [ctypes.c_uint, ctypes.c_size_t]
+    k32.GlobalLock.restype = ctypes.c_void_p
+    k32.GlobalLock.argtypes = [ctypes.c_void_p]
+    k32.GlobalUnlock.argtypes = [ctypes.c_void_p]
+    k32.GlobalFree.restype = ctypes.c_void_p
+    k32.GlobalFree.argtypes = [ctypes.c_void_p]
+    u32.SetClipboardData.restype = ctypes.c_void_p
+    u32.SetClipboardData.argtypes = [ctypes.c_uint, ctypes.c_void_p]
     data = text.encode("utf-16-le") + b"\x00\x00"
     for _ in range(5):
         if u32.OpenClipboard(0):
@@ -141,10 +154,18 @@ def set_clipboard(text):
     try:
         u32.EmptyClipboard()
         h = k32.GlobalAlloc(GMEM_MOVEABLE_ZEROINIT, len(data))
+        if not h:
+            return False
         p = k32.GlobalLock(h)
+        if not p:
+            k32.GlobalFree(h)
+            return False
         ctypes.memmove(p, data, len(data))
         k32.GlobalUnlock(h)
-        u32.SetClipboardData(CF_UNICODETEXT, h)
+        # succès → le système devient propriétaire du bloc ; échec → on le libère.
+        if not u32.SetClipboardData(CF_UNICODETEXT, h):
+            k32.GlobalFree(h)
+            return False
     finally:
         u32.CloseClipboard()
     return True

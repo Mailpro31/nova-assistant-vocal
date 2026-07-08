@@ -5,100 +5,141 @@
 <title>Bienvenue sur Nova</title>
 <style>
   :root{
-    --txt:#F4F6FA;--txt2:#AAB2C4;--txt3:#7A8296;--edge:rgba(255,255,255,.14);
-    --blue:#3FA9FF;--blue2:#0a63e8;--green:#22C55E;
-    --font:-apple-system,"SF Pro Display","Segoe UI",Inter,system-ui,sans-serif;
-    --ease:cubic-bezier(.22,1,.36,1);
+    --txt:#F3F5FB;--txt2:#B7BFD2;--txt3:#828AA0;
+    --edge:rgba(255,255,255,.12);--edge2:rgba(255,255,255,.20);
+    /* accents pastel dérivés de l'orbe (nacre) — jamais saturés */
+    --peri:#AEBEEC;--peri-d:#93A6E0;--lav:#C7B9EA;--mint:#AEE2CC;
+    --font:-apple-system,"SF Pro Display","SF Pro Text","Segoe UI",Inter,system-ui,sans-serif;
+    --ease:cubic-bezier(.22,1,.36,1);--spring:cubic-bezier(.34,1.56,.64,1);
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  html,body{width:100%;height:100%;overflow:hidden;background:#06070a;
-    font-family:var(--font);color:var(--txt);-webkit-font-smoothing:antialiased;cursor:default;user-select:none}
-  #video{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;opacity:.42}
-  body.no-video::before{content:"";position:fixed;inset:0;z-index:0;background:
-    radial-gradient(60% 55% at 22% 18%,#2b5cff55,transparent 60%),
-    radial-gradient(55% 55% at 88% 26%,#a06cf655,transparent 60%),
-    radial-gradient(60% 60% at 60% 100%,#12a8c855,transparent 62%),
-    linear-gradient(150deg,#0a1430,#131033 55%,#07131f);
-    animation:drift 16s ease-in-out infinite alternate}
-  @keyframes drift{from{transform:scale(1.05)}to{transform:scale(1.13)}}
-  #shade{position:fixed;inset:0;z-index:1;background:linear-gradient(180deg,#0009,#0006 34%,#000b 100%)}
+  html,body{width:100%;height:100%;overflow:hidden;background:#080a11;
+    font-family:var(--font);color:var(--txt);-webkit-font-smoothing:antialiased;
+    cursor:default;user-select:none}
+
+  /* fond : base sombre teintée pastel + vidéo optionnelle + particules organiques */
+  #bg{position:fixed;inset:0;z-index:0;background:
+    radial-gradient(70% 60% at 20% 14%,#1b2242 0%,transparent 60%),
+    radial-gradient(58% 60% at 86% 20%,#251f40 0%,transparent 60%),
+    radial-gradient(80% 70% at 50% 114%,#16283c 0%,transparent 60%),
+    linear-gradient(160deg,#0b0e17,#0a0c14 60%,#080a11)}
+  #video{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;opacity:.26}
+  #particles{position:fixed;inset:0;z-index:1;pointer-events:none}
+  #vignette{position:fixed;inset:0;z-index:1;pointer-events:none;
+    background:radial-gradient(125% 95% at 50% 46%,transparent 52%,#05060bcc)}
 
   #wiz{position:fixed;inset:0;z-index:2;display:flex;flex-direction:column;
-    align-items:center;justify-content:center;text-align:center;padding:34px}
-  .step{display:none;flex-direction:column;align-items:center;gap:0;max-width:560px;
-    animation:fade .4s var(--ease)}
+    align-items:center;justify-content:center;text-align:center;padding:38px}
+  .step{display:none;flex-direction:column;align-items:center;max-width:580px}
   .step.on{display:flex}
-  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .step.on>*{opacity:0;animation:rise .62s var(--ease) forwards}
+  .step.on>*:nth-child(1){animation-delay:.02s}
+  .step.on>*:nth-child(2){animation-delay:.09s}
+  .step.on>*:nth-child(3){animation-delay:.16s}
+  .step.on>*:nth-child(4){animation-delay:.23s}
+  .step.on>*:nth-child(5){animation-delay:.30s}
+  @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 
-  h1{font-size:32px;font-weight:600;letter-spacing:-.02em;margin:0;text-wrap:balance}
-  h1.sm{font-size:25px}
-  p.sub{color:#cfd6e6;font-size:14.5px;max-width:40ch;margin:11px 0 0;line-height:1.55;text-wrap:balance}
-  .orbwrap{width:118px;height:118px;flex:none}          /* l'orbe a SA zone — texte en dessous */
-  .orbwrap.sm{width:78px;height:78px}
-  .orbwrap canvas{display:block;width:100%;height:100%}  /* le canvas ne déborde JAMAIS de sa zone */
-  .play{display:inline-flex;align-items:center;gap:8px;color:#dfe6f5;font-size:12px;
-    background:#ffffff14;border:1px solid #ffffff26;border-radius:20px;padding:6px 13px;margin-top:14px;
-    backdrop-filter:blur(8px)}
-  .tri{width:0;height:0;border-left:7px solid #fff;border-top:4.5px solid transparent;border-bottom:4.5px solid transparent}
+  h1{font-size:33px;font-weight:600;letter-spacing:-.025em;line-height:1.08;text-wrap:balance}
+  h1.sm{font-size:26px}
+  p.sub{color:var(--txt2);font-size:14.5px;max-width:42ch;margin-top:12px;line-height:1.6;
+    font-weight:400;text-wrap:balance}
 
-  .btnrow{display:flex;gap:10px;align-items:center;margin-top:22px}
-  button{font-family:inherit;cursor:pointer;border:none}
-  .btn{border-radius:11px;padding:11px 26px;font-size:14px;font-weight:600}
-  .btn.pri{background:linear-gradient(180deg,#3FA9FF,#0a63e8);color:#fff;box-shadow:0 6px 18px #0a63e866}
-  .btn.pri:hover{filter:brightness(1.08)}
-  .btn.ghost{background:#ffffff12;color:#e6e9f2;border:1px solid #ffffff26}
+  .orbwrap{width:122px;height:122px;flex:none;margin-bottom:20px}
+  .orbwrap.sm{width:84px;height:84px;margin-bottom:14px}
+  .orbwrap canvas{display:block;width:100%;height:100%}
 
-  .glass{background:rgba(20,22,28,.5);backdrop-filter:blur(24px) saturate(150%);
-    -webkit-backdrop-filter:blur(24px) saturate(150%);border:1px solid var(--edge);
-    border-radius:16px;padding:18px 20px;margin-top:20px}
-  .keys{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
-  .key{background:#ffffff10;border:1px solid #ffffff26;border-radius:10px;padding:9px 16px;font-size:13px;color:#e6e9f2}
-  .key.sel{border-color:var(--blue);box-shadow:0 0 0 1px var(--blue);background:#3FA9FF18}
-  #capkey{margin-top:12px;font-size:12px;color:var(--txt3)}
-  #capkey input{background:#ffffff10;border:1px solid #ffffff26;color:#e6e9f2;border-radius:8px;
-    padding:6px 10px;width:150px;text-align:center;font-family:inherit}
+  .icn{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.7;
+    stroke-linecap:round;stroke-linejoin:round;flex:none}
+  .play{display:inline-flex;align-items:center;gap:9px;color:var(--txt2);font-size:12.5px;
+    background:rgba(255,255,255,.06);border:1px solid var(--edge);border-radius:999px;
+    padding:8px 16px;margin-top:16px;backdrop-filter:blur(10px)}
 
-  .cards{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:20px}
-  .opt{background:#ffffff0e;border:1px solid #ffffff20;border-radius:14px;padding:15px 18px;
-    min-width:150px;text-align:left}
-  .opt.sel{border-color:var(--blue);box-shadow:0 0 0 1px var(--blue),0 8px 24px #0a63e844;background:#3FA9FF14}
-  .opt.lock{opacity:.4;cursor:not-allowed}
-  .opt .t{font-weight:600;font-size:15px;margin-bottom:3px}
-  .opt .h{color:#aab2c4;font-size:11.5px;line-height:1.4}
+  .btnrow{display:flex;gap:11px;align-items:center;margin-top:26px}
+  button{font-family:inherit;cursor:pointer;border:none;transition:transform .32s var(--spring),
+    filter .3s var(--ease),box-shadow .3s var(--ease),background .3s var(--ease)}
+  button:active{transform:scale(.96)}
+  .btn{border-radius:999px;padding:12px 30px;font-size:14.5px;font-weight:600;letter-spacing:-.01em}
+  .btn.pri{color:#131726;background:linear-gradient(180deg,var(--peri),var(--peri-d));
+    box-shadow:0 10px 26px rgba(147,166,224,.32),inset 0 1px 0 rgba(255,255,255,.45)}
+  .btn.pri:hover{filter:brightness(1.05);transform:translateY(-1px)}
+  .btn.ghost{background:rgba(255,255,255,.07);color:var(--txt);border:1px solid var(--edge2);
+    backdrop-filter:blur(10px)}
+  .btn.ghost:hover{background:rgba(255,255,255,.12)}
 
-  select{background:rgba(20,22,28,.7);color:var(--txt);border:1px solid var(--edge);border-radius:11px;
-    padding:11px 16px;font-size:14px;font-family:inherit;min-width:230px;margin-top:20px}
+  .glass{background:rgba(22,25,34,.46);backdrop-filter:blur(26px) saturate(150%);
+    -webkit-backdrop-filter:blur(26px) saturate(150%);border:1px solid var(--edge);
+    border-radius:24px;padding:20px 22px;margin-top:22px}
+  .keys{display:flex;gap:9px;justify-content:center;flex-wrap:wrap}
+  .key{background:rgba(255,255,255,.05);border:1px solid var(--edge);border-radius:14px;
+    padding:11px 18px;font-size:13px;color:var(--txt);
+    transition:transform .32s var(--spring),border-color .3s,box-shadow .3s,background .3s}
+  .key:hover{transform:translateY(-2px);background:rgba(255,255,255,.09)}
+  .key.sel{border-color:var(--peri);box-shadow:0 0 0 1px var(--peri),0 8px 22px rgba(147,166,224,.28);
+    background:rgba(174,190,236,.14)}
+  #capkey{margin-top:14px;font-size:12px;color:var(--txt3)}
+  #capInput{background:rgba(255,255,255,.05);border:1px solid var(--edge);color:var(--txt);
+    border-radius:999px;padding:8px 14px;width:210px;text-align:center;font-family:inherit;outline:none}
+  #capInput:focus{border-color:var(--peri);box-shadow:0 0 0 1px var(--peri)}
 
-  #sound,#skip{position:fixed;z-index:3;top:16px;color:#c7cede;font-size:12px;background:#ffffff12;
-    border:1px solid #ffffff22;border-radius:16px;padding:6px 13px;backdrop-filter:blur(8px)}
-  #sound{left:16px} #skip{right:16px}
-  #dots{position:fixed;z-index:3;bottom:18px;left:50%;transform:translateX(-50%);display:flex;gap:7px}
-  #dots i{width:6px;height:6px;border-radius:50%;background:#ffffff33;transition:.3s}
-  #dots i.on{background:var(--blue);box-shadow:0 0 8px var(--blue)}
-  @media (prefers-reduced-motion:reduce){*{animation:none!important}}
+  .cards{display:flex;gap:13px;justify-content:center;flex-wrap:wrap;margin-top:22px}
+  .opt{background:rgba(255,255,255,.045);border:1px solid var(--edge);border-radius:22px;
+    padding:17px 20px;min-width:158px;text-align:left;
+    transition:transform .34s var(--spring),border-color .3s,box-shadow .3s,background .3s}
+  .opt:not(.lock):hover{transform:translateY(-3px);background:rgba(255,255,255,.075)}
+  .opt.sel{border-color:var(--peri);box-shadow:0 0 0 1px var(--peri),0 12px 30px rgba(147,166,224,.26);
+    background:rgba(174,190,236,.12)}
+  .opt.lock{opacity:.42;cursor:not-allowed}
+  .opt .t{font-weight:600;font-size:15px;margin-bottom:4px;letter-spacing:-.01em}
+  .opt .h{color:var(--txt3);font-size:11.5px;line-height:1.5;display:flex;align-items:center;gap:6px}
+
+  select{background:rgba(22,25,34,.6);color:var(--txt);border:1px solid var(--edge);border-radius:999px;
+    padding:12px 20px;font-size:14px;font-family:inherit;min-width:250px;margin-top:22px;outline:none;
+    -webkit-appearance:none;appearance:none;text-align:center;cursor:pointer}
+  select:focus{border-color:var(--peri)}
+
+  .chip{position:fixed;z-index:3;top:18px;color:var(--txt2);font-size:12.5px;
+    background:rgba(255,255,255,.06);border:1px solid var(--edge);border-radius:999px;
+    padding:8px 15px;display:inline-flex;align-items:center;gap:8px;backdrop-filter:blur(10px)}
+  .chip:hover{background:rgba(255,255,255,.11)}
+  #sound{left:18px} #skip{right:18px}
+  #dots{position:fixed;z-index:3;bottom:22px;left:50%;transform:translateX(-50%);
+    display:flex;gap:8px;align-items:center}
+  #dots i{width:7px;height:7px;border-radius:999px;background:rgba(255,255,255,.22);
+    transition:width .4s var(--spring),background .4s var(--ease)}
+  #dots i.on{width:24px;background:linear-gradient(90deg,var(--peri),var(--lav))}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body class="no-video">
+  <div id="bg"></div>
   <video id="video" autoplay loop muted playsinline></video>
-  <div id="shade"></div>
-  <button id="sound" onclick="toggleSound()">🔇 Son</button>
-  <button id="skip" onclick="api('finish')">Passer →</button>
+  <canvas id="particles"></canvas>
+  <div id="vignette"></div>
+
+  <button id="sound" class="chip" onclick="toggleSound()">
+    <svg class="icn" id="sndIcon" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 9l4 6M21 9l-4 6"/></svg>
+    <span id="sndTxt">Son coupé</span></button>
+  <button id="skip" class="chip" onclick="api('finish')">Passer
+    <svg class="icn" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
 
   <div id="wiz">
     <!-- 0 · accueil -->
     <div class="step on" data-i="0">
       <div class="orbwrap"><canvas id="orb0"></canvas></div>
-      <h1 style="margin-top:16px">Bienvenue sur Nova</h1>
+      <h1>Bienvenue sur Nova</h1>
       <p class="sub">Ta voix devient ton clavier. Maintiens une touche, parle,
         relâche — le texte reformulé s'écrit là où est ton curseur.</p>
-      <span class="play" id="playHint"><span class="tri"></span> Vidéo de présentation</span>
+      <span class="play" id="playHint">
+        <svg class="icn" viewBox="0 0 24 24"><path d="M7 5l12 7-12 7V5z"/></svg>
+        Vidéo de présentation</span>
       <div class="btnrow"><button class="btn pri" onclick="next()">Commencer</button></div>
     </div>
 
     <!-- 1 · touche -->
     <div class="step" data-i="1">
       <h1 class="sm">Choisis ta touche</h1>
-      <p class="sub">Maintenue = j'écoute. Relâchée = je transcris, reformate et colle.</p>
+      <p class="sub">Maintenue, elle m'active. Relâchée, je transcris, reformule et colle.</p>
       <div class="glass"><div class="keys" id="keys"></div>
         <div id="capkey">ou <input id="capInput" placeholder="clique et appuie sur une touche" readonly></div>
       </div>
@@ -110,7 +151,7 @@
     <div class="step" data-i="2">
       <h1 class="sm">Ton profil de puissance</h1>
       <p class="sub">Détecté d'après ta machine. Un profil trop lourd reste
-        verrouillé — jamais de ralentissement.</p>
+        indisponible — jamais de ralentissement.</p>
       <div class="cards" id="profiles"></div>
       <div class="btnrow"><button class="btn ghost" onclick="prev()">Précédent</button>
         <button class="btn pri" onclick="next()">Suivant</button></div>
@@ -131,9 +172,9 @@
       <p class="sub">Modifiable à tout moment depuis le menu.</p>
       <div class="cards">
         <div class="opt" id="optLocal" onclick="chooseCloud(false)">
-          <div class="t">100 % Local</div><div class="h">Rien ne quitte ta machine.<br>Fonctionne hors ligne.</div></div>
+          <div class="t">100 % Local</div><div class="h">Rien ne quitte ta machine, fonctionne hors ligne.</div></div>
         <div class="opt" id="optCloud" onclick="chooseCloud(true)">
-          <div class="t">Cloud</div><div class="h">Plus rapide sur petite config.<br>Nécessite une clé Groq.</div></div>
+          <div class="t">Cloud</div><div class="h">Plus rapide sur petite config, nécessite une clé Groq.</div></div>
       </div>
       <div class="btnrow"><button class="btn ghost" onclick="prev()">Précédent</button>
         <button class="btn pri" onclick="next()">Suivant</button></div>
@@ -142,7 +183,7 @@
     <!-- 5 · prêt -->
     <div class="step" data-i="5">
       <div class="orbwrap sm"><canvas id="orb5"></canvas></div>
-      <h1 class="sm" style="margin-top:14px">Tu es prêt</h1>
+      <h1 class="sm">Tu es prêt</h1>
       <p class="sub">Maintiens ta touche depuis n'importe quelle app pour dicter.
         Tout se règle depuis l'icône dans la barre des tâches.</p>
       <div class="btnrow"><button class="btn ghost" onclick="prev()">Précédent</button>
@@ -160,11 +201,14 @@ let STEP=0, S=null;
 const NS=document.querySelectorAll('.step').length;
 function dots(){const d=document.getElementById('dots');d.innerHTML='';
   for(let i=0;i<NS;i++){const x=document.createElement('i');if(i===STEP)x.className='on';d.appendChild(x);}}
-function show(i){document.querySelectorAll('.step').forEach(s=>s.classList.toggle('on',+s.dataset.i===i));dots();}
+function show(i){document.querySelectorAll('.step').forEach(s=>{
+  const on=+s.dataset.i===i;if(on&&!s.classList.contains('on')){s.classList.remove('on');void s.offsetWidth;}
+  s.classList.toggle('on',on);});dots();}
 function next(){if(STEP<NS-1){STEP++;show(STEP);}}
 function prev(){if(STEP>0){STEP--;show(STEP);}}
 function toggleSound(){const v=document.getElementById('video');v.muted=!v.muted;
-  document.getElementById('sound').textContent=v.muted?'🔇 Son':'🔊 Son';}
+  document.getElementById('sndTxt').textContent=v.muted?'Son coupé':'Son actif';
+  document.getElementById('sndIcon').lastElementChild.style.display=v.muted?'':'none';}
 
 const QK=[['f9','F9'],['f8','F8'],['caps lock','Verr. Maj'],['right ctrl','Ctrl droit']];
 function keys(){const box=document.getElementById('keys');box.innerHTML='';
@@ -174,11 +218,12 @@ function pick(v){S.ptt_key=v;keys();api('set_ptt_key',v);}
 document.getElementById('capInput').addEventListener('keydown',e=>{e.preventDefault();
   const k=(e.key||'').toLowerCase();if(k){e.target.value=k;pick(k);}});
 
+const LOCK='<svg class="icn" viewBox="0 0 24 24" style="width:13px;height:13px"><rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
 function profiles(){const box=document.getElementById('profiles');box.innerHTML='';
   S.profiles.forEach(p=>{const c=document.createElement('div');
     c.className='opt'+(p.locked?' lock':'')+(S.psel===p.id?' sel':'');
     c.innerHTML='<div class="t">'+p.label+'</div><div class="h">'+
-      (p.locked?'🔒 '+p.reason:(p.warning||'Recommandé sur cette machine'))+'</div>';
+      (p.locked?LOCK+'<span>'+p.reason+'</span>':(p.warning||'Recommandé sur cette machine'))+'</div>';
     if(!p.locked)c.onclick=()=>{Promise.resolve(api('set_profile',p.id)).then(a=>{S.psel=a||p.id;profiles();});};
     box.appendChild(c);});}
 
@@ -189,7 +234,34 @@ function chooseCloud(on){Promise.resolve(api('set_cloud',on)).then(()=>{
   document.getElementById('optLocal').classList.toggle('sel',!on);
   document.getElementById('optCloud').classList.toggle('sel',on);});}
 
-// ---- orbe organique (WebGL transparent), réutilisée du système de design ----
+// ---- fond organique : petites particules pastel dérivées du thème de l'orbe ----
+function mountParticles(cv){
+  const ctx=cv.getContext('2d');const DPR=Math.min(2,devicePixelRatio||1);
+  let W,H;const PAL=[[170,190,240],[199,185,234],[174,226,204],[190,222,244],[236,208,226]];
+  function resize(){W=cv.width=innerWidth*DPR;H=cv.height=innerHeight*DPR;}
+  resize();addEventListener('resize',resize);
+  const halos=[];for(let i=0;i<10;i++){const c=PAL[i%PAL.length];
+    halos.push({x:Math.random(),y:Math.random(),r:(120+Math.random()*160)*DPR,
+      vx:(Math.random()-.5)*0.00004,vy:(Math.random()-.5)*0.00004,a:0.05+Math.random()*0.05,c,ph:Math.random()*6.28});}
+  const N=Math.min(72,Math.round(innerWidth/15)),motes=[];
+  for(let i=0;i<N;i++){const c=PAL[i%PAL.length];
+    motes.push({x:Math.random(),y:Math.random(),r:(0.8+Math.random()*2.4)*DPR,
+      vx:(Math.random()-.5)*0.00010,vy:-(0.00004+Math.random()*0.00011),
+      a:0.26+Math.random()*0.5,c,ph:Math.random()*6.28,tw:0.5+Math.random()*1.6});}
+  const reduce=matchMedia('(prefers-reduced-motion:reduce)').matches,t0=performance.now();
+  function wrap(p){if(p.x<-.15)p.x=1.15;if(p.x>1.15)p.x=-.15;if(p.y<-.15)p.y=1.15;if(p.y>1.15)p.y=-.15;}
+  function blob(p,t,soft){const px=p.x*W,py=p.y*H+(soft?Math.sin(t*0.4+p.ph)*8*DPR:0),[r,g,b]=p.c;
+    const a=soft?p.a:p.a*(0.55+0.45*Math.sin(t*p.tw+p.ph));
+    const grd=ctx.createRadialGradient(px,py,0,px,py,p.r);
+    grd.addColorStop(0,'rgba('+r+','+g+','+b+','+a+')');grd.addColorStop(1,'rgba('+r+','+g+','+b+',0)');
+    ctx.fillStyle=grd;ctx.beginPath();ctx.arc(px,py,p.r,0,6.2832);ctx.fill();}
+  (function frame(now){const t=(now-t0)/1000;ctx.clearRect(0,0,W,H);ctx.globalCompositeOperation='lighter';
+    for(const p of halos){if(!reduce){p.x+=p.vx;p.y+=p.vy;wrap(p);}blob(p,t,true);}
+    for(const p of motes){if(!reduce){p.x+=p.vx;p.y+=p.vy;wrap(p);}blob(p,t,false);}
+    ctx.globalCompositeOperation='source-over';if(!reduce)requestAnimationFrame(frame);})(t0);
+}
+
+// ---- orbe organique (WebGL transparent) — inchangée, l'utilisateur la trouve parfaite ----
 const OFRAG=`precision highp float;uniform vec2 uRes;uniform float uT,uVol;uniform vec3 uAccent;
 float hash(vec3 p){p=fract(p*0.3183099+.1);p*=17.0;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}
 float noise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.-2.*f);
@@ -232,6 +304,7 @@ function mountOrb(cv){const gl=cv.getContext('webgl',{alpha:true,antialias:true,
 }
 
 function init(){
+  mountParticles(document.getElementById('particles'));
   Promise.resolve(api('state')).then(st=>{
     S=st||{modes:[],profiles:[],languages:[],ptt_key:'f9',language:'fr',cloud_enabled:false,video_url:''};
     S.psel=null;

@@ -318,6 +318,7 @@ def delete_automation(auto_id):
 # ------------------------------------------------------------------ audio ---
 
 _model = None
+_model_name = ""          # nom du modèle actuellement chargé (détecte les changements de profil)
 _model_lock = threading.Lock()
 _model_state = {"status": "non chargé"}
 transcribe_lock = threading.Lock()   # le modèle ne gère qu'une transcription à la fois
@@ -406,15 +407,21 @@ def _load_whisper(name):
 
 
 def get_model():
-    global _model
+    global _model, _model_name
     with _model_lock:
-        if _model is None:
+        want = CFG["whisper_model"]
+        # recharge si le modèle voulu a changé (ex. changement de profil de
+        # puissance) : sinon un modèle lourd resterait en RAM après un passage à
+        # un profil plus léger, ruinant la garantie « jamais de saturation RAM ».
+        if _model is None or _model_name != want:
+            _model = None
             _model_state["status"] = "chargement…"
             try:
-                _model = _load_whisper(CFG["whisper_model"])
+                _model = _load_whisper(want)
+                _model_name = want
                 _model_state["status"] = "prêt (%s)" % _DEVICE["device"].upper()
                 log_err("stt_device", "modèle « %s » chargé sur %s/%s"
-                        % (CFG["whisper_model"], _DEVICE["device"], _DEVICE["compute"]))
+                        % (want, _DEVICE["device"], _DEVICE["compute"]))
             except Exception as e:
                 _model_state["status"] = f"erreur : {e}"
                 raise
@@ -1335,11 +1342,21 @@ def fill_personal(text):
         if val:
             text = rx.sub(lambda _m, v=val: v, text)
     for trig, val in custom_variables():
-        # \b…\b : « IBAN » ne matche pas « ribambelle » ; casse ignorée ;
-        # remplacement via lambda pour ne pas interpréter \1, \\ dans la valeur
-        text = re.sub(r"\b" + re.escape(trig) + r"\b",
+        # Frontières conditionnelles : on n'exige un bord « mot » que si le
+        # trigger COMMENCE / FINIT par un caractère de mot. Sinon un trigger à
+        # ponctuation (« c.a. », « @perso », « n° ») ne matcherait jamais avec un
+        # simple \b\b. Pour un mot normal (« IBAN »), cela reste équivalent à
+        # \bIBAN\b (« ribambelle » exclu). Casse ignorée ; lambda pour ne pas
+        # interpréter \1, \\ dans la valeur collée.
+        left = r"(?<!\w)" if _is_word_char(trig[:1]) else ""
+        right = r"(?!\w)" if _is_word_char(trig[-1:]) else ""
+        text = re.sub(left + re.escape(trig) + right,
                       lambda _m, v=val: v, text, flags=re.IGNORECASE)
     return text
+
+
+def _is_word_char(ch):
+    return bool(ch) and (ch.isalnum() or ch == "_")
 
 
 # ------------------------------------------- plusieurs demandes d'un coup ---
@@ -1494,7 +1511,10 @@ def transcribe_routed(audio, fast=False):
                 audio, language=_stt_language(),
                 model=CFG["stt"].get("cloud_model", "whisper-large-v3-turbo"),
                 prompt=stt_prompt())
-            return text, "cloud"
+            if text:
+                return text, "cloud"
+            # réponse vide (coupure réseau silencieuse, quota, audio non reconnu) :
+            # on retombe sur le local plutôt que de renvoyer un résultat vide.
         except Exception as e:
             log_err("stt_cloud", e)
     if fast and len(audio) < 16000 * 8:
