@@ -274,43 +274,75 @@ function mountSetParticles(){
   if(!_setRunning&&_setStep){_setRunning=true;requestAnimationFrame(_setStep);}
 }
 
-// ---------- orbe organique (WebGL transparent, réactive à l'état + niveau) ----------
+// ---------- bille de verre (WebGL transparent) : intérieur vivant réfracté, réactif à l'état + voix ----------
 const ORB=(function(){
   const cv=document.getElementById('orb');const gl=cv.getContext('webgl',{alpha:true,premultipliedAlpha:false,antialias:true});
-  const ACC={repos:[0.55,0.66,0.88],listening:[0.34,0.68,1.0],thinking:[0.64,0.54,0.96],ok:[0.3,0.85,0.55],error:[0.9,0.57,0.35]};
-  let state='repos',lvl=0,tgtA=ACC.repos,curA=ACC.repos.slice();
+  const ACC={repos:[0.56,0.64,0.85],listening:[0.42,0.70,1.0],thinking:[0.76,0.70,0.93],ok:[0.58,0.87,0.71],error:[0.90,0.62,0.42]};
+  const MODE={repos:0,listening:1,thinking:2,ok:3,error:0};
+  let state='repos',micTgt=0,level=0,sPos=0,sVel=0,pulse=0,tgtA=ACC.repos,curA=ACC.repos.slice();
   if(!gl){cv.style.cssText+='background:radial-gradient(38% 34% at 40% 32%,#fff,#aab3c6 78%,#7c8496);border-radius:50%';return{setState(s){state=s;},level(){}}; }
-  const F=`precision highp float;uniform vec2 uRes;uniform float uT,uVol;uniform vec3 uAcc;
-  float h(vec3 p){p=fract(p*0.3183099+.1);p*=17.;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}
-  float n(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.-2.*f);
-   return mix(mix(mix(h(i),h(i+vec3(1,0,0)),f.x),mix(h(i+vec3(0,1,0)),h(i+vec3(1,1,0)),f.x),f.y),
-              mix(mix(h(i+vec3(0,0,1)),h(i+vec3(1,0,1)),f.x),mix(h(i+vec3(0,1,1)),h(i+vec3(1,1,1)),f.x),f.y),f.z);}
-  float fb(vec3 p){float a=.5,s=0.;for(int i=0;i<4;i++){s+=a*n(p);p=p*2.02+vec3(1.3);a*=.5;}return s;}
-  void main(){vec2 uv=(gl_FragCoord.xy-.5*uRes)/min(uRes.x,uRes.y);float t=uT;float ang=atan(uv.y,uv.x);
-   vec2 c=vec2(cos(ang),sin(ang));float o1=fb(vec3(c*1.15,t*.2)),o2=fb(vec3(c*2.6+7.,t*.42)),o3=fb(vec3(c*4.3+21.,t*.75));
-   float org=(o1-.5)*.2+(o2-.5)*.085+(o3-.5)*.035;float R=.30*(1.+.04*uVol+.6*org*(.42+uVol*1.7));
-   float r=length(uv);vec3 col=vec3(0.);float lum=0.;
-   if(r<R){float z=sqrt(max(R*R-r*r,0.));vec3 N=normalize(vec3(uv,z));vec3 V=vec3(0,0,1);vec3 L=normalize(vec3(-.42,.58,.8));vec3 H=normalize(L+V);
-    float d=smoothstep(.3,.8,fb(N*2.1+vec3(0,0,t*.16)));vec3 sub=mix(vec3(.58,.66,.8),vec3(.99,1.,1.),d);
-    float df=clamp(dot(N,L)*.5+.62,0.,1.);float sp=pow(max(dot(N,H),0.),42.)*.55+pow(max(dot(N,H),0.),160.)*.5;
-    float fr=pow(1.-max(dot(N,V),0.),3.);col=sub*(.42+.72*df)+sp+fr*(vec3(.9,.94,1.)*.5+uAcc*(.2+.7*uVol));col=col/(1.+col*.6);lum=smoothstep(R,R-.01,r);}
-   float g=smoothstep(R*1.7,R,r);col+=uAcc*g*g*(.06+.3*uVol);float a=max(lum,g*g*(.5+uVol));gl_FragColor=vec4(pow(col,vec3(.92)),clamp(a,0.,1.));}`;
+  const F=`precision highp float;uniform vec2 uRes;uniform float uT,uVol,uSwell,uPulse;uniform int uMode;uniform vec3 uAcc;
+  float hs(vec3 p){p=fract(p*0.3183099+.1);p*=17.;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}
+  float nz(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.-2.*f);
+   return mix(mix(mix(hs(i),hs(i+vec3(1,0,0)),f.x),mix(hs(i+vec3(0,1,0)),hs(i+vec3(1,1,0)),f.x),f.y),
+              mix(mix(hs(i+vec3(0,0,1)),hs(i+vec3(1,0,1)),f.x),mix(hs(i+vec3(0,1,1)),hs(i+vec3(1,1,1)),f.x),f.y),f.z);}
+  float fbm(vec3 p){float a=.5,s=0.;for(int i=0;i<4;i++){s+=a*nz(p);p=p*2.03+vec3(1.7);a*=.5;}return s;}
+  vec3 iris(float x){vec3 c=0.5+0.5*cos(6.2831*(vec3(0.0,0.33,0.66)+x));return mix(vec3(0.80,0.85,0.96),c,0.30);}
+  void main(){
+   vec2 uv=(gl_FragCoord.xy-0.5*uRes)/min(uRes.x,uRes.y);float t=uT;
+   vec2 q=vec2(uv.x,uv.y/1.05);float ang=atan(q.y,q.x);float r=length(q);
+   float v=clamp(uVol,0.0,1.0);float act=smoothstep(0.02,0.16,v);float react=act*(0.60+0.40*v);
+   float disp=(0.024*sin(3.0*ang+t*0.6)+0.017*sin(5.0*ang-t*1.0)+0.011*sin(2.0*ang+t*0.45))*(0.32+1.55*react);
+   float R=(0.30+0.05*uSwell+0.07*uPulse)*(1.0+disp);
+   vec3 col=vec3(0.);float alpha=0.0;
+   if(r<R){
+    float z=sqrt(max(R*R-r*r,0.0));vec3 N=normalize(vec3(q,z));vec3 V=vec3(0.,0.,1.);
+    float rp=sin(r*20.0-t*(3.0+5.5*react));
+    N.xy+=(0.016+0.11*react)*vec2(cos(ang),sin(ang))*rp;N=normalize(N);
+    vec3 L=normalize(vec3(-0.4,0.55,0.8));vec3 Hh=normalize(L+V);vec3 rd=refract(-V,N,0.80);
+    float spin=(uMode==2)?t*1.5:0.0;float cs=cos(spin),sn=sin(spin);vec2 qi=vec2(cs*q.x-sn*q.y,sn*q.x+cs*q.y);
+    float ft=t*(0.16+2.4*react+(uMode==2?0.7:0.0));
+    vec2 f1=vec2(fbm(vec3(qi*1.6+vec2(0.0,ft*0.10),ft*0.18)),fbm(vec3(qi*1.6+vec2(5.0,-ft*0.09),ft*0.18)))-0.5;
+    vec2 f2=vec2(fbm(vec3(qi*3.1+f1*0.6+vec2(ft*0.10,0.0),ft*0.30)),fbm(vec3(qi*3.1+f1*0.6+vec2(9.0,-ft*0.11),ft*0.30)))-0.5;
+    float d1=fbm(vec3((qi+rd.xy*0.42+f1*0.46)*3.0, ft*0.55));
+    float d2=fbm(vec3((qi+rd.xy*0.90+f2*0.72)*3.6+3.3, ft*0.78+2.0));
+    float dens=mix(d1,d2,0.5);
+    vec3 interior=iris(dens*0.85+N.y*0.12+ft*0.05+f1.x*0.40);
+    interior=mix(interior,uAcc,0.26);interior*=(0.5+0.85*smoothstep(0.14,0.95,dens+0.14*f2.y));
+    float fres=pow(1.0-max(N.z,0.0),2.6);vec3 rim=mix(vec3(0.86,0.91,1.0),uAcc,0.35);
+    float sp=pow(max(dot(N,Hh),0.0),90.0)*0.9+pow(max(dot(N,Hh),0.0),420.0)*0.75;
+    col=mix(interior,rim,fres*0.55)+sp;col+=uAcc*fres*(0.12+0.5*react);
+    if(uMode==2){float th=t*2.2;vec2 cpt=vec2(cos(th),sin(th))*R*0.62;float dc=length(q-cpt);
+     col+=(uAcc*0.9+0.22)*exp(-dc*dc*70.0)*(0.65+0.35*sin(t*3.0));}
+    col=col/(1.0+col*0.5);alpha=smoothstep(R,R-0.008,r);
+   }
+   float glow=smoothstep(R*1.55,R,r);float e=(uMode==3)?max(react,uPulse):react;
+   col+=uAcc*glow*glow*(0.05+0.24*e);alpha=max(alpha,glow*glow*(0.4+0.6*e));
+   gl_FragColor=vec4(pow(max(col,0.0),vec3(0.90)),clamp(alpha,0.0,1.0));}`;
   function sh(t,s){const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);return o;}
   const pr=gl.createProgram();gl.attachShader(pr,sh(gl.VERTEX_SHADER,'attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}'));
   gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,F));gl.linkProgram(pr);gl.useProgram(pr);
   const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
   const l=gl.getAttribLocation(pr,'p');gl.enableVertexAttribArray(l);gl.vertexAttribPointer(l,2,gl.FLOAT,false,0,0);
   gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
-  const uR=gl.getUniformLocation(pr,'uRes'),uT=gl.getUniformLocation(pr,'uT'),uV=gl.getUniformLocation(pr,'uVol'),uA=gl.getUniformLocation(pr,'uAcc');
+  const uR=gl.getUniformLocation(pr,'uRes'),uT=gl.getUniformLocation(pr,'uT'),uV=gl.getUniformLocation(pr,'uVol'),
+        uSw=gl.getUniformLocation(pr,'uSwell'),uP=gl.getUniformLocation(pr,'uPulse'),uM=gl.getUniformLocation(pr,'uMode'),uA=gl.getUniformLocation(pr,'uAcc');
   const DPR=Math.min(2,devicePixelRatio||1),t0=performance.now();
   function fit(){const r=cv.getBoundingClientRect();cv.width=Math.max(1,r.width*DPR);cv.height=Math.max(1,r.height*DPR);gl.viewport(0,0,cv.width,cv.height);}
   fit();addEventListener('resize',fit);
   (function f(now){const t=(now-t0)/1000;
-    let base=state==='listening'?0.5:state==='thinking'?0.28:0.14;let vol=Math.min(1,base+lvl*8);lvl*=0.9;
+    // le micro ne pilote le volume QU'EN écoute ; sinon l'anim est intrinsèque (repos/traitement/succès)
+    const target=(state==='listening')?micTgt:0;
+    level+=(target-level)*(target>level?0.30:0.10);
+    sVel+=(level-sPos)*0.14;sVel*=0.80;sPos+=sVel;
+    micTgt*=0.90;pulse*=0.95;
     for(let i=0;i<3;i++)curA[i]+=(tgtA[i]-curA[i])*0.08;
-    gl.clear(gl.COLOR_BUFFER_BIT);gl.uniform2f(uR,cv.width,cv.height);gl.uniform1f(uT,t);gl.uniform1f(uV,vol);gl.uniform3fv(uA,curA);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.uniform2f(uR,cv.width,cv.height);gl.uniform1f(uT,t);gl.uniform1f(uV,level);gl.uniform1f(uSw,sPos);
+    gl.uniform1f(uP,pulse);gl.uniform1i(uM,MODE[state]||0);gl.uniform3fv(uA,curA);
     gl.drawArrays(gl.TRIANGLES,0,3);requestAnimationFrame(f);})(t0);
-  return {setState(s){state=s;tgtA=ACC[s]||ACC.repos;},level(rms){lvl=rms;}};
+  return {setState(s){state=s;tgtA=ACC[s]||ACC.repos;if(s==='ok'||s==='error')pulse=1.0;},
+          level(rms){micTgt=Math.min(1,rms*12);}};
 })();
 
 // ---------- init ----------
