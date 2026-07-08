@@ -24,6 +24,7 @@ import keyboard
 
 import core
 import auto_mode
+import integrations
 import modes_registry
 import power_profiles
 import storage
@@ -620,6 +621,7 @@ def main():
     STATE["profile"] = safe
     core.log_err("startup", f"matériel={hw} → profil={safe}")
 
+    integrations.start_connectivity_loop()   # sonde en ligne (active le STT cloud)
     pill.start()
     _rebind_ptt()
     pill.show("repos", "")
