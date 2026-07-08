@@ -1266,12 +1266,9 @@ def personal_info():
 
 def save_personal(info):
     """Enregistre les infos perso (« Mes infos » : prénom, nom, e-mail, tél,
-    adresse) dans le profil actif, en créant le profil par défaut au besoin.
-    Utilisé par fill_personal (« mon adresse » → …), 100 % local."""
-    pid = CFG.get("active_profile", "")
-    if not pid:
-        pid = storage.ensure_default_profile()
-        save_config({"active_profile": pid})
+    adresse) dans le profil actif. Utilisé par fill_personal (« mon adresse »
+    → …), 100 % local. Le profil actif est garanti par le bootstrap au chargement."""
+    pid = CFG.get("active_profile") or storage.ensure_default_profile()
     prof = storage.get_profile(pid) or {"id": pid, "name": "Profil 1"}
     prof["personal"] = {**(prof.get("personal") or {}), **(info or {})}
     storage.save_profile(prof)
@@ -1474,7 +1471,7 @@ def transcribe_routed(audio, fast=False):
             and integrations.is_online()):
         try:
             text = integrations.groq_transcribe(
-                audio, language=_stt_language() or "",
+                audio, language=_stt_language(),
                 model=CFG["stt"].get("cloud_model", "whisper-large-v3-turbo"),
                 prompt=stt_prompt())
             return text, "cloud"

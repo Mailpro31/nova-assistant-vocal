@@ -427,8 +427,11 @@ class Pill(threading.Thread):
         tk.Label(win, text="Mes infos", bg="#15161A", fg="#ECEFF7",
                  font=("Segoe UI", 13, "bold")).pack(anchor="w", padx=16)
         info = core.personal_info()
-        fields = [("prenom", "Prénom"), ("nom", "Nom"), ("email", "E-mail"),
-                  ("telephone", "Téléphone"), ("adresse", "Adresse")]
+        # clés = source unique storage.PERSONAL_FIELDS (jamais de dérive avec le
+        # stockage) ; libellés propres à l'UI
+        labels = {"prenom": "Prénom", "nom": "Nom", "email": "E-mail",
+                  "telephone": "Téléphone", "adresse": "Adresse"}
+        fields = [(k, labels.get(k, k)) for k in storage.PERSONAL_FIELDS]
         entries = {}
         me = tk.Frame(win, bg="#15161A")
         me.pack(fill="x", padx=16, pady=4)
@@ -593,8 +596,7 @@ def _set_profile(profile_id):
 def _check_update():
     """Ouvre la page des versions (pas de serveur de MàJ dédié pour l'instant)."""
     import webbrowser
-    webbrowser.open(core.CFG.get("update_url")
-                    or "https://github.com/Mailpro31/nova-assistant-vocal/releases")
+    webbrowser.open("https://github.com/Mailpro31/nova-assistant-vocal/releases")
 
 
 def _build_tray():

@@ -18,6 +18,11 @@ _DB = os.path.join(APP_DIR, "nova.db")
 _lock = threading.Lock()
 _conn = None
 
+# Champs perso persistés (« Mes infos »). SOURCE UNIQUE : save_profile filtre
+# là-dessus (une clé hors liste est silencieusement ignorée), et l'UI Réglages
+# itère cette même liste — aucune dérive possible entre écran et stockage.
+PERSONAL_FIELDS = ("prenom", "nom", "email", "telephone", "adresse")
+
 
 def _db():
     global _conn
@@ -329,7 +334,7 @@ def save_profile(p):
     ]
     vocab = [str(v)[:80] for v in (p.get("vocabulary") or []) if str(v).strip()][:200]
     personal = {k: str(v)[:200] for k, v in (p.get("personal") or {}).items()
-                if k in ("prenom", "nom", "adresse", "telephone", "email") and str(v).strip()}
+                if k in PERSONAL_FIELDS and str(v).strip()}
     with _lock:
         _db().execute(
             "INSERT INTO profiles(id, name, vocabulary, contacts, language, created_at,"
