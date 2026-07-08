@@ -454,7 +454,197 @@ class Pill(threading.Thread):
         refresh()
 
 
-pill = Pill()
+# ================================================= dock web (organique, option)
+DOCK_HTML = core.resource_path(os.path.join("ui", "dock.html"))
+
+
+class WebDock:
+    """Dock flottant rendu en webview (orbe organique WebGL, façon Speechly).
+
+    Remplaçant OPTIONNEL de Pill, activé par `CFG["dock_ui"] == "web"` — sinon
+    la pilule tkinter (éprouvée) reste la valeur par défaut : aucune régression.
+    Expose la MÊME API publique que Pill (`show/set_text/hide/level/
+    open_settings`) pour que le push-to-talk et le tray n'aient rien à changer.
+
+    `webview.start()` est bloquant et DOIT tourner sur le thread principal : en
+    mode web, `main()` lance le tray en thread de fond puis cède le thread
+    principal au dock via `run_blocking()`. Tout le visuel (dock + orbe + bulle
+    d'état + réglages en surimpression) vit dans la webview → aucun conflit de
+    boucle d'événements tkinter/pywebview."""
+
+    # tailles de fenêtre : compacte au repos (petite zone au bas-centre),
+    # agrandie quand le menu des modes ou les réglages s'ouvrent.
+    COMPACT = (440, 170)
+    MODES = (440, 470)
+    SETTINGS = (640, 800)
+
+    def __init__(self):
+        self._win = None
+        self._panel = "compact"
+        self._lvl_n = 0
+
+    # ---- API compatible Pill ----
+    def show(self, state, text="", sub=""):
+        self._js("window.novaShow", state, text or "", sub or "")
+
+    def set_text(self, text):
+        self._js("window.novaShow", "listening", text or "", "")
+
+    def hide(self, delay=0.0):
+        self._js("window.novaHide", int(delay * 1000))
+
+    def level(self, rms):
+        # l'orbe lisse déjà le niveau (décroissance interne) : on peut réduire
+        # la cadence des allers-retours JS sans perdre en fluidité.
+        self._lvl_n = (self._lvl_n + 1) % 3
+        if self._lvl_n == 0:
+            self._js("window.novaLevel", float(rms))
+
+    def open_settings(self):
+        self._set_panel("settings")
+        self._js("__openSettings")
+
+    # ---- pont Python → JS ----
+    def _js(self, fn, *args):
+        if self._win is None:
+            return
+        try:
+            import json
+            payload = ",".join(json.dumps(a) for a in args)
+            self._win.evaluate_js(f"{fn}({payload})")
+        except Exception:
+            pass
+
+    # ---- géométrie ----
+    def _screen(self):
+        try:
+            u = ctypes.windll.user32
+            return u.GetSystemMetrics(0), u.GetSystemMetrics(1)
+        except Exception:
+            return 1920, 1080
+
+    def _set_panel(self, name):
+        self._panel = name
+        if self._win is None:
+            return
+        sw, sh = self._screen()
+        w, h = getattr(self, name.upper(), self.COMPACT)
+        if name == "settings":
+            x, y = (sw - w) // 2, max(0, (sh - h) // 2)
+        else:                                   # compacte / modes : ancré bas-centre
+            x, y = (sw - w) // 2, sh - h - 56
+        try:
+            self._win.resize(w, h)
+            self._win.move(x, y)
+        except Exception:
+            pass
+
+    def panel(self, name, open_):
+        """Appelé par le dock quand le menu des modes s'ouvre/se ferme."""
+        self._set_panel(name if open_ else "compact")
+
+    # ---- lancement (bloquant, thread principal) ----
+    def run_blocking(self):
+        import webview
+        sw, sh = self._screen()
+        w, h = self.COMPACT
+        self._win = webview.create_window(
+            "Nova", DOCK_HTML, width=w, height=h,
+            x=(sw - w) // 2, y=sh - h - 56,
+            frameless=True, easy_drag=False, on_top=True,
+            transparent=True, resizable=False, js_api=DockApi(self))
+        webview.start()
+
+    def destroy(self):
+        try:
+            import webview
+            if webview.windows:
+                webview.windows[0].destroy()
+        except Exception:
+            pass
+
+
+class DockApi:
+    """Pont JS → Python du dock. Chaque méthode réutilise EXACTEMENT la logique
+    du tray / des Réglables tkinter (aucune règle de configuration dupliquée)."""
+
+    def __init__(self, dock):
+        self._dock = dock
+
+    def state(self):
+        hw = power_profiles.detect_hardware()
+        return {
+            "modes": [{"id": m["id"], "label": m["label"], "hotkey": m["hotkey"]}
+                     for m in modes_registry.all_modes()],
+            "profiles": power_profiles.evaluate(hw),
+            "hardware": hw,
+            "languages": [{"code": c, "label": lbl} for c, lbl in core.LANGUAGES],
+            "mode": STATE.get("mode", modes_registry.DEFAULT_MODE_ID),
+            "profile": STATE.get("profile", power_profiles.DEFAULT_ID),
+            "ptt_key": core.CFG.get("ptt_key", "f9"),
+            "language": core.CFG.get("language", "fr"),
+            "cloud_enabled": bool(core.CFG.get("stt", {}).get("cloud_enabled")),
+            "personal": core.personal_info(),
+            "custom_vars": [{"trigger": t, "value": v}
+                            for t, v in core.custom_variables()],
+        }
+
+    def set_mode(self, mode_id):
+        _set_mode(mode_id)
+        return mode_id
+
+    def settings(self, open_):
+        self._dock._set_panel("settings" if open_ else "compact")
+
+    def panel(self, name, open_):
+        self._dock.panel(name, bool(open_))
+
+    def set_profile(self, profile_id):
+        return _set_profile_silent(profile_id)
+
+    def set_language(self, code):
+        _set_language(code)
+        return code
+
+    def toggle_cloud(self):
+        _toggle_cloud()
+        return bool(core.CFG.get("stt", {}).get("cloud_enabled"))
+
+    def set_ptt_key(self, key):
+        key = (key or "").strip().lower()
+        if key:
+            core.save_config({"ptt_key": key})
+            _rebind_ptt()
+        return core.CFG.get("ptt_key")
+
+    def save_custom_vars(self, items):
+        return core.save_custom_variables(items or [])
+
+    def save_personal(self, info):
+        core.save_personal(info or {})
+        return core.personal_info()
+
+    def check_update(self):
+        _check_update()
+
+    def quit(self):
+        _request_quit(_tray_icon)
+
+
+def _make_ui():
+    """Choisit l'UI selon `CFG["dock_ui"]` : "web" = dock organique (webview),
+    tout le reste (défaut) = pilule tkinter éprouvée. Repli sur la pilule si le
+    dock web ne peut pas être instancié — jamais de démarrage cassé."""
+    if core.CFG.get("dock_ui") == "web":
+        try:
+            return WebDock()
+        except Exception as e:
+            core.log_err("dock_ui", e)
+    return Pill()
+
+
+pill = _make_ui()
+_tray_icon = None
 
 
 # ============================================================ push-to-talk ===
@@ -590,6 +780,27 @@ def _set_profile(profile_id):
     pill.hide(1.4)
 
 
+def _set_profile_silent(profile_id):
+    """Comme `_set_profile` mais sans bulle (le dock reflète déjà le choix dans
+    ses réglages). Retourne l'id réellement appliqué (repli éventuel)."""
+    safe = power_profiles.select_and_apply(profile_id, core.save_config)
+    STATE["profile"] = safe
+    return safe
+
+
+def _request_quit(icon=None):
+    """Quitte proprement quelle que soit l'UI : arrête le tray puis, en mode
+    dock web, ferme la fenêtre webview → `run_blocking()` rend la main et
+    `main()` termine le process."""
+    try:
+        if icon is not None:
+            icon.stop()
+    except Exception:
+        pass
+    if isinstance(pill, WebDock):
+        pill.destroy()
+
+
 def _check_update():
     """Ouvre la page des versions (pas de serveur de MàJ dédié pour l'instant)."""
     import webbrowser
@@ -639,7 +850,7 @@ def _build_tray():
         Menu.SEPARATOR,
         MenuItem("Réglages…", lambda _i, _it: pill.open_settings()),
         MenuItem("Vérifier les mises à jour", lambda _i, _it: _check_update()),
-        MenuItem("Quitter", lambda icon, _it: icon.stop()),
+        MenuItem("Quitter", lambda icon, _it: _request_quit(icon)),
     )
     return pystray.Icon(APP_NAME, img, "Nova — dictée vocale", menu)
 
@@ -661,12 +872,26 @@ def main():
     STATE["profile"] = core.CFG.get("profile", safe)   # reflète un choix fait dans l'onboarding
 
     integrations.start_connectivity_loop()   # sonde en ligne (active le STT cloud)
+
+    global _tray_icon
+    if isinstance(pill, WebDock):
+        # Dock web : webview.start() est bloquant et exige le thread principal.
+        # Le tray tourne donc en thread de fond ; le dock prend le thread
+        # principal. Tout le visuel (dock + réglages) vit dans la webview.
+        _rebind_ptt()
+        _tray_icon = _build_tray()
+        threading.Thread(target=_tray_icon.run, daemon=True).start()
+        pill.run_blocking()          # bloquant jusqu'à la fermeture du dock
+        os._exit(0)
+
+    # Pilule tkinter (défaut, éprouvée) : la pilule tourne dans son thread, le
+    # tray prend le thread principal — comportement historique, inchangé.
     pill.start()
     _rebind_ptt()
     pill.show("repos", "")
     pill.hide(2.5)
-    icon = _build_tray()
-    icon.run()                       # bloquant (thread principal)
+    _tray_icon = _build_tray()
+    _tray_icon.run()                 # bloquant (thread principal)
     # sortie du tray = on quitte proprement
     os._exit(0)
 
