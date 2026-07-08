@@ -12,20 +12,13 @@ le reste de l'app (et la CI, qui n'installe pas pywebview) n'en dépend jamais.
 """
 
 import os
-import sys
 
 import core
 import modes_registry
 import power_profiles
 
-
-def resource_path(rel):
-    base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
-    return os.path.join(base, rel)
-
-
-VIDEO_PATH = resource_path(os.path.join("assets", "onboarding.mp4"))
-HTML_PATH = resource_path(os.path.join("onboarding", "onboarding.html"))
+VIDEO_PATH = core.resource_path(os.path.join("assets", "onboarding.mp4"))
+HTML_PATH = core.resource_path(os.path.join("onboarding", "onboarding.html"))
 
 
 def needs_onboarding():
@@ -67,12 +60,9 @@ class Api:
         return core.CFG.get("ptt_key")
 
     def set_profile(self, profile_id):
-        """Sélection bornée à ce que la machine encaisse — même garde-fou que
-        le tray (`power_profiles.safe_selection`) : jamais de profil instable."""
-        hw = power_profiles.detect_hardware()
-        safe = power_profiles.safe_selection(profile_id, hw)
-        power_profiles.apply_profile(safe, core.save_config)
-        return safe
+        """Sélection bornée à ce que la machine encaisse — même séquence que le
+        tray (`power_profiles.select_and_apply`) : jamais de profil instable."""
+        return power_profiles.select_and_apply(profile_id, core.save_config)
 
     def set_language(self, code):
         core.save_config({"language": code})
@@ -87,13 +77,9 @@ class Api:
     def finish(self):
         """Ferme la fenêtre ; `run()` marque l'onboarding fait à la sortie,
         que la fermeture vienne d'ici ou d'un clic sur la croix de la fenêtre."""
-        _close_window()
-
-
-def _close_window():
-    import webview
-    if webview.windows:
-        webview.windows[0].destroy()
+        import webview
+        if webview.windows:
+            webview.windows[0].destroy()
 
 
 def run():

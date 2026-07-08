@@ -48,9 +48,7 @@ STATE = {"mode": core.CFG.get("mode", modes_registry.DEFAULT_MODE_ID),
          "profile": core.CFG.get("profile", power_profiles.DEFAULT_ID)}
 
 
-def resource_path(rel):
-    base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
-    return os.path.join(base, rel)
+resource_path = core.resource_path
 
 
 # ============================================================ pilule flottante
@@ -586,9 +584,7 @@ def _set_profile(profile_id):
     """Sélection d'un profil de puissance : refusée si la machine ne le supporte
     pas (repli sur le plus lourd sûr). Câble STT + LLM local sans exposer les
     noms de modèles."""
-    hw = power_profiles.detect_hardware()
-    safe = power_profiles.safe_selection(profile_id, hw)
-    power_profiles.apply_profile(safe, core.save_config)
+    safe = power_profiles.select_and_apply(profile_id, core.save_config)
     STATE["profile"] = safe
     pill.show("ok", f"Profil : {power_profiles.get_profile(safe)['label']}")
     pill.hide(1.4)
@@ -649,16 +645,20 @@ def _build_tray():
 
 
 def main():
-    if onboarding.needs_onboarding():
-        onboarding.run()              # bloquant, une seule fois (1er lancement)
-
-    # profil de puissance : on borne la sélection sauvegardée à ce que la machine
-    # encaisse réellement (garantie « sans bug, sans saturation RAM »)
+    # profil de puissance : bootstrap AVANT tout le reste, y compris l'onboarding
+    # (best-effort, peut échouer ou être fermé sans être terminé) — la garantie
+    # « jamais de saturation RAM » ne doit jamais dépendre de l'écran d'accueil.
     hw = power_profiles.detect_hardware()
-    safe = power_profiles.safe_selection(core.CFG.get("profile", "normal"), hw)
-    power_profiles.apply_profile(safe, core.save_config)
-    STATE["profile"] = safe
+    safe = power_profiles.select_and_apply(core.CFG.get("profile", "normal"), core.save_config)
     core.log_err("startup", f"matériel={hw} → profil={safe}")
+
+    if onboarding.needs_onboarding():
+        try:
+            onboarding.run()          # bloquant, une seule fois (1er lancement)
+        except Exception as e:
+            core.log_err("onboarding", e)   # jamais bloquant : on démarre quand même
+
+    STATE["profile"] = core.CFG.get("profile", safe)   # reflète un choix fait dans l'onboarding
 
     integrations.start_connectivity_loop()   # sonde en ligne (active le STT cloud)
     pill.start()

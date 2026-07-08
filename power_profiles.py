@@ -138,3 +138,12 @@ def apply_profile(profile_id, cfg_save):
         "providers": providers,
     })
     return p["id"]
+
+
+def select_and_apply(profile_id, cfg_save):
+    """Détecte le matériel, borne la sélection à ce qu'il supporte sans risque
+    et l'applique — la SEULE séquence à appeler pour changer de profil (tray,
+    onboarding, démarrage). Retourne l'id réellement appliqué."""
+    hw = detect_hardware()
+    safe = safe_selection(profile_id, hw)
+    return apply_profile(safe, cfg_save)

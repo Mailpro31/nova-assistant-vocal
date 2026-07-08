@@ -204,10 +204,12 @@ def test_onboarding():
 
     api = onboarding.Api()
     st = api.state()
-    check("state() expose les 7 modes", len(st["modes"]), 7)
+    check("state() expose tous les modes (source modes_registry)",
+          len(st["modes"]), len(modes_registry.all_modes()))
     check("state() expose les langues (source core.LANGUAGES)",
           len(st["languages"]), len(core.LANGUAGES))
-    check("state() expose les profils évalués", len(st["profiles"]), 3)
+    check("state() expose tous les profils (source power_profiles)",
+          len(st["profiles"]), len(power_profiles.PROFILES))
 
     check("set_ptt_key persiste", api.set_ptt_key("F8"), "f8")
     check("set_ptt_key ignore une valeur vide (garde l'ancienne)",

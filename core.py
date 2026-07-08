@@ -21,6 +21,14 @@ import winext
 
 APP_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
 
+
+def resource_path(rel):
+    """Chemin d'une ressource embarquée (icône, HTML d'onboarding…), qu'on
+    tourne en script ou en .exe PyInstaller (`sys._MEIPASS`). Source unique —
+    app.py et onboarding.py l'utilisaient chacun en copie identique."""
+    base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base, rel)
+
 DEFAULT_CONFIG = {
     # --- v3 (Speechly-lite) / nova-produit ---
     "ptt_key": "f9",          # push-to-talk : touche MAINTENUE = parle, relâchée = colle
