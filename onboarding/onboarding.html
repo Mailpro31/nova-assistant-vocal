@@ -2,297 +2,251 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<title>Nova — Bienvenue</title>
+<title>Bienvenue sur Nova</title>
 <style>
-  :root {
-    --bg: #101114; --panel: #1A1B20d0; --border: #2A2C33; --text: #ECEFF7;
-    --muted: #8A8F9C; --blue: #3FA9FF; --blue-dark: #0A63E8; --green: #22C55E;
+  :root{
+    --txt:#F4F6FA;--txt2:#AAB2C4;--txt3:#7A8296;--edge:rgba(255,255,255,.14);
+    --blue:#3FA9FF;--blue2:#0a63e8;--green:#22C55E;
+    --font:-apple-system,"SF Pro Display","Segoe UI",Inter,system-ui,sans-serif;
+    --ease:cubic-bezier(.22,1,.36,1);
   }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
-    font-family: "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:100%;height:100%;overflow:hidden;background:#06070a;
+    font-family:var(--font);color:var(--txt);-webkit-font-smoothing:antialiased;cursor:default;user-select:none}
+  #video{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;opacity:.42}
+  body.no-video::before{content:"";position:fixed;inset:0;z-index:0;background:
+    radial-gradient(60% 55% at 22% 18%,#2b5cff55,transparent 60%),
+    radial-gradient(55% 55% at 88% 26%,#a06cf655,transparent 60%),
+    radial-gradient(60% 60% at 60% 100%,#12a8c855,transparent 62%),
+    linear-gradient(150deg,#0a1430,#131033 55%,#07131f);
+    animation:drift 16s ease-in-out infinite alternate}
+  @keyframes drift{from{transform:scale(1.05)}to{transform:scale(1.13)}}
+  #shade{position:fixed;inset:0;z-index:1;background:linear-gradient(180deg,#0009,#0006 34%,#000b 100%)}
 
-  #bg-video { position: fixed; inset: 0; width: 100%; height: 100%;
-    object-fit: cover; z-index: -2; opacity: .38; }
-  body.no-video { background: radial-gradient(120% 120% at 20% 0%,
-    #3FA9FF22, transparent 60%), radial-gradient(120% 120% at 100% 100%,
-    #0A63E822, transparent 55%), var(--bg); }
-  #bg-shade { position: fixed; inset: 0; z-index: -1;
-    background: linear-gradient(180deg, #10111466, #101114cc 70%, #101114); }
+  #wiz{position:fixed;inset:0;z-index:2;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;text-align:center;padding:34px}
+  .step{display:none;flex-direction:column;align-items:center;gap:0;max-width:560px;
+    animation:fade .4s var(--ease)}
+  .step.on{display:flex}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 
-  #wizard { position: relative; width: 100%; height: 100%;
-    display: flex; flex-direction: column; align-items: center;
-    justify-content: center; padding: 24px; }
+  h1{font-size:32px;font-weight:600;letter-spacing:-.02em;margin:0;text-wrap:balance}
+  h1.sm{font-size:25px}
+  p.sub{color:#cfd6e6;font-size:14.5px;max-width:40ch;margin:11px 0 0;line-height:1.55;text-wrap:balance}
+  .orbwrap{width:118px;height:118px;flex:none}          /* l'orbe a SA zone — texte en dessous */
+  .orbwrap.sm{width:78px;height:78px}
+  .orbwrap canvas{display:block;width:100%;height:100%}  /* le canvas ne déborde JAMAIS de sa zone */
+  .play{display:inline-flex;align-items:center;gap:8px;color:#dfe6f5;font-size:12px;
+    background:#ffffff14;border:1px solid #ffffff26;border-radius:20px;padding:6px 13px;margin-top:14px;
+    backdrop-filter:blur(8px)}
+  .tri{width:0;height:0;border-left:7px solid #fff;border-top:4.5px solid transparent;border-bottom:4.5px solid transparent}
 
-  .step { display: none; flex-direction: column; align-items: center;
-    text-align: center; max-width: 620px; width: 100%;
-    animation: fadein .35s ease; }
-  .step.active { display: flex; }
-  @keyframes fadein { from { opacity: 0; transform: translateY(6px); }
-                      to { opacity: 1; transform: translateY(0); } }
+  .btnrow{display:flex;gap:10px;align-items:center;margin-top:22px}
+  button{font-family:inherit;cursor:pointer;border:none}
+  .btn{border-radius:11px;padding:11px 26px;font-size:14px;font-weight:600}
+  .btn.pri{background:linear-gradient(180deg,#3FA9FF,#0a63e8);color:#fff;box-shadow:0 6px 18px #0a63e866}
+  .btn.pri:hover{filter:brightness(1.08)}
+  .btn.ghost{background:#ffffff12;color:#e6e9f2;border:1px solid #ffffff26}
 
-  h1 { font-size: 26px; margin: 0 0 8px; font-weight: 600; }
-  p.sub { color: var(--muted); font-size: 14px; margin: 0 0 22px; line-height: 1.5; }
+  .glass{background:rgba(20,22,28,.5);backdrop-filter:blur(24px) saturate(150%);
+    -webkit-backdrop-filter:blur(24px) saturate(150%);border:1px solid var(--edge);
+    border-radius:16px;padding:18px 20px;margin-top:20px}
+  .keys{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+  .key{background:#ffffff10;border:1px solid #ffffff26;border-radius:10px;padding:9px 16px;font-size:13px;color:#e6e9f2}
+  .key.sel{border-color:var(--blue);box-shadow:0 0 0 1px var(--blue);background:#3FA9FF18}
+  #capkey{margin-top:12px;font-size:12px;color:var(--txt3)}
+  #capkey input{background:#ffffff10;border:1px solid #ffffff26;color:#e6e9f2;border-radius:8px;
+    padding:6px 10px;width:150px;text-align:center;font-family:inherit}
 
-  .card-row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
-    margin-bottom: 8px; }
-  .card { background: var(--panel); border: 1px solid var(--border);
-    border-radius: 14px; padding: 16px 18px; cursor: pointer; min-width: 150px;
-    transition: border-color .15s, transform .15s; backdrop-filter: blur(6px); }
-  .card:hover { transform: translateY(-2px); }
-  .card.selected { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
-  .card.locked { opacity: .45; cursor: not-allowed; }
-  .card .title { font-weight: 600; font-size: 15px; margin-bottom: 4px; }
-  .card .hint { font-size: 11.5px; color: var(--muted); }
+  .cards{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:20px}
+  .opt{background:#ffffff0e;border:1px solid #ffffff20;border-radius:14px;padding:15px 18px;
+    min-width:150px;text-align:left}
+  .opt.sel{border-color:var(--blue);box-shadow:0 0 0 1px var(--blue),0 8px 24px #0a63e844;background:#3FA9FF14}
+  .opt.lock{opacity:.4;cursor:not-allowed}
+  .opt .t{font-weight:600;font-size:15px;margin-bottom:3px}
+  .opt .h{color:#aab2c4;font-size:11.5px;line-height:1.4}
 
-  button.nav { background: var(--blue-dark); color: #fff; border: none;
-    border-radius: 10px; padding: 11px 26px; font-size: 14px; cursor: pointer;
-    font-weight: 600; transition: filter .15s; }
-  button.nav:hover { filter: brightness(1.12); }
-  button.nav:disabled { opacity: .35; cursor: default; }
-  button.ghost { background: transparent; color: var(--muted); border: 1px solid var(--border);
-    border-radius: 10px; padding: 11px 20px; font-size: 14px; cursor: pointer; }
+  select{background:rgba(20,22,28,.7);color:var(--txt);border:1px solid var(--edge);border-radius:11px;
+    padding:11px 16px;font-size:14px;font-family:inherit;min-width:230px;margin-top:20px}
 
-  .nav-row { display: flex; gap: 10px; margin-top: 26px; align-items: center; }
-  #dots { display: flex; gap: 7px; position: fixed; bottom: 20px; left: 50%;
-    transform: translateX(-50%); }
-  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border); }
-  .dot.on { background: var(--blue); }
-
-  #sound-btn { position: fixed; top: 18px; right: 18px; background: var(--panel);
-    border: 1px solid var(--border); color: var(--text); border-radius: 20px;
-    padding: 7px 14px; font-size: 12.5px; cursor: pointer; }
-
-  .key-btn { background: var(--panel); border: 1px solid var(--border);
-    color: var(--text); border-radius: 10px; padding: 9px 16px; margin: 4px;
-    cursor: pointer; font-size: 13px; }
-  .key-btn.selected { border-color: var(--blue); }
-  #custom-key { margin-top: 10px; font-size: 12.5px; color: var(--muted); }
-  #custom-key input { background: var(--panel); border: 1px solid var(--border);
-    color: var(--text); border-radius: 8px; padding: 6px 10px; width: 120px;
-    text-align: center; }
-
-  .toggle-row { display: flex; gap: 14px; }
-  .toggle-card { background: var(--panel); border: 1px solid var(--border);
-    border-radius: 14px; padding: 18px; width: 220px; cursor: pointer; }
-  .toggle-card.selected { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
-  .toggle-card .title { font-weight: 600; margin-bottom: 6px; }
-  .toggle-card .hint { font-size: 12px; color: var(--muted); line-height: 1.4; }
-
-  .logo { width: 42px; height: 42px; border-radius: 10px; margin-bottom: 14px;
-    background: linear-gradient(160deg, var(--blue), var(--blue-dark)); }
+  #sound,#skip{position:fixed;z-index:3;top:16px;color:#c7cede;font-size:12px;background:#ffffff12;
+    border:1px solid #ffffff22;border-radius:16px;padding:6px 13px;backdrop-filter:blur(8px)}
+  #sound{left:16px} #skip{right:16px}
+  #dots{position:fixed;z-index:3;bottom:18px;left:50%;transform:translateX(-50%);display:flex;gap:7px}
+  #dots i{width:6px;height:6px;border-radius:50%;background:#ffffff33;transition:.3s}
+  #dots i.on{background:var(--blue);box-shadow:0 0 8px var(--blue)}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important}}
 </style>
 </head>
-<body>
-  <video id="bg-video" autoplay loop muted playsinline></video>
-  <div id="bg-shade"></div>
-  <button id="sound-btn" onclick="toggleSound()">🔇 Activer le son</button>
+<body class="no-video">
+  <video id="video" autoplay loop muted playsinline></video>
+  <div id="shade"></div>
+  <button id="sound" onclick="toggleSound()">🔇 Son</button>
+  <button id="skip" onclick="api('finish')">Passer →</button>
 
-  <div id="wizard">
-
-    <div class="step active" data-step="0">
-      <div class="logo"></div>
-      <h1>Bienvenue sur Nova</h1>
-      <p class="sub">Votre voix devient votre nouveau clavier. Maintenez une
-        touche, parlez, relâchez — le texte reformulé s'écrit directement là
-        où est votre curseur, dans n'importe quelle app.</p>
-      <div class="nav-row"><button class="nav" onclick="next()">Commencer</button></div>
+  <div id="wiz">
+    <!-- 0 · accueil -->
+    <div class="step on" data-i="0">
+      <div class="orbwrap"><canvas id="orb0"></canvas></div>
+      <h1 style="margin-top:16px">Bienvenue sur Nova</h1>
+      <p class="sub">Ta voix devient ton clavier. Maintiens une touche, parle,
+        relâche — le texte reformulé s'écrit là où est ton curseur.</p>
+      <span class="play" id="playHint"><span class="tri"></span> Vidéo de présentation</span>
+      <div class="btnrow"><button class="btn pri" onclick="next()">Commencer</button></div>
     </div>
 
-    <div class="step" data-step="1">
-      <h1>Choisissez votre touche</h1>
+    <!-- 1 · touche -->
+    <div class="step" data-i="1">
+      <h1 class="sm">Choisis ta touche</h1>
       <p class="sub">Maintenue = j'écoute. Relâchée = je transcris, reformate et colle.</p>
-      <div id="key-choices"></div>
-      <div id="custom-key">
-        ou <input id="custom-key-input" placeholder="cliquez et appuyez sur une touche" readonly>
+      <div class="glass"><div class="keys" id="keys"></div>
+        <div id="capkey">ou <input id="capInput" placeholder="clique et appuie sur une touche" readonly></div>
       </div>
-      <div class="nav-row">
-        <button class="ghost" onclick="prev()">Précédent</button>
-        <button class="nav" onclick="next()">Suivant</button>
-      </div>
+      <div class="btnrow"><button class="btn ghost" onclick="prev()">Précédent</button>
+        <button class="btn pri" onclick="next()">Suivant</button></div>
     </div>
 
-    <div class="step" data-step="2">
-      <h1>Votre profil de puissance</h1>
-      <p class="sub">Détecté d'après votre machine — un profil grisé la
-        surchargerait, il reste verrouillé pour votre sécurité.</p>
-      <div id="profile-cards" class="card-row"></div>
-      <div class="nav-row">
-        <button class="ghost" onclick="prev()">Précédent</button>
-        <button class="nav" onclick="next()">Suivant</button>
-      </div>
+    <!-- 2 · profil -->
+    <div class="step" data-i="2">
+      <h1 class="sm">Ton profil de puissance</h1>
+      <p class="sub">Détecté d'après ta machine. Un profil trop lourd reste
+        verrouillé — jamais de ralentissement.</p>
+      <div class="cards" id="profiles"></div>
+      <div class="btnrow"><button class="btn ghost" onclick="prev()">Précédent</button>
+        <button class="btn pri" onclick="next()">Suivant</button></div>
     </div>
 
-    <div class="step" data-step="3">
-      <h1>Votre langue</h1>
-      <p class="sub">Une langue explicite améliore nettement la précision par
-        rapport à la détection automatique.</p>
-      <select id="lang-select" style="background:var(--panel);color:var(--text);
-        border:1px solid var(--border);border-radius:10px;padding:10px 16px;
-        font-size:14px;min-width:220px;"></select>
-      <div class="nav-row">
-        <button class="ghost" onclick="prev()">Précédent</button>
-        <button class="nav" onclick="next()">Suivant</button>
-      </div>
+    <!-- 3 · langue -->
+    <div class="step" data-i="3">
+      <h1 class="sm">Ta langue</h1>
+      <p class="sub">Une langue explicite améliore nettement la précision.</p>
+      <select id="lang" onchange="api('set_language',this.value)"></select>
+      <div class="btnrow"><button class="btn ghost" onclick="prev()">Précédent</button>
+        <button class="btn pri" onclick="next()">Suivant</button></div>
     </div>
 
-    <div class="step" data-step="4">
-      <h1>Local ou Cloud ?</h1>
-      <p class="sub">Vous pourrez changer à tout moment depuis le menu.</p>
-      <div class="toggle-row">
-        <div class="toggle-card" id="opt-local" onclick="chooseCloud(false)">
-          <div class="title">100 % Local</div>
-          <div class="hint">Rien ne quitte votre machine. Fonctionne hors ligne.</div>
-        </div>
-        <div class="toggle-card" id="opt-cloud" onclick="chooseCloud(true)">
-          <div class="title">Cloud</div>
-          <div class="hint">Plus rapide sur les petites configs. Nécessite une clé Groq.</div>
-        </div>
+    <!-- 4 · moteur -->
+    <div class="step" data-i="4">
+      <h1 class="sm">Local ou Cloud ?</h1>
+      <p class="sub">Modifiable à tout moment depuis le menu.</p>
+      <div class="cards">
+        <div class="opt" id="optLocal" onclick="chooseCloud(false)">
+          <div class="t">100 % Local</div><div class="h">Rien ne quitte ta machine.<br>Fonctionne hors ligne.</div></div>
+        <div class="opt" id="optCloud" onclick="chooseCloud(true)">
+          <div class="t">Cloud</div><div class="h">Plus rapide sur petite config.<br>Nécessite une clé Groq.</div></div>
       </div>
-      <div class="nav-row">
-        <button class="ghost" onclick="prev()">Précédent</button>
-        <button class="nav" onclick="next()">Suivant</button>
-      </div>
+      <div class="btnrow"><button class="btn ghost" onclick="prev()">Précédent</button>
+        <button class="btn pri" onclick="next()">Suivant</button></div>
     </div>
 
-    <div class="step" data-step="5">
-      <h1>Vous êtes prêt</h1>
-      <p class="sub">Maintenez votre touche depuis n'importe quelle app pour
-        dicter. Changez de mode, de langue ou de profil à tout moment depuis
-        l'icône dans la barre des tâches.</p>
-      <div class="nav-row">
-        <button class="ghost" onclick="prev()">Précédent</button>
-        <button class="nav" onclick="finish()">Terminer</button>
-      </div>
+    <!-- 5 · prêt -->
+    <div class="step" data-i="5">
+      <div class="orbwrap sm"><canvas id="orb5"></canvas></div>
+      <h1 class="sm" style="margin-top:14px">Tu es prêt</h1>
+      <p class="sub">Maintiens ta touche depuis n'importe quelle app pour dicter.
+        Tout se règle depuis l'icône dans la barre des tâches.</p>
+      <div class="btnrow"><button class="btn ghost" onclick="prev()">Précédent</button>
+        <button class="btn pri" onclick="api('finish')">Terminer</button></div>
     </div>
-
   </div>
   <div id="dots"></div>
 
 <script>
-let STEP = 0;
-let STATE = null;
-const N_STEPS = document.querySelectorAll(".step").length;
+// ---- pont API (tolère l'absence de pywebview dans un aperçu) ----
+function api(m){ try{ return window.pywebview.api[m].apply(null,[].slice.call(arguments,1)); }
+  catch(e){ return Promise.resolve(null); } }
 
-function renderDots() {
-  const dots = document.getElementById("dots");
-  dots.innerHTML = "";
-  for (let i = 0; i < N_STEPS; i++) {
-    const d = document.createElement("div");
-    d.className = "dot" + (i === STEP ? " on" : "");
-    dots.appendChild(d);
-  }
+let STEP=0, S=null;
+const NS=document.querySelectorAll('.step').length;
+function dots(){const d=document.getElementById('dots');d.innerHTML='';
+  for(let i=0;i<NS;i++){const x=document.createElement('i');if(i===STEP)x.className='on';d.appendChild(x);}}
+function show(i){document.querySelectorAll('.step').forEach(s=>s.classList.toggle('on',+s.dataset.i===i));dots();}
+function next(){if(STEP<NS-1){STEP++;show(STEP);}}
+function prev(){if(STEP>0){STEP--;show(STEP);}}
+function toggleSound(){const v=document.getElementById('video');v.muted=!v.muted;
+  document.getElementById('sound').textContent=v.muted?'🔇 Son':'🔊 Son';}
+
+const QK=[['f9','F9'],['f8','F8'],['caps lock','Verr. Maj'],['right ctrl','Ctrl droit']];
+function keys(){const box=document.getElementById('keys');box.innerHTML='';
+  QK.forEach(([v,l])=>{const b=document.createElement('button');
+    b.className='key'+(S.ptt_key===v?' sel':'');b.textContent=l;b.onclick=()=>pick(v);box.appendChild(b);});}
+function pick(v){S.ptt_key=v;keys();api('set_ptt_key',v);}
+document.getElementById('capInput').addEventListener('keydown',e=>{e.preventDefault();
+  const k=(e.key||'').toLowerCase();if(k){e.target.value=k;pick(k);}});
+
+function profiles(){const box=document.getElementById('profiles');box.innerHTML='';
+  S.profiles.forEach(p=>{const c=document.createElement('div');
+    c.className='opt'+(p.locked?' lock':'')+(S.psel===p.id?' sel':'');
+    c.innerHTML='<div class="t">'+p.label+'</div><div class="h">'+
+      (p.locked?'🔒 '+p.reason:(p.warning||'Recommandé sur cette machine'))+'</div>';
+    if(!p.locked)c.onclick=()=>{Promise.resolve(api('set_profile',p.id)).then(a=>{S.psel=a||p.id;profiles();});};
+    box.appendChild(c);});}
+
+function langs(){const sel=document.getElementById('lang');sel.innerHTML='';
+  S.languages.forEach(l=>{const o=document.createElement('option');o.value=l.code;o.textContent=l.label;
+    if(l.code===S.language)o.selected=true;sel.appendChild(o);});}
+function chooseCloud(on){Promise.resolve(api('set_cloud',on)).then(()=>{
+  document.getElementById('optLocal').classList.toggle('sel',!on);
+  document.getElementById('optCloud').classList.toggle('sel',on);});}
+
+// ---- orbe organique (WebGL transparent), réutilisée du système de design ----
+const OFRAG=`precision highp float;uniform vec2 uRes;uniform float uT,uVol;uniform vec3 uAccent;
+float hash(vec3 p){p=fract(p*0.3183099+.1);p*=17.0;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}
+float noise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.-2.*f);
+ return mix(mix(mix(hash(i),hash(i+vec3(1,0,0)),f.x),mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),
+            mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z);}
+float fbm(vec3 p){float a=.5,s=0.;for(int i=0;i<4;i++){s+=a*noise(p);p=p*2.02+vec3(1.3);a*=.5;}return s;}
+void main(){vec2 uv=(gl_FragCoord.xy-0.5*uRes)/min(uRes.x,uRes.y);float t=uT;float ang=atan(uv.y,uv.x);
+ vec2 c=vec2(cos(ang),sin(ang));
+ float o1=fbm(vec3(c*1.15,t*0.2)),o2=fbm(vec3(c*2.6+7.0,t*0.42)),o3=fbm(vec3(c*4.3+21.0,t*0.75));
+ float org=(o1-0.5)*0.2+(o2-0.5)*0.085+(o3-0.5)*0.035;
+ float R=0.30*(1.0+0.035*uVol+0.6*org*(0.42+uVol*1.7));
+ float r=length(uv);vec3 col=vec3(0.);float lum=0.;
+ if(r<R){float z=sqrt(max(R*R-r*r,0.));vec3 N=normalize(vec3(uv,z));vec3 V=vec3(0.,0.,1.);
+  vec3 L=normalize(vec3(-0.42,0.58,0.8));vec3 H=normalize(L+V);
+  float dens=smoothstep(0.3,0.8,fbm(N*2.1+vec3(0.,0.,t*0.16)));
+  vec3 sub=mix(vec3(0.58,0.66,0.8),vec3(0.99,1.,1.),dens);
+  float diff=clamp(dot(N,L)*0.5+0.62,0.,1.);
+  float spec=pow(max(dot(N,H),0.),42.)*0.55+pow(max(dot(N,H),0.),160.)*0.5;
+  float fres=pow(1.-max(dot(N,V),0.),3.);
+  col=sub*(0.42+0.72*diff)+spec+fres*(vec3(0.9,0.94,1.0)*0.5+uAccent*(0.2+0.7*uVol));
+  col=col/(1.0+col*0.6);lum=smoothstep(R,R-0.008,r);}
+ float glow=smoothstep(R*1.7,R,r);col+=uAccent*glow*glow*(0.06+0.3*uVol);
+ float a=max(lum,glow*glow*(0.5+uVol));gl_FragColor=vec4(pow(col,vec3(0.92)),clamp(a,0.,1.));}`;
+function mountOrb(cv){const gl=cv.getContext('webgl',{alpha:true,antialias:true,premultipliedAlpha:false});
+ if(!gl){cv.style.cssText+='background:radial-gradient(38% 34% at 40% 32%,#fff,#aab3c6 78%,#7c8496);border-radius:50%';return;}
+ function s(t,src){const o=gl.createShader(t);gl.shaderSource(o,src);gl.compileShader(o);return o;}
+ const pr=gl.createProgram();gl.attachShader(pr,s(gl.VERTEX_SHADER,'attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}'));
+ gl.attachShader(pr,s(gl.FRAGMENT_SHADER,OFRAG));gl.linkProgram(pr);gl.useProgram(pr);
+ const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
+ const l=gl.getAttribLocation(pr,'p');gl.enableVertexAttribArray(l);gl.vertexAttribPointer(l,2,gl.FLOAT,false,0,0);
+ gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+ const uRes=gl.getUniformLocation(pr,'uRes'),uT=gl.getUniformLocation(pr,'uT'),
+       uVol=gl.getUniformLocation(pr,'uVol'),uAcc=gl.getUniformLocation(pr,'uAccent');
+ const DPR=Math.min(2,devicePixelRatio||1),t0=performance.now();
+ function fit(){const r=cv.getBoundingClientRect();cv.width=Math.max(1,r.width*DPR);cv.height=Math.max(1,r.height*DPR);gl.viewport(0,0,cv.width,cv.height);}
+ fit();addEventListener('resize',fit);
+ (function f(now){const t=(now-t0)/1000;const vol=0.28+0.22*Math.abs(Math.sin(t*1.6));
+   gl.clear(gl.COLOR_BUFFER_BIT);gl.uniform2f(uRes,cv.width,cv.height);gl.uniform1f(uT,t);gl.uniform1f(uVol,vol);
+   gl.uniform3f(uAcc,0.34,0.68,1.0);gl.drawArrays(gl.TRIANGLES,0,3);requestAnimationFrame(f);})(t0);
 }
 
-function showStep(i) {
-  document.querySelectorAll(".step").forEach(el =>
-    el.classList.toggle("active", Number(el.dataset.step) === i));
-  renderDots();
-}
-
-function next() { if (STEP < N_STEPS - 1) { STEP++; showStep(STEP); } }
-function prev() { if (STEP > 0) { STEP--; showStep(STEP); } }
-
-function toggleSound() {
-  const v = document.getElementById("bg-video");
-  v.muted = !v.muted;
-  document.getElementById("sound-btn").textContent =
-    v.muted ? "🔇 Activer le son" : "🔊 Couper le son";
-}
-
-// touches courantes proposées en un clic ; « keyboard » (lib Python) attend
-// des noms comme "f9", "caps lock", "right ctrl" — la capture perso ci-dessous
-// fait de son mieux et reste modifiable plus tard dans Réglages.
-const QUICK_KEYS = [["f9", "F9"], ["f8", "F8"], ["caps lock", "Verr. Maj"],
-                    ["right ctrl", "Ctrl droit"]];
-
-function buildKeyChoices() {
-  const box = document.getElementById("key-choices");
-  box.innerHTML = "";
-  QUICK_KEYS.forEach(([val, label]) => {
-    const b = document.createElement("button");
-    b.className = "key-btn" + (STATE.ptt_key === val ? " selected" : "");
-    b.textContent = label;
-    b.onclick = () => selectKey(val);
-    box.appendChild(b);
+function init(){
+  Promise.resolve(api('state')).then(st=>{
+    S=st||{modes:[],profiles:[],languages:[],ptt_key:'f9',language:'fr',cloud_enabled:false,video_url:''};
+    S.psel=null;
+    const v=document.getElementById('video');
+    if(S.video_url){document.body.classList.remove('no-video');v.src=S.video_url;}
+    else{document.getElementById('sound').style.display='none';document.getElementById('playHint').style.display='none';}
+    keys();profiles();langs();
+    document.getElementById('opt'+(S.cloud_enabled?'Cloud':'Local')).classList.add('sel');
+    mountOrb(document.getElementById('orb0'));mountOrb(document.getElementById('orb5'));
+    show(0);
   });
 }
-
-function selectKey(val) {
-  STATE.ptt_key = val;
-  buildKeyChoices();
-  pywebview.api.set_ptt_key(val);
-}
-
-document.getElementById("custom-key-input").addEventListener("keydown", (e) => {
-  e.preventDefault();
-  const key = (e.key || "").toLowerCase();
-  if (!key) return;
-  e.target.value = key;
-  selectKey(key);
-});
-
-function buildProfileCards() {
-  const box = document.getElementById("profile-cards");
-  box.innerHTML = "";
-  STATE.profiles.forEach(p => {
-    const c = document.createElement("div");
-    c.className = "card" + (p.locked ? " locked" : "")
-      + (STATE.profile_selected === p.id ? " selected" : "");
-    c.innerHTML = `<div class="title">${p.label}</div>
-      <div class="hint">${p.locked ? "🔒 " + p.reason : (p.warning || "Recommandé sur cette machine")}</div>`;
-    if (!p.locked) c.onclick = () => selectProfile(p.id);
-    box.appendChild(c);
-  });
-}
-
-function selectProfile(id) {
-  pywebview.api.set_profile(id).then(applied => {
-    STATE.profile_selected = applied;
-    buildProfileCards();
-  });
-}
-
-function buildLangSelect() {
-  const sel = document.getElementById("lang-select");
-  sel.innerHTML = "";
-  STATE.languages.forEach(l => {
-    const o = document.createElement("option");
-    o.value = l.code; o.textContent = l.label;
-    if (l.code === STATE.language) o.selected = true;
-    sel.appendChild(o);
-  });
-  sel.onchange = () => pywebview.api.set_language(sel.value);
-}
-
-function chooseCloud(enabled) {
-  pywebview.api.set_cloud(enabled).then(() => {
-    document.getElementById("opt-local").classList.toggle("selected", !enabled);
-    document.getElementById("opt-cloud").classList.toggle("selected", enabled);
-  });
-}
-
-function finish() { pywebview.api.finish(); }
-
-window.addEventListener("pywebviewready", () => {
-  pywebview.api.state().then(s => {
-    STATE = s;
-    STATE.profile_selected = null;
-    const video = document.getElementById("bg-video");
-    if (s.video_url) {
-      video.src = s.video_url;
-    } else {
-      document.body.classList.add("no-video");
-      document.getElementById("sound-btn").style.display = "none";
-    }
-    buildKeyChoices();
-    buildProfileCards();
-    buildLangSelect();
-    document.getElementById(s.cloud_enabled ? "opt-cloud" : "opt-local")
-      .classList.add("selected");
-    showStep(0);
-  });
-});
+window.addEventListener('pywebviewready',init);
+// aperçu hors pywebview : démarre quand même après un court instant
+setTimeout(()=>{if(!S)init();},600);
 </script>
 </body>
 </html>
