@@ -57,7 +57,9 @@ def groq_transcribe(audio_f32, language="fr", model="whisper-large-v3-turbo", pr
         w.setframerate(16000)
         w.writeframes(pcm)
     buf.seek(0)
-    data = {"model": model, "language": language}
+    data = {"model": model}
+    if language:                       # vide = détection automatique de la langue
+        data["language"] = language
     if prompt:
         data["prompt"] = prompt[:200]
     r = requests.post(

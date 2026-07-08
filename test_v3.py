@@ -187,6 +187,19 @@ def test_power_profiles():
           set(ev) == {"id", "label", "locked", "reason", "warning"}, True)
 
 
+# --------------------------------------------------- langue STT « auto » -----
+def test_stt_language():
+    """« auto » (menu Langue) doit devenir None pour Whisper — sinon le STT
+    casse (ce n'est pas un code ISO). Une langue explicite passe telle quelle."""
+    print("Langue STT — normalisation « auto » → None")
+    core.CFG["language"] = "auto"
+    check("auto → None", core._stt_language(), None)
+    core.CFG["language"] = "fr"
+    check("fr → fr", core._stt_language(), "fr")
+    core.CFG["language"] = "ja"
+    check("ja → ja", core._stt_language(), "ja")
+
+
 # --------------------------------------------------- fallback texte brut -----
 def test_format_rules():
     print("Repli texte brut (sans IA)")
@@ -203,6 +216,7 @@ if __name__ == "__main__":
     test_custom_vars()
     test_extensibility()
     test_power_profiles()
+    test_stt_language()
     test_format_rules()
     print()
     if _fails:

@@ -296,7 +296,7 @@ class Pill(threading.Thread):
         self._settings_win = win
         win.title("Nova — Réglages")
         win.configure(bg="#15161A")
-        win.geometry("560x520")
+        win.geometry("560x760")
         win.attributes("-topmost", True)
 
         def on_close():
@@ -419,6 +419,35 @@ class Pill(threading.Thread):
                 _rebind_ptt()
         tk.Button(kb, text="Appliquer", command=save_key, bg="#2A3B55",
                   fg="#DCE6F7", relief="flat", padx=10, pady=3).pack(side="left")
+
+        # Mes infos : champs de profil réutilisés par « mon adresse », « mon
+        # e-mail »… dans le texte dicté (surtout le mode E-mail). 100 % local.
+        sep2 = tk.Frame(win, bg="#2A2C33", height=1)
+        sep2.pack(fill="x", padx=16, pady=12)
+        tk.Label(win, text="Mes infos", bg="#15161A", fg="#ECEFF7",
+                 font=("Segoe UI", 13, "bold")).pack(anchor="w", padx=16)
+        info = core.personal_info()
+        fields = [("prenom", "Prénom"), ("nom", "Nom"), ("email", "E-mail"),
+                  ("telephone", "Téléphone"), ("adresse", "Adresse")]
+        entries = {}
+        me = tk.Frame(win, bg="#15161A")
+        me.pack(fill="x", padx=16, pady=4)
+        for i, (key, label) in enumerate(fields):
+            tk.Label(me, text=label, bg="#15161A", fg="#8A8F9C", width=10,
+                     anchor="w").grid(row=i, column=0, sticky="w", pady=2)
+            e = tk.Entry(me, width=40, bg="#26272E", fg="#ECEFF7",
+                         insertbackground="#ECEFF7", relief="flat")
+            e.insert(0, info.get(key, ""))
+            e.grid(row=i, column=1, sticky="w", ipady=3, pady=2)
+            entries[key] = e
+
+        def save_me():
+            core.save_personal({k: e.get().strip() for k, e in entries.items()})
+            pill.show("ok", "Infos enregistrées")
+            pill.hide(1.2)
+        tk.Button(win, text="Enregistrer mes infos", command=save_me,
+                  bg="#2A3B55", fg="#DCE6F7", relief="flat", padx=12,
+                  pady=4).pack(anchor="w", padx=16, pady=(4, 0))
 
         refresh()
 
@@ -561,6 +590,13 @@ def _set_profile(profile_id):
     pill.hide(1.4)
 
 
+def _check_update():
+    """Ouvre la page des versions (pas de serveur de MàJ dédié pour l'instant)."""
+    import webbrowser
+    webbrowser.open(core.CFG.get("update_url")
+                    or "https://github.com/Mailpro31/nova-assistant-vocal/releases")
+
+
 def _build_tray():
     from PIL import Image
     import pystray
@@ -577,9 +613,15 @@ def _build_tray():
                         checked=lambda _it, mid=m["id"]: STATE["mode"] == mid,
                         radio=True)
 
-    langs = [("auto", "Auto (détection)"), ("fr", "Français"), ("en", "English"),
-             ("es", "Español"), ("de", "Deutsch"), ("it", "Italiano"),
-             ("pt", "Português")]
+    # Whisper est multilingue (~99 langues) : « auto » détecte, sinon la langue
+    # explicite améliore nettement la précision (GOAL Partie 8).
+    langs = [
+        ("auto", "Auto (détection)"), ("fr", "Français"), ("en", "English"),
+        ("es", "Español"), ("de", "Deutsch"), ("it", "Italiano"),
+        ("pt", "Português"), ("nl", "Nederlands"), ("pl", "Polski"),
+        ("ru", "Русский"), ("ar", "العربية"), ("tr", "Türkçe"),
+        ("hi", "हिन्दी"), ("zh", "中文"), ("ja", "日本語"), ("ko", "한국어"),
+    ]
 
     def lang_item(code, label):
         return MenuItem(label,
@@ -606,7 +648,8 @@ def _build_tray():
         MenuItem("Moteur Cloud (Groq + IA)", lambda _i, _it: _toggle_cloud(),
                  checked=lambda _it: bool(core.CFG.get("stt", {}).get("cloud_enabled"))),
         Menu.SEPARATOR,
-        MenuItem("Réglages (Custom Variables)…", lambda _i, _it: pill.open_settings()),
+        MenuItem("Réglages…", lambda _i, _it: pill.open_settings()),
+        MenuItem("Vérifier les mises à jour", lambda _i, _it: _check_update()),
         MenuItem("Quitter", lambda icon, _it: icon.stop()),
     )
     return pystray.Icon(APP_NAME, img, "Nova — dictée vocale", menu)

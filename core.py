@@ -605,11 +605,18 @@ def record_audio(on_level=None, frames_out=None, frames_lock=None, cancel=None,
     return np.concatenate(frames).flatten()
 
 
+def _stt_language():
+    """Code langue pour Whisper, ou None si « auto » (détection automatique).
+    « auto » n'est pas un code ISO valide : le passer tel quel casse le STT."""
+    lang = CFG.get("language", "fr")
+    return None if lang in ("auto", "", None) else lang
+
+
 def transcribe(audio):
     prompt = stt_prompt() or None
     with transcribe_lock:
         segments, _info = get_model().transcribe(
-            audio, language=CFG["language"], beam_size=5, vad_filter=True,
+            audio, language=_stt_language(), beam_size=5, vad_filter=True,
             initial_prompt=prompt)
         return " ".join(s.text for s in segments).strip()
 
@@ -633,7 +640,7 @@ def transcribe_quick(audio, prompt=None, beam=1):
     lock = transcribe_lock if model is _model else quick_lock
     with lock:
         segments, _info = model.transcribe(
-            audio, language=CFG["language"], beam_size=beam, vad_filter=True,
+            audio, language=_stt_language(), beam_size=beam, vad_filter=True,
             condition_on_previous_text=False, initial_prompt=prompt)
         return " ".join(s.text for s in segments).strip()
 
@@ -1257,6 +1264,20 @@ def personal_info():
     return (p or {}).get("personal", {}) or {}
 
 
+def save_personal(info):
+    """Enregistre les infos perso (« Mes infos » : prénom, nom, e-mail, tél,
+    adresse) dans le profil actif, en créant le profil par défaut au besoin.
+    Utilisé par fill_personal (« mon adresse » → …), 100 % local."""
+    pid = CFG.get("active_profile", "")
+    if not pid:
+        pid = storage.ensure_default_profile()
+        save_config({"active_profile": pid})
+    prof = storage.get_profile(pid) or {"id": pid, "name": "Profil 1"}
+    prof["personal"] = {**(prof.get("personal") or {}), **(info or {})}
+    storage.save_profile(prof)
+    return prof["personal"]
+
+
 def custom_variables():
     """« Custom Variables » façon Speechly : quand l'utilisateur dit `trigger`,
     on colle `value` (ex. « IBAN » → un RIB complet). Définies dans les Réglages,
@@ -1453,7 +1474,7 @@ def transcribe_routed(audio, fast=False):
             and integrations.is_online()):
         try:
             text = integrations.groq_transcribe(
-                audio, language=CFG["language"],
+                audio, language=_stt_language() or "",
                 model=CFG["stt"].get("cloud_model", "whisper-large-v3-turbo"),
                 prompt=stt_prompt())
             return text, "cloud"
