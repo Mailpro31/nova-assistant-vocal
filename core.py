@@ -28,6 +28,7 @@ DEFAULT_CONFIG = {
     "custom_vars": [],         # Custom Variables : [{"trigger","value"}], 100 % local
     "profile": "normal",      # profil de puissance : normal | eleve | ultra (power_profiles)
     "seq_memory": True,       # décharge le STT avant le LLM (petites configs)
+    "onboarding_done": False, # assistant de bienvenue affiché une seule fois
     "hotkey": "ctrl+alt+space",
     "note_hotkey": "ctrl+alt+n",
     "dictation_hotkey": "ctrl+alt+d",
@@ -110,6 +111,17 @@ DEFAULT_CONFIG = {
 }
 
 NOTE_TRIGGERS = ("note que", "prends note", "prend note", "nouvelle note", "note ")
+
+# Langues STT proposées (Whisper est multilingue, ~99 langues au total ; cette
+# liste couvre les plus demandées). SOURCE UNIQUE : menu tray ET onboarding la
+# consomment tous les deux, jamais de liste dupliquée. « auto » = détection.
+LANGUAGES = [
+    ("auto", "Auto (détection)"), ("fr", "Français"), ("en", "English"),
+    ("es", "Español"), ("de", "Deutsch"), ("it", "Italiano"),
+    ("pt", "Português"), ("nl", "Nederlands"), ("pl", "Polski"),
+    ("ru", "Русский"), ("ar", "العربية"), ("tr", "Türkçe"),
+    ("hi", "हिन्दी"), ("zh", "中文"), ("ja", "日本語"), ("ko", "한국어"),
+]
 
 _lock = threading.Lock()
 

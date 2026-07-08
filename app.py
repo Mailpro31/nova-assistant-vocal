@@ -26,6 +26,7 @@ import core
 import auto_mode
 import integrations
 import modes_registry
+import onboarding
 import power_profiles
 import storage
 import winext
@@ -615,16 +616,6 @@ def _build_tray():
                         checked=lambda _it, mid=m["id"]: STATE["mode"] == mid,
                         radio=True)
 
-    # Whisper est multilingue (~99 langues) : « auto » détecte, sinon la langue
-    # explicite améliore nettement la précision (GOAL Partie 8).
-    langs = [
-        ("auto", "Auto (détection)"), ("fr", "Français"), ("en", "English"),
-        ("es", "Español"), ("de", "Deutsch"), ("it", "Italiano"),
-        ("pt", "Português"), ("nl", "Nederlands"), ("pl", "Polski"),
-        ("ru", "Русский"), ("ar", "العربية"), ("tr", "Türkçe"),
-        ("hi", "हिन्दी"), ("zh", "中文"), ("ja", "日本語"), ("ko", "한국어"),
-    ]
-
     def lang_item(code, label):
         return MenuItem(label,
                         lambda _i, _it, c=code: _set_language(c),
@@ -646,7 +637,7 @@ def _build_tray():
     menu = Menu(
         MenuItem("Mode", Menu(*[mode_item(m) for m in modes_registry.all_modes()])),
         MenuItem("Profil de puissance", Menu(*prof_items)),
-        MenuItem("Langue", Menu(*[lang_item(c, lbl) for c, lbl in langs])),
+        MenuItem("Langue", Menu(*[lang_item(c, lbl) for c, lbl in core.LANGUAGES])),
         MenuItem("Moteur Cloud (Groq + IA)", lambda _i, _it: _toggle_cloud(),
                  checked=lambda _it: bool(core.CFG.get("stt", {}).get("cloud_enabled"))),
         Menu.SEPARATOR,
@@ -658,6 +649,9 @@ def _build_tray():
 
 
 def main():
+    if onboarding.needs_onboarding():
+        onboarding.run()              # bloquant, une seule fois (1er lancement)
+
     # profil de puissance : on borne la sélection sauvegardée à ce que la machine
     # encaisse réellement (garantie « sans bug, sans saturation RAM »)
     hw = power_profiles.detect_hardware()

@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Nova — Bienvenue</title>
+<style>
+  :root {
+    --bg: #101114; --panel: #1A1B20d0; --border: #2A2C33; --text: #ECEFF7;
+    --muted: #8A8F9C; --blue: #3FA9FF; --blue-dark: #0A63E8; --green: #22C55E;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+    font-family: "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
+
+  #bg-video { position: fixed; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; z-index: -2; opacity: .38; }
+  body.no-video { background: radial-gradient(120% 120% at 20% 0%,
+    #3FA9FF22, transparent 60%), radial-gradient(120% 120% at 100% 100%,
+    #0A63E822, transparent 55%), var(--bg); }
+  #bg-shade { position: fixed; inset: 0; z-index: -1;
+    background: linear-gradient(180deg, #10111466, #101114cc 70%, #101114); }
+
+  #wizard { position: relative; width: 100%; height: 100%;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; padding: 24px; }
+
+  .step { display: none; flex-direction: column; align-items: center;
+    text-align: center; max-width: 620px; width: 100%;
+    animation: fadein .35s ease; }
+  .step.active { display: flex; }
+  @keyframes fadein { from { opacity: 0; transform: translateY(6px); }
+                      to { opacity: 1; transform: translateY(0); } }
+
+  h1 { font-size: 26px; margin: 0 0 8px; font-weight: 600; }
+  p.sub { color: var(--muted); font-size: 14px; margin: 0 0 22px; line-height: 1.5; }
+
+  .card-row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
+    margin-bottom: 8px; }
+  .card { background: var(--panel); border: 1px solid var(--border);
+    border-radius: 14px; padding: 16px 18px; cursor: pointer; min-width: 150px;
+    transition: border-color .15s, transform .15s; backdrop-filter: blur(6px); }
+  .card:hover { transform: translateY(-2px); }
+  .card.selected { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
+  .card.locked { opacity: .45; cursor: not-allowed; }
+  .card .title { font-weight: 600; font-size: 15px; margin-bottom: 4px; }
+  .card .hint { font-size: 11.5px; color: var(--muted); }
+
+  button.nav { background: var(--blue-dark); color: #fff; border: none;
+    border-radius: 10px; padding: 11px 26px; font-size: 14px; cursor: pointer;
+    font-weight: 600; transition: filter .15s; }
+  button.nav:hover { filter: brightness(1.12); }
+  button.nav:disabled { opacity: .35; cursor: default; }
+  button.ghost { background: transparent; color: var(--muted); border: 1px solid var(--border);
+    border-radius: 10px; padding: 11px 20px; font-size: 14px; cursor: pointer; }
+
+  .nav-row { display: flex; gap: 10px; margin-top: 26px; align-items: center; }
+  #dots { display: flex; gap: 7px; position: fixed; bottom: 20px; left: 50%;
+    transform: translateX(-50%); }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border); }
+  .dot.on { background: var(--blue); }
+
+  #sound-btn { position: fixed; top: 18px; right: 18px; background: var(--panel);
+    border: 1px solid var(--border); color: var(--text); border-radius: 20px;
+    padding: 7px 14px; font-size: 12.5px; cursor: pointer; }
+
+  .key-btn { background: var(--panel); border: 1px solid var(--border);
+    color: var(--text); border-radius: 10px; padding: 9px 16px; margin: 4px;
+    cursor: pointer; font-size: 13px; }
+  .key-btn.selected { border-color: var(--blue); }
+  #custom-key { margin-top: 10px; font-size: 12.5px; color: var(--muted); }
+  #custom-key input { background: var(--panel); border: 1px solid var(--border);
+    color: var(--text); border-radius: 8px; padding: 6px 10px; width: 120px;
+    text-align: center; }
+
+  .toggle-row { display: flex; gap: 14px; }
+  .toggle-card { background: var(--panel); border: 1px solid var(--border);
+    border-radius: 14px; padding: 18px; width: 220px; cursor: pointer; }
+  .toggle-card.selected { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
+  .toggle-card .title { font-weight: 600; margin-bottom: 6px; }
+  .toggle-card .hint { font-size: 12px; color: var(--muted); line-height: 1.4; }
+
+  .logo { width: 42px; height: 42px; border-radius: 10px; margin-bottom: 14px;
+    background: linear-gradient(160deg, var(--blue), var(--blue-dark)); }
+</style>
+</head>
+<body>
+  <video id="bg-video" autoplay loop muted playsinline></video>
+  <div id="bg-shade"></div>
+  <button id="sound-btn" onclick="toggleSound()">🔇 Activer le son</button>
+
+  <div id="wizard">
+
+    <div class="step active" data-step="0">
+      <div class="logo"></div>
+      <h1>Bienvenue sur Nova</h1>
+      <p class="sub">Votre voix devient votre nouveau clavier. Maintenez une
+        touche, parlez, relâchez — le texte reformulé s'écrit directement là
+        où est votre curseur, dans n'importe quelle app.</p>
+      <div class="nav-row"><button class="nav" onclick="next()">Commencer</button></div>
+    </div>
+
+    <div class="step" data-step="1">
+      <h1>Choisissez votre touche</h1>
+      <p class="sub">Maintenue = j'écoute. Relâchée = je transcris, reformate et colle.</p>
+      <div id="key-choices"></div>
+      <div id="custom-key">
+        ou <input id="custom-key-input" placeholder="cliquez et appuyez sur une touche" readonly>
+      </div>
+      <div class="nav-row">
+        <button class="ghost" onclick="prev()">Précédent</button>
+        <button class="nav" onclick="next()">Suivant</button>
+      </div>
+    </div>
+
+    <div class="step" data-step="2">
+      <h1>Votre profil de puissance</h1>
+      <p class="sub">Détecté d'après votre machine — un profil grisé la
+        surchargerait, il reste verrouillé pour votre sécurité.</p>
+      <div id="profile-cards" class="card-row"></div>
+      <div class="nav-row">
+        <button class="ghost" onclick="prev()">Précédent</button>
+        <button class="nav" onclick="next()">Suivant</button>
+      </div>
+    </div>
+
+    <div class="step" data-step="3">
+      <h1>Votre langue</h1>
+      <p class="sub">Une langue explicite améliore nettement la précision par
+        rapport à la détection automatique.</p>
+      <select id="lang-select" style="background:var(--panel);color:var(--text);
+        border:1px solid var(--border);border-radius:10px;padding:10px 16px;
+        font-size:14px;min-width:220px;"></select>
+      <div class="nav-row">
+        <button class="ghost" onclick="prev()">Précédent</button>
+        <button class="nav" onclick="next()">Suivant</button>
+      </div>
+    </div>
+
+    <div class="step" data-step="4">
+      <h1>Local ou Cloud ?</h1>
+      <p class="sub">Vous pourrez changer à tout moment depuis le menu.</p>
+      <div class="toggle-row">
+        <div class="toggle-card" id="opt-local" onclick="chooseCloud(false)">
+          <div class="title">100 % Local</div>
+          <div class="hint">Rien ne quitte votre machine. Fonctionne hors ligne.</div>
+        </div>
+        <div class="toggle-card" id="opt-cloud" onclick="chooseCloud(true)">
+          <div class="title">Cloud</div>
+          <div class="hint">Plus rapide sur les petites configs. Nécessite une clé Groq.</div>
+        </div>
+      </div>
+      <div class="nav-row">
+        <button class="ghost" onclick="prev()">Précédent</button>
+        <button class="nav" onclick="next()">Suivant</button>
+      </div>
+    </div>
+
+    <div class="step" data-step="5">
+      <h1>Vous êtes prêt</h1>
+      <p class="sub">Maintenez votre touche depuis n'importe quelle app pour
+        dicter. Changez de mode, de langue ou de profil à tout moment depuis
+        l'icône dans la barre des tâches.</p>
+      <div class="nav-row">
+        <button class="ghost" onclick="prev()">Précédent</button>
+        <button class="nav" onclick="finish()">Terminer</button>
+      </div>
+    </div>
+
+  </div>
+  <div id="dots"></div>
+
+<script>
+let STEP = 0;
+let STATE = null;
+const N_STEPS = document.querySelectorAll(".step").length;
+
+function renderDots() {
+  const dots = document.getElementById("dots");
+  dots.innerHTML = "";
+  for (let i = 0; i < N_STEPS; i++) {
+    const d = document.createElement("div");
+    d.className = "dot" + (i === STEP ? " on" : "");
+    dots.appendChild(d);
+  }
+}
+
+function showStep(i) {
+  document.querySelectorAll(".step").forEach(el =>
+    el.classList.toggle("active", Number(el.dataset.step) === i));
+  renderDots();
+}
+
+function next() { if (STEP < N_STEPS - 1) { STEP++; showStep(STEP); } }
+function prev() { if (STEP > 0) { STEP--; showStep(STEP); } }
+
+function toggleSound() {
+  const v = document.getElementById("bg-video");
+  v.muted = !v.muted;
+  document.getElementById("sound-btn").textContent =
+    v.muted ? "🔇 Activer le son" : "🔊 Couper le son";
+}
+
+// touches courantes proposées en un clic ; « keyboard » (lib Python) attend
+// des noms comme "f9", "caps lock", "right ctrl" — la capture perso ci-dessous
+// fait de son mieux et reste modifiable plus tard dans Réglages.
+const QUICK_KEYS = [["f9", "F9"], ["f8", "F8"], ["caps lock", "Verr. Maj"],
+                    ["right ctrl", "Ctrl droit"]];
+
+function buildKeyChoices() {
+  const box = document.getElementById("key-choices");
+  box.innerHTML = "";
+  QUICK_KEYS.forEach(([val, label]) => {
+    const b = document.createElement("button");
+    b.className = "key-btn" + (STATE.ptt_key === val ? " selected" : "");
+    b.textContent = label;
+    b.onclick = () => selectKey(val);
+    box.appendChild(b);
+  });
+}
+
+function selectKey(val) {
+  STATE.ptt_key = val;
+  buildKeyChoices();
+  pywebview.api.set_ptt_key(val);
+}
+
+document.getElementById("custom-key-input").addEventListener("keydown", (e) => {
+  e.preventDefault();
+  const key = (e.key || "").toLowerCase();
+  if (!key) return;
+  e.target.value = key;
+  selectKey(key);
+});
+
+function buildProfileCards() {
+  const box = document.getElementById("profile-cards");
+  box.innerHTML = "";
+  STATE.profiles.forEach(p => {
+    const c = document.createElement("div");
+    c.className = "card" + (p.locked ? " locked" : "")
+      + (STATE.profile_selected === p.id ? " selected" : "");
+    c.innerHTML = `<div class="title">${p.label}</div>
+      <div class="hint">${p.locked ? "🔒 " + p.reason : (p.warning || "Recommandé sur cette machine")}</div>`;
+    if (!p.locked) c.onclick = () => selectProfile(p.id);
+    box.appendChild(c);
+  });
+}
+
+function selectProfile(id) {
+  pywebview.api.set_profile(id).then(applied => {
+    STATE.profile_selected = applied;
+    buildProfileCards();
+  });
+}
+
+function buildLangSelect() {
+  const sel = document.getElementById("lang-select");
+  sel.innerHTML = "";
+  STATE.languages.forEach(l => {
+    const o = document.createElement("option");
+    o.value = l.code; o.textContent = l.label;
+    if (l.code === STATE.language) o.selected = true;
+    sel.appendChild(o);
+  });
+  sel.onchange = () => pywebview.api.set_language(sel.value);
+}
+
+function chooseCloud(enabled) {
+  pywebview.api.set_cloud(enabled).then(() => {
+    document.getElementById("opt-local").classList.toggle("selected", !enabled);
+    document.getElementById("opt-cloud").classList.toggle("selected", enabled);
+  });
+}
+
+function finish() { pywebview.api.finish(); }
+
+window.addEventListener("pywebviewready", () => {
+  pywebview.api.state().then(s => {
+    STATE = s;
+    STATE.profile_selected = null;
+    const video = document.getElementById("bg-video");
+    if (s.video_url) {
+      video.src = s.video_url;
+    } else {
+      document.body.classList.add("no-video");
+      document.getElementById("sound-btn").style.display = "none";
+    }
+    buildKeyChoices();
+    buildProfileCards();
+    buildLangSelect();
+    document.getElementById(s.cloud_enabled ? "opt-cloud" : "opt-local")
+      .classList.add("selected");
+    showStep(0);
+  });
+});
+</script>
+</body>
+</html>

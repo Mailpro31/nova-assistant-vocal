@@ -34,6 +34,7 @@ import core                     # noqa: E402
 import modes_registry           # noqa: E402
 import auto_mode                # noqa: E402
 import power_profiles           # noqa: E402
+import onboarding               # noqa: E402  (ne doit PAS importer webview au chargement)
 
 _fails = []
 
@@ -187,6 +188,41 @@ def test_power_profiles():
           set(ev) == {"id", "label", "locked", "reason", "warning"}, True)
 
 
+# --------------------------------------------------- onboarding (accueil) ----
+def test_onboarding():
+    """L'assistant de bienvenue ne doit dépendre de pywebview qu'à l'usage réel
+    (run()), jamais au chargement du module — sinon la CI (sans pywebview
+    installé) casserait juste en import. `import onboarding` a déjà réussi plus
+    haut : c'est la première preuve. Ici on vérifie la logique (Api, drapeau)."""
+    print("Onboarding — drapeau 1er lancement + pont API (sans pywebview)")
+    core.CFG["onboarding_done"] = False
+    check("pas encore fait → nécessaire", onboarding.needs_onboarding(), True)
+    core.CFG["onboarding_done"] = True
+    check("déjà fait → plus nécessaire", onboarding.needs_onboarding(), False)
+
+    check("vidéo absente → url vide (pas d'erreur)", onboarding.video_url(), "")
+
+    api = onboarding.Api()
+    st = api.state()
+    check("state() expose les 7 modes", len(st["modes"]), 7)
+    check("state() expose les langues (source core.LANGUAGES)",
+          len(st["languages"]), len(core.LANGUAGES))
+    check("state() expose les profils évalués", len(st["profiles"]), 3)
+
+    check("set_ptt_key persiste", api.set_ptt_key("F8"), "f8")
+    check("set_ptt_key ignore une valeur vide (garde l'ancienne)",
+          api.set_ptt_key(""), "f8")
+    check("set_language persiste", api.set_language("ja"), "ja")
+    check("set_cloud→True bascule le provider en auto",
+          (api.set_cloud(True), core.CFG.get("provider")), (True, "auto"))
+    check("set_cloud→False repasse en local (ollama)",
+          (api.set_cloud(False), core.CFG.get("provider")), (False, "ollama"))
+    # même garde-fou que le tray : une sélection impossible retombe sur un profil sûr
+    got = api.set_profile("ultra")
+    check("set_profile jamais un profil verrouillé sur cette machine",
+          power_profiles.is_available(got, power_profiles.detect_hardware()), True)
+
+
 # --------------------------------------------------- langue STT « auto » -----
 def test_stt_language():
     """« auto » (menu Langue) doit devenir None pour Whisper — sinon le STT
@@ -216,6 +252,7 @@ if __name__ == "__main__":
     test_custom_vars()
     test_extensibility()
     test_power_profiles()
+    test_onboarding()
     test_stt_language()
     test_format_rules()
     print()

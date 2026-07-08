@@ -5,8 +5,11 @@ call .venv\Scripts\activate.bat
 pyinstaller --noconfirm --noconsole --onedir --name Nova --icon icon.ico ^
   --collect-all faster_whisper ^
   --collect-all ctranslate2 ^
+  --collect-all webview ^
   --hidden-import pystray._win32 ^
   --add-data "icon.png;." ^
+  --add-data "onboarding;onboarding" ^
+  --add-data "assets;assets" ^
   app.py
 
 rem --- DLLs CUDA (accélération GPU) : copiées à côté de l'exe pour que
