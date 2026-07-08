@@ -201,9 +201,7 @@ let STEP=0, S=null;
 const NS=document.querySelectorAll('.step').length;
 function dots(){const d=document.getElementById('dots');d.innerHTML='';
   for(let i=0;i<NS;i++){const x=document.createElement('i');if(i===STEP)x.className='on';d.appendChild(x);}}
-function show(i){document.querySelectorAll('.step').forEach(s=>{
-  const on=+s.dataset.i===i;if(on&&!s.classList.contains('on')){s.classList.remove('on');void s.offsetWidth;}
-  s.classList.toggle('on',on);});dots();}
+function show(i){document.querySelectorAll('.step').forEach(s=>s.classList.toggle('on',+s.dataset.i===i));dots();}
 function next(){if(STEP<NS-1){STEP++;show(STEP);}}
 function prev(){if(STEP>0){STEP--;show(STEP);}}
 function toggleSound(){const v=document.getElementById('video');v.muted=!v.muted;

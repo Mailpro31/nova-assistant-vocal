@@ -128,13 +128,14 @@ CF_UNICODETEXT = 13
 GMEM_MOVEABLE_ZEROINIT = 0x2042
 
 
-def set_clipboard(text):
-    u32 = ctypes.windll.user32
+def _declare_clipboard_prototypes():
+    """Fixe les signatures ctypes UNE fois au chargement. Sous Windows 64 bits,
+    les HANDLE/pointeurs font 8 octets ; sans restype/argtypes, ctypes suppose un
+    int 32 bits et TRONQUE le handle renvoyé par GlobalAlloc/GlobalLock → pointeur
+    invalide → collage cassé. La signature appartient à la fonction DLL, pas à
+    l'appelant : on la déclare donc au niveau module, pas à chaque collage."""
     k32 = ctypes.windll.kernel32
-    # Types explicites OBLIGATOIRES : sous Windows 64 bits, les HANDLE/pointeurs
-    # font 8 octets. Sans restype/argtypes, ctypes suppose un int 32 bits et
-    # TRONQUE le handle renvoyé par GlobalAlloc/GlobalLock → pointeur invalide →
-    # memmove sur une adresse corrompue → collage cassé à chaque dictée.
+    u32 = ctypes.windll.user32
     k32.GlobalAlloc.restype = ctypes.c_void_p
     k32.GlobalAlloc.argtypes = [ctypes.c_uint, ctypes.c_size_t]
     k32.GlobalLock.restype = ctypes.c_void_p
@@ -144,6 +145,17 @@ def set_clipboard(text):
     k32.GlobalFree.argtypes = [ctypes.c_void_p]
     u32.SetClipboardData.restype = ctypes.c_void_p
     u32.SetClipboardData.argtypes = [ctypes.c_uint, ctypes.c_void_p]
+
+
+try:
+    _declare_clipboard_prototypes()
+except Exception:
+    pass   # hors Windows (dev/CI) : ctypes.windll absent, sans conséquence
+
+
+def set_clipboard(text):
+    u32 = ctypes.windll.user32
+    k32 = ctypes.windll.kernel32
     data = text.encode("utf-16-le") + b"\x00\x00"
     for _ in range(5):
         if u32.OpenClipboard(0):

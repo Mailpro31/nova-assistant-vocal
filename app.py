@@ -14,6 +14,7 @@ branche d'archive `v2-full-archive`. Ajouter un mode = une entrée dans
 
 import collections
 import ctypes
+import json
 import os
 import queue
 import sys
@@ -91,6 +92,21 @@ class Pill(threading.Thread):
 
     def open_settings(self):
         self.q.put(("settings",))
+
+    # ---- cycle de vie (partagé avec WebDock : main() ne teste aucun type) ----
+    def serve(self, build_tray):
+        """La pilule tourne dans son thread tkinter ; le tray prend le thread
+        principal (comportement historique)."""
+        global _tray_icon
+        self.start()
+        _rebind_ptt()
+        self.show("repos", "")
+        self.hide(2.5)
+        _tray_icon = build_tray()
+        _tray_icon.run()
+
+    def destroy(self):
+        pass   # la pilule se ferme avec le tray ; rien à détruire
 
     # ---- thread tkinter ----
     def run(self):
@@ -480,15 +496,11 @@ class WebDock:
 
     def __init__(self):
         self._win = None
-        self._panel = "compact"
         self._lvl_n = 0
 
     # ---- API compatible Pill ----
     def show(self, state, text="", sub=""):
         self._js("window.novaShow", state, text or "", sub or "")
-
-    def set_text(self, text):
-        self._js("window.novaShow", "listening", text or "", "")
 
     def hide(self, delay=0.0):
         self._js("window.novaHide", int(delay * 1000))
@@ -509,7 +521,6 @@ class WebDock:
         if self._win is None:
             return
         try:
-            import json
             payload = ",".join(json.dumps(a) for a in args)
             self._win.evaluate_js(f"{fn}({payload})")
         except Exception:
@@ -524,7 +535,9 @@ class WebDock:
             return 1920, 1080
 
     def _set_panel(self, name):
-        self._panel = name
+        """Redimensionne la fenêtre du dock vers le panneau nommé (compact /
+        modes / settings). La taille est dérivée du nom → un seul mécanisme,
+        pas de cas particulier par panneau."""
         if self._win is None:
             return
         sw, sh = self._screen()
@@ -539,12 +552,14 @@ class WebDock:
         except Exception:
             pass
 
-    def panel(self, name, open_):
-        """Appelé par le dock quand le menu des modes s'ouvre/se ferme."""
-        self._set_panel(name if open_ else "compact")
-
-    # ---- lancement (bloquant, thread principal) ----
-    def run_blocking(self):
+    # ---- cycle de vie (bloquant, thread principal) ----
+    def serve(self, build_tray):
+        """webview.start() exige le thread principal : le tray tourne donc en
+        thread de fond, le dock prend le thread principal."""
+        global _tray_icon
+        _rebind_ptt()
+        _tray_icon = build_tray()
+        threading.Thread(target=_tray_icon.run, daemon=True).start()
         import webview
         sw, sh = self._screen()
         w, h = self.COMPACT
@@ -593,14 +608,13 @@ class DockApi:
         _set_mode(mode_id)
         return mode_id
 
-    def settings(self, open_):
-        self._dock._set_panel("settings" if open_ else "compact")
-
     def panel(self, name, open_):
-        self._dock.panel(name, bool(open_))
+        """Le dock signale quel panneau nommé est ouvert (modes, settings…) ;
+        fermé = retour au dock compact. Un seul protocole de redimensionnement."""
+        self._dock._set_panel(name if open_ else "compact")
 
     def set_profile(self, profile_id):
-        return _set_profile_silent(profile_id)
+        return _set_profile(profile_id, silent=True)
 
     def set_language(self, code):
         _set_language(code)
@@ -781,35 +795,29 @@ def _toggle_cloud():
     core.save_config({"stt": stt, "provider": "auto" if to_cloud else "ollama"})
 
 
-def _set_profile(profile_id):
+def _set_profile(profile_id, silent=False):
     """Sélection d'un profil de puissance : refusée si la machine ne le supporte
     pas (repli sur le plus lourd sûr). Câble STT + LLM local sans exposer les
-    noms de modèles."""
+    noms de modèles. `silent` (dock web, qui reflète déjà le choix) saute la
+    bulle. Retourne l'id réellement appliqué (repli éventuel)."""
     safe = power_profiles.select_and_apply(profile_id, core.save_config)
     STATE["profile"] = safe
-    pill.show("ok", f"Profil : {power_profiles.get_profile(safe)['label']}")
-    pill.hide(1.4)
-
-
-def _set_profile_silent(profile_id):
-    """Comme `_set_profile` mais sans bulle (le dock reflète déjà le choix dans
-    ses réglages). Retourne l'id réellement appliqué (repli éventuel)."""
-    safe = power_profiles.select_and_apply(profile_id, core.save_config)
-    STATE["profile"] = safe
+    if not silent:
+        pill.show("ok", f"Profil : {power_profiles.get_profile(safe)['label']}")
+        pill.hide(1.4)
     return safe
 
 
 def _request_quit(icon=None):
-    """Quitte proprement quelle que soit l'UI : arrête le tray puis, en mode
-    dock web, ferme la fenêtre webview → `run_blocking()` rend la main et
-    `main()` termine le process."""
+    """Quitte proprement quelle que soit l'UI : arrête le tray puis ferme l'UI
+    (`destroy()` — no-op pour la pilule, ferme la webview pour le dock, ce qui
+    rend la main à `serve()` et termine le process)."""
     try:
         if icon is not None:
             icon.stop()
     except Exception:
         pass
-    if isinstance(pill, WebDock):
-        pill.destroy()
+    pill.destroy()
 
 
 def _check_update():
@@ -884,26 +892,9 @@ def main():
 
     integrations.start_connectivity_loop()   # sonde en ligne (active le STT cloud)
 
-    global _tray_icon
-    if isinstance(pill, WebDock):
-        # Dock web : webview.start() est bloquant et exige le thread principal.
-        # Le tray tourne donc en thread de fond ; le dock prend le thread
-        # principal. Tout le visuel (dock + réglages) vit dans la webview.
-        _rebind_ptt()
-        _tray_icon = _build_tray()
-        threading.Thread(target=_tray_icon.run, daemon=True).start()
-        pill.run_blocking()          # bloquant jusqu'à la fermeture du dock
-        os._exit(0)
-
-    # Pilule tkinter (défaut, éprouvée) : la pilule tourne dans son thread, le
-    # tray prend le thread principal — comportement historique, inchangé.
-    pill.start()
-    _rebind_ptt()
-    pill.show("repos", "")
-    pill.hide(2.5)
-    _tray_icon = _build_tray()
-    _tray_icon.run()                 # bloquant (thread principal)
-    # sortie du tray = on quitte proprement
+    # Chaque UI possède sa propre boucle (pilule tkinter ou dock webview) via
+    # `serve()` : main() n'a aucun type à tester. Bloquant jusqu'à la fermeture.
+    pill.serve(_build_tray)
     os._exit(0)
 
 

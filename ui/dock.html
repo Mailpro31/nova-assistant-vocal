@@ -203,8 +203,8 @@ function renderModes(){const box=document.getElementById('modes');box.innerHTML=
 
 // ---------- réglages ----------
 document.getElementById('gear').onclick=openSettings;
-function openSettings(){api('settings',true).then(()=>{document.getElementById('settings').classList.add('on');buildSettings();mountSetParticles();});}
-function closeSettings(){document.getElementById('settings').classList.remove('on');api('settings',false);}
+function openSettings(){api('panel','settings',true).then(()=>{document.getElementById('settings').classList.add('on');buildSettings();mountSetParticles();});}
+function closeSettings(){document.getElementById('settings').classList.remove('on');api('panel','settings',false);}
 const LOCK='<svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
 const WARN='<svg viewBox="0 0 24 24"><path d="M12 4l9 15H3z"/><path d="M12 10v4M12 16.5v.5"/></svg>';
 function buildSettings(){
