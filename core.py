@@ -414,17 +414,24 @@ def get_model():
         # puissance) : sinon un modèle lourd resterait en RAM après un passage à
         # un profil plus léger, ruinant la garantie « jamais de saturation RAM ».
         if _model is None or _model_name != want:
-            _model = None
             _model_state["status"] = "chargement…"
             try:
-                _model = _load_whisper(want)
-                _model_name = want
-                _model_state["status"] = "prêt (%s)" % _DEVICE["device"].upper()
-                log_err("stt_device", "modèle « %s » chargé sur %s/%s"
-                        % (want, _DEVICE["device"], _DEVICE["compute"]))
+                # on charge dans une variable temporaire : si le nouveau modèle
+                # échoue (fichier absent/corrompu, hors ligne au 1er usage après
+                # un changement de profil), l'ancien modèle qui marchait reste en
+                # place → la dictée continue au lieu d'être cassée.
+                m = _load_whisper(want)
             except Exception as e:
                 _model_state["status"] = f"erreur : {e}"
+                if _model is not None:
+                    log_err("stt_reload", e)   # garde le modèle courant, réessaiera
+                    return _model
                 raise
+            _model = m
+            _model_name = want
+            _model_state["status"] = "prêt (%s)" % _DEVICE["device"].upper()
+            log_err("stt_device", "modèle « %s » chargé sur %s/%s"
+                    % (want, _DEVICE["device"], _DEVICE["compute"]))
     return _model
 
 
@@ -1511,10 +1518,11 @@ def transcribe_routed(audio, fast=False):
                 audio, language=_stt_language(),
                 model=CFG["stt"].get("cloud_model", "whisper-large-v3-turbo"),
                 prompt=stt_prompt())
-            if text:
+            if text and text.strip():
                 return text, "cloud"
-            # réponse vide (coupure réseau silencieuse, quota, audio non reconnu) :
-            # on retombe sur le local plutôt que de renvoyer un résultat vide.
+            # réponse vide OU blanche (coupure réseau silencieuse, quota, audio
+            # non reconnu → Groq renvoie parfois " "/"\n") : on retombe sur le
+            # local plutôt que de coller un résultat vide.
         except Exception as e:
             log_err("stt_cloud", e)
     if fast and len(audio) < 16000 * 8:

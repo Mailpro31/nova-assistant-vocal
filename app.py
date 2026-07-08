@@ -479,14 +479,14 @@ class WebDock:
 
     Remplaçant OPTIONNEL de Pill, activé par `CFG["dock_ui"] == "web"` — sinon
     la pilule tkinter (éprouvée) reste la valeur par défaut : aucune régression.
-    Expose la MÊME API publique que Pill (`show/set_text/hide/level/
-    open_settings`) pour que le push-to-talk et le tray n'aient rien à changer.
+    Expose la MÊME API publique que Pill (`show/hide/level/open_settings` +
+    `serve/destroy`) pour que le push-to-talk et le tray n'aient rien à changer.
 
     `webview.start()` est bloquant et DOIT tourner sur le thread principal : en
-    mode web, `main()` lance le tray en thread de fond puis cède le thread
-    principal au dock via `run_blocking()`. Tout le visuel (dock + orbe + bulle
-    d'état + réglages en surimpression) vit dans la webview → aucun conflit de
-    boucle d'événements tkinter/pywebview."""
+    mode web, `serve()` lance le tray en thread de fond puis cède le thread
+    principal au dock. Tout le visuel (dock + orbe + bulle d'état + réglages en
+    surimpression) vit dans la webview → aucun conflit de boucle d'événements
+    tkinter/pywebview."""
 
     # tailles de fenêtre : compacte au repos (petite zone au bas-centre),
     # agrandie quand le menu des modes ou les réglages s'ouvrent.
@@ -651,9 +651,10 @@ def _make_ui():
     dock web ne peut pas être instancié — jamais de démarrage cassé."""
     if core.CFG.get("dock_ui") == "web":
         try:
+            import webview  # noqa: F401 — vérifie la dispo AVANT de renoncer à la pilule
             return WebDock()
         except Exception as e:
-            core.log_err("dock_ui", e)
+            core.log_err("dock_ui", e)   # pywebview absent/cassé → repli sur la pilule
     return Pill()
 
 
@@ -664,7 +665,6 @@ _tray_icon = None
 # ============================================================ push-to-talk ===
 _ptt_active = threading.Event()   # une session est en cours
 _ptt_stop = threading.Event()     # la touche a été relâchée
-_ptt_down = threading.Event()     # la touche est physiquement enfoncée
 _ptt_handles = []
 
 
@@ -735,15 +735,10 @@ def _ptt_session():
 
 
 def _on_ptt_press(_e=None):
-    # Le clavier ré-émet « press » en rafale tant que la touche est tenue
-    # (auto-répétition). `_ptt_down` garde le fait qu'une frappe est déjà en
-    # cours : on ignore ces répétitions ET on ne relance PAS de session tant
-    # que la touche n'a pas été relâchée. Sans ce garde-fou, si une session
-    # atteint `max_record_seconds` alors que la touche est encore tenue, la
-    # répétition suivante démarrerait une nouvelle session → boucle sans fin.
-    if _ptt_down.is_set():
-        return
-    _ptt_down.set()
+    # `_ptt_active` (levé ici, baissé dans le finally de _ptt_session) ignore
+    # l'auto-répétition clavier pendant une session ET se ré-arme tout seul à la
+    # fin de chaque session : jamais bloqué même si un événement « touche
+    # relâchée » est perdu (changement de focus, glitch de hook…).
     if _ptt_active.is_set():
         return
     _ptt_active.set()
@@ -752,7 +747,6 @@ def _on_ptt_press(_e=None):
 
 
 def _on_ptt_release(_e=None):
-    _ptt_down.clear()
     _ptt_stop.set()
 
 

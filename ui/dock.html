@@ -237,32 +237,41 @@ document.getElementById('pttKey').addEventListener('keydown',e=>{e.preventDefaul
 function saveMe(){const o={};document.querySelectorAll('#me input').forEach(i=>o[i.dataset.k]=i.value.trim());api('save_personal',o).then(p=>{S.personal=p||o;});}
 
 // ---------- fond organique des réglages : petites particules pastel (thème orbe) ----------
-let _setMounted=false;
+// Les particules ne sont dessinées QUE tant que l'overlay réglages est ouvert :
+// la boucle s'arrête à la fermeture (sinon elle tournerait à vide pour la vie du
+// dock) et redémarre à la réouverture.
+let _setMounted=false,_setRunning=false,_setStep=null;
 function mountSetParticles(){
-  if(_setMounted)return;_setMounted=true;
-  const cv=document.getElementById('setParticles');const ctx=cv.getContext('2d');
-  const DPR=Math.min(2,devicePixelRatio||1);let W,H;
-  const PAL=[[170,190,240],[199,185,234],[174,226,204],[190,222,244],[236,208,226]];
-  function resize(){const r=cv.parentElement.getBoundingClientRect();W=cv.width=r.width*DPR;H=cv.height=r.height*DPR;}
-  resize();addEventListener('resize',resize);
-  const halos=[];for(let i=0;i<8;i++){const c=PAL[i%PAL.length];
-    halos.push({x:Math.random(),y:Math.random(),r:(120+Math.random()*160)*DPR,
-      vx:(Math.random()-.5)*0.00004,vy:(Math.random()-.5)*0.00004,a:0.05+Math.random()*0.05,c,ph:Math.random()*6.28});}
-  const N=44,motes=[];for(let i=0;i<N;i++){const c=PAL[i%PAL.length];
-    motes.push({x:Math.random(),y:Math.random(),r:(0.8+Math.random()*2.2)*DPR,
-      vx:(Math.random()-.5)*0.0001,vy:-(0.00004+Math.random()*0.00011),
-      a:0.26+Math.random()*0.5,c,ph:Math.random()*6.28,tw:0.5+Math.random()*1.6});}
-  const reduce=matchMedia('(prefers-reduced-motion:reduce)').matches,t0=performance.now();
-  function wrap(p){if(p.x<-.15)p.x=1.15;if(p.x>1.15)p.x=-.15;if(p.y<-.15)p.y=1.15;if(p.y>1.15)p.y=-.15;}
-  function blob(p,t,soft){const px=p.x*W,py=p.y*H+(soft?Math.sin(t*0.4+p.ph)*8*DPR:0),c=p.c;
-    const a=soft?p.a:p.a*(0.55+0.45*Math.sin(t*p.tw+p.ph));
-    const g=ctx.createRadialGradient(px,py,0,px,py,p.r);
-    g.addColorStop(0,'rgba('+c[0]+','+c[1]+','+c[2]+','+a+')');g.addColorStop(1,'rgba('+c[0]+','+c[1]+','+c[2]+',0)');
-    ctx.fillStyle=g;ctx.beginPath();ctx.arc(px,py,p.r,0,6.2832);ctx.fill();}
-  (function f(now){const t=(now-t0)/1000;ctx.clearRect(0,0,W,H);ctx.globalCompositeOperation='lighter';
-    for(const p of halos){if(!reduce){p.x+=p.vx;p.y+=p.vy;wrap(p);}blob(p,t,true);}
-    for(const p of motes){if(!reduce){p.x+=p.vx;p.y+=p.vy;wrap(p);}blob(p,t,false);}
-    ctx.globalCompositeOperation='source-over';if(!reduce)requestAnimationFrame(f);})(t0);
+  if(!_setMounted){
+    _setMounted=true;
+    const cv=document.getElementById('setParticles');const ctx=cv.getContext('2d');
+    const DPR=Math.min(2,devicePixelRatio||1);let W,H;
+    const PAL=[[170,190,240],[199,185,234],[174,226,204],[190,222,244],[236,208,226]];
+    function resize(){const r=cv.parentElement.getBoundingClientRect();W=cv.width=r.width*DPR;H=cv.height=r.height*DPR;}
+    resize();addEventListener('resize',resize);
+    const halos=[];for(let i=0;i<8;i++){const c=PAL[i%PAL.length];
+      halos.push({x:Math.random(),y:Math.random(),r:(120+Math.random()*160)*DPR,
+        vx:(Math.random()-.5)*0.00004,vy:(Math.random()-.5)*0.00004,a:0.05+Math.random()*0.05,c,ph:Math.random()*6.28});}
+    const N=44,motes=[];for(let i=0;i<N;i++){const c=PAL[i%PAL.length];
+      motes.push({x:Math.random(),y:Math.random(),r:(0.8+Math.random()*2.2)*DPR,
+        vx:(Math.random()-.5)*0.0001,vy:-(0.00004+Math.random()*0.00011),
+        a:0.26+Math.random()*0.5,c,ph:Math.random()*6.28,tw:0.5+Math.random()*1.6});}
+    const reduce=matchMedia('(prefers-reduced-motion:reduce)').matches,t0=performance.now();
+    function wrap(p){if(p.x<-.15)p.x=1.15;if(p.x>1.15)p.x=-.15;if(p.y<-.15)p.y=1.15;if(p.y>1.15)p.y=-.15;}
+    function blob(p,t,soft){const px=p.x*W,py=p.y*H+(soft?Math.sin(t*0.4+p.ph)*8*DPR:0),c=p.c;
+      const a=soft?p.a:p.a*(0.55+0.45*Math.sin(t*p.tw+p.ph));
+      const g=ctx.createRadialGradient(px,py,0,px,py,p.r);
+      g.addColorStop(0,'rgba('+c[0]+','+c[1]+','+c[2]+','+a+')');g.addColorStop(1,'rgba('+c[0]+','+c[1]+','+c[2]+',0)');
+      ctx.fillStyle=g;ctx.beginPath();ctx.arc(px,py,p.r,0,6.2832);ctx.fill();}
+    _setStep=function(now){
+      // s'arrête dès que l'overlay est fermé (ou mouvement réduit) → 0 travail au repos
+      if(reduce||!document.getElementById('settings').classList.contains('on')){_setRunning=false;return;}
+      const t=(now-t0)/1000;ctx.clearRect(0,0,W,H);ctx.globalCompositeOperation='lighter';
+      for(const p of halos){p.x+=p.vx;p.y+=p.vy;wrap(p);blob(p,t,true);}
+      for(const p of motes){p.x+=p.vx;p.y+=p.vy;wrap(p);blob(p,t,false);}
+      ctx.globalCompositeOperation='source-over';requestAnimationFrame(_setStep);};
+  }
+  if(!_setRunning&&_setStep){_setRunning=true;requestAnimationFrame(_setStep);}
 }
 
 // ---------- orbe organique (WebGL transparent, réactive à l'état + niveau) ----------

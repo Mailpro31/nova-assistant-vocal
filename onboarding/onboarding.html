@@ -108,7 +108,12 @@
   #dots i{width:7px;height:7px;border-radius:999px;background:rgba(255,255,255,.22);
     transition:width .4s var(--spring),background .4s var(--ease)}
   #dots i.on{width:24px;background:linear-gradient(90deg,var(--peri),var(--lav))}
-  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  /* mouvement réduit : on coupe les animations MAIS on rétablit l'opacité —
+     sinon les étapes (opacity:0 au repos, révélées par l'animation) restent
+     invisibles quand l'animation est supprimée. */
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important}
+    .step.on>*{opacity:1}}
 </style>
 </head>
 <body class="no-video">
@@ -301,8 +306,10 @@ function mountOrb(cv){const gl=cv.getContext('webgl',{alpha:true,antialias:true,
    gl.uniform3f(uAcc,0.34,0.68,1.0);gl.drawArrays(gl.TRIANGLES,0,3);requestAnimationFrame(f);})(t0);
 }
 
+let _inited=false;
 function init(){
-  mountParticles(document.getElementById('particles'));
+  if(_inited)return; _inited=true;        // pywebviewready + fallback : une seule fois
+  try{mountParticles(document.getElementById('particles'));}catch(e){}  // un canvas absent n'empêche pas le wizard
   Promise.resolve(api('state')).then(st=>{
     S=st||{modes:[],profiles:[],languages:[],ptt_key:'f9',language:'fr',cloud_enabled:false,video_url:''};
     S.psel=null;
@@ -317,7 +324,7 @@ function init(){
 }
 window.addEventListener('pywebviewready',init);
 // aperçu hors pywebview : démarre quand même après un court instant
-setTimeout(()=>{if(!S)init();},600);
+setTimeout(()=>{if(!_inited)init();},600);
 </script>
 </body>
 </html>
