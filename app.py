@@ -25,6 +25,7 @@ import keyboard
 import core
 import auto_mode
 import modes_registry
+import power_profiles
 import storage
 import winext
 
@@ -40,8 +41,9 @@ except Exception:
 
 BLUE, GREEN, ORANGE = "#3FA9FF", "#22C55E", "#E0913A"
 
-# état courant (mode de reformulation sélectionné dans le menu)
-STATE = {"mode": core.CFG.get("mode", modes_registry.DEFAULT_MODE_ID)}
+# état courant (mode + profil de puissance sélectionnés dans le menu)
+STATE = {"mode": core.CFG.get("mode", modes_registry.DEFAULT_MODE_ID),
+         "profile": core.CFG.get("profile", power_profiles.DEFAULT_ID)}
 
 
 def resource_path(rel):
@@ -368,11 +370,37 @@ class Pill(threading.Thread):
             stt = dict(core.CFG.get("stt", {}))
             stt["cloud_enabled"] = bool(cloud.get())
             core.save_config({"stt": stt})
-        tk.Checkbutton(eng, text="Moteur Cloud (Groq, plus rapide) — sinon Local "
-                       "(faster-whisper)", variable=cloud, command=toggle_engine,
+        tk.Checkbutton(eng, text="Moteur Cloud (Groq + IA, plus rapide) — sinon "
+                       "100 % local", variable=cloud, command=toggle_engine,
                        bg="#15161A", fg="#ECEFF7", selectcolor="#26272E",
                        activebackground="#15161A", activeforeground="#ECEFF7",
                        relief="flat").pack(anchor="w")
+
+        # profil de puissance : les profils trop lourds sont grisés (jamais de
+        # plantage RAM). L'utilisateur ne voit aucun nom de modèle.
+        prof = tk.Frame(win, bg="#15161A")
+        prof.pack(fill="x", padx=16, pady=(10, 0))
+        hw = power_profiles.detect_hardware()
+        tk.Label(prof, text="Profil de puissance :", bg="#15161A",
+                 fg="#ECEFF7").pack(anchor="w")
+        tk.Label(prof, text=f"Machine détectée : {hw['ram_total_gb']} Go RAM"
+                 + (f" · {hw['gpu_name']}" if hw["has_gpu"] else " · pas de GPU"),
+                 bg="#15161A", fg="#8A8F9C", font=("Segoe UI", 8)).pack(anchor="w")
+        prof_var = tk.StringVar(value=STATE.get("profile", "normal"))
+
+        def choose_profile():
+            _set_profile(prof_var.get())
+            prof_var.set(STATE.get("profile", "normal"))   # reflète le repli éventuel
+
+        for ev in power_profiles.evaluate(hw):
+            txt = ev["label"] + (f"   🔒 {ev['reason']}" if ev["locked"]
+                                 else (f"   ⚠ {ev['warning']}" if ev["warning"] else ""))
+            tk.Radiobutton(prof, text=txt, value=ev["id"], variable=prof_var,
+                           command=choose_profile,
+                           state=("disabled" if ev["locked"] else "normal"),
+                           bg="#15161A", fg="#ECEFF7", selectcolor="#26272E",
+                           activebackground="#15161A", activeforeground="#ECEFF7",
+                           relief="flat").pack(anchor="w")
 
         kb = tk.Frame(win, bg="#15161A")
         kb.pack(fill="x", padx=16, pady=8)
@@ -433,10 +461,20 @@ def _ptt_session():
             return
         pill.show("thinking", f"« {text[:60]} »")
         text = core.fill_personal(text)               # Custom Variables, 100 % local
+        # gestion mémoire séquentielle : on libère le STT avant le LLM sur les
+        # petites configs, pour ne jamais tenir les deux gros modèles en RAM
+        if core.CFG.get("seq_memory"):
+            core.unload_whisper()
         prompt, concrete = _resolve_prompt(STATE["mode"])
-        out = core.format_message(text, prompt)        # repli format_rules intégré
+        # cascade de repli universelle : IA → format_rules → texte brut. Chaque
+        # étage est protégé : jamais de plantage, jamais de curseur vide.
+        try:
+            out = core.format_message(text, prompt)    # repli format_rules intégré
+        except Exception as e:
+            core.log_err("reformulate", e)
+            out = ""
         if not out:
-            out = core.format_rules(text)
+            out = core.format_rules(text) or text
         pasted = winext.paste_into_active_app(out)
         dt = time.time() - t_release
         if pasted:
@@ -502,9 +540,24 @@ def _set_language(lang):
 
 
 def _toggle_cloud():
+    """Bascule Local ↔ Cloud pour STT ET reformulation (GOAL Partie 4 : local
+    par défaut, cloud proposé jamais imposé)."""
     stt = dict(core.CFG.get("stt", {}))
-    stt["cloud_enabled"] = not stt.get("cloud_enabled")
-    core.save_config({"stt": stt})
+    to_cloud = not stt.get("cloud_enabled")
+    stt["cloud_enabled"] = to_cloud
+    core.save_config({"stt": stt, "provider": "auto" if to_cloud else "ollama"})
+
+
+def _set_profile(profile_id):
+    """Sélection d'un profil de puissance : refusée si la machine ne le supporte
+    pas (repli sur le plus lourd sûr). Câble STT + LLM local sans exposer les
+    noms de modèles."""
+    hw = power_profiles.detect_hardware()
+    safe = power_profiles.safe_selection(profile_id, hw)
+    power_profiles.apply_profile(safe, core.save_config)
+    STATE["profile"] = safe
+    pill.show("ok", f"Profil : {power_profiles.get_profile(safe)['label']}")
+    pill.hide(1.4)
 
 
 def _build_tray():
@@ -523,8 +576,9 @@ def _build_tray():
                         checked=lambda _it, mid=m["id"]: STATE["mode"] == mid,
                         radio=True)
 
-    langs = [("fr", "Français"), ("en", "English"), ("es", "Español"),
-             ("de", "Deutsch"), ("it", "Italiano"), ("pt", "Português")]
+    langs = [("auto", "Auto (détection)"), ("fr", "Français"), ("en", "English"),
+             ("es", "Español"), ("de", "Deutsch"), ("it", "Italiano"),
+             ("pt", "Português")]
 
     def lang_item(code, label):
         return MenuItem(label,
@@ -532,10 +586,23 @@ def _build_tray():
                         checked=lambda _it, c=code: core.CFG.get("language") == c,
                         radio=True)
 
+    def profile_item(ev):
+        # profil trop lourd = verrouillé (grisé) + raison ; sinon avertissement discret
+        suffix = (f"  🔒 {ev['reason']}" if ev["locked"]
+                  else ("  ⚠" if ev["warning"] else ""))
+        return MenuItem(ev["label"] + suffix,
+                        lambda _i, _it, pid=ev["id"]: _set_profile(pid),
+                        checked=lambda _it, pid=ev["id"]: STATE.get("profile") == pid,
+                        radio=True, enabled=not ev["locked"])
+
+    prof_items = [profile_item(ev)
+                  for ev in power_profiles.evaluate(power_profiles.detect_hardware())]
+
     menu = Menu(
         MenuItem("Mode", Menu(*[mode_item(m) for m in modes_registry.all_modes()])),
+        MenuItem("Profil de puissance", Menu(*prof_items)),
         MenuItem("Langue", Menu(*[lang_item(c, lbl) for c, lbl in langs])),
-        MenuItem("Moteur Cloud (Groq)", lambda _i, _it: _toggle_cloud(),
+        MenuItem("Moteur Cloud (Groq + IA)", lambda _i, _it: _toggle_cloud(),
                  checked=lambda _it: bool(core.CFG.get("stt", {}).get("cloud_enabled"))),
         Menu.SEPARATOR,
         MenuItem("Réglages (Custom Variables)…", lambda _i, _it: pill.open_settings()),
@@ -545,6 +612,14 @@ def _build_tray():
 
 
 def main():
+    # profil de puissance : on borne la sélection sauvegardée à ce que la machine
+    # encaisse réellement (garantie « sans bug, sans saturation RAM »)
+    hw = power_profiles.detect_hardware()
+    safe = power_profiles.safe_selection(core.CFG.get("profile", "normal"), hw)
+    power_profiles.apply_profile(safe, core.save_config)
+    STATE["profile"] = safe
+    core.log_err("startup", f"matériel={hw} → profil={safe}")
+
     pill.start()
     _rebind_ptt()
     pill.show("repos", "")

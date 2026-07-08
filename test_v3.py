@@ -33,6 +33,7 @@ _stub_winext()
 import core                     # noqa: E402
 import modes_registry           # noqa: E402
 import auto_mode                # noqa: E402
+import power_profiles           # noqa: E402
 
 _fails = []
 
@@ -142,6 +143,50 @@ def test_extensibility():
         modes_registry._BY_ID.pop("test_dummy", None)
 
 
+# ------------------------------------ profils de puissance (GOAL Partie 3) ---
+def _locked(hw):
+    return {e["id"]: e["locked"] for e in power_profiles.evaluate(hw)}
+
+
+def test_power_profiles():
+    """3 configs simulées (GOAL Partie 9) : la détection propose les bons profils
+    et VERROUILLE les trop lourds — un profil sélectionnable est toujours sûr."""
+    print("Profils de puissance — verrouillage selon la machine (fonction pure)")
+
+    faible = {"ram_total_gb": 8.0, "has_gpu": False}      # 8 Go, pas de GPU
+    moyenne = {"ram_total_gb": 16.0, "has_gpu": False}    # 16 Go
+    forte = {"ram_total_gb": 32.0, "has_gpu": True}       # 32 Go + GPU
+
+    lf = _locked(faible)
+    check("8 Go : Normal débloqué", lf["normal"], False)
+    check("8 Go : Élevé verrouillé", lf["eleve"], True)
+    check("8 Go : Ultra verrouillé", lf["ultra"], True)
+    check("8 Go : recommandé = Normal", power_profiles.recommended_id(faible), "normal")
+
+    lm = _locked(moyenne)
+    check("16 Go : Normal+Élevé OK", (lm["normal"], lm["eleve"]), (False, False))
+    check("16 Go : Ultra verrouillé", lm["ultra"], True)
+    check("16 Go : recommandé = Élevé", power_profiles.recommended_id(moyenne), "eleve")
+
+    lF = _locked(forte)
+    check("32 Go+GPU : tout débloqué",
+          (lF["normal"], lF["eleve"], lF["ultra"]), (False, False, False))
+    check("32 Go+GPU : recommandé = Ultra",
+          power_profiles.recommended_id(forte), "ultra")
+
+    # règle absolue : une sélection impossible retombe sur un profil sûr
+    check("sélection Ultra sur 8 Go → repli sûr (jamais verrouillé)",
+          power_profiles.is_available(
+              power_profiles.safe_selection("ultra", faible), faible), True)
+    check("Ultra sans GPU → avertissement, pas verrouillage",
+          [e for e in power_profiles.evaluate(moyenne)
+           if e["id"] == "ultra"][0]["locked"], True)
+    # modèles jamais exposés : l'UI ne manipule que id/label
+    ev = power_profiles.evaluate(forte)[0]
+    check("evaluate n'expose aucun nom de modèle",
+          set(ev) == {"id", "label", "locked", "reason", "warning"}, True)
+
+
 # --------------------------------------------------- fallback texte brut -----
 def test_format_rules():
     print("Repli texte brut (sans IA)")
@@ -157,6 +202,7 @@ if __name__ == "__main__":
     test_auto_resolve()
     test_custom_vars()
     test_extensibility()
+    test_power_profiles()
     test_format_rules()
     print()
     if _fails:

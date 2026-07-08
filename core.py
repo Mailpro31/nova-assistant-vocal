@@ -22,10 +22,12 @@ import winext
 APP_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
 
 DEFAULT_CONFIG = {
-    # --- v3 (Speechly-lite) ---
+    # --- v3 (Speechly-lite) / nova-produit ---
     "ptt_key": "f9",          # push-to-talk : touche MAINTENUE = parle, relâchée = colle
     "mode": "auto",           # mode de reformulation courant (registre modes_registry)
     "custom_vars": [],         # Custom Variables : [{"trigger","value"}], 100 % local
+    "profile": "normal",      # profil de puissance : normal | eleve | ultra (power_profiles)
+    "seq_memory": True,       # décharge le STT avant le LLM (petites configs)
     "hotkey": "ctrl+alt+space",
     "note_hotkey": "ctrl+alt+n",
     "dictation_hotkey": "ctrl+alt+d",
@@ -43,7 +45,9 @@ DEFAULT_CONFIG = {
     "pill_pos": None,                # position [x, y] si la pilule a été déplacée
     "bubble_pos": None,              # idem pour la bulle micro
     "language": "fr",
-    "provider": "auto",   # auto | anthropic | openai | gemini | deepseek | ollama | off
+    # Local d'abord (GOAL Partie 4) : reformulation via Ollama local par défaut ;
+    # le toggle « Cloud » bascule sur « auto » (fournisseurs cloud si clé + en ligne).
+    "provider": "ollama",   # ollama (local) | auto (cloud) | anthropic | … | off
     "providers": {
         "anthropic":  {"api_key": "", "model": "claude-haiku-4-5"},
         "openai":     {"api_key": "", "model": "gpt-4o-mini"},
@@ -399,6 +403,27 @@ def get_model():
 
 def model_status():
     return _model_state["status"]
+
+
+def unload_whisper():
+    """Libère le modèle Whisper de la RAM (gestion mémoire séquentielle, GOAL
+    Partie 5) : sur les petites configs on décharge le STT après transcription,
+    avant de solliciter le LLM, pour ne jamais tenir les deux gros modèles en
+    mémoire. Rechargé paresseusement au prochain get_model()."""
+    global _model
+    import gc
+    with _model_lock:
+        _model = None
+        _model_state["status"] = "déchargé"
+    gc.collect()
+
+
+def set_stt_model(name):
+    """Change le modèle Whisper actif (mapping profil de puissance → STT) et
+    décharge l'ancien pour que le nouveau soit chargé au prochain usage."""
+    if name and name != CFG.get("whisper_model"):
+        save_config({"whisper_model": name})
+        unload_whisper()
 
 
 _wake_model = None
