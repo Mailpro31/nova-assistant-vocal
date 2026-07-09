@@ -108,8 +108,33 @@ def test_auto_resolve():
     check("règle perso n'altère pas un titre neutre",
           auto_mode.resolve("Bloc-notes", "notepad.exe",
                             [("email", ["moncrm"])]), "voice_to_text")
+    # _compile_user réellement tolérant : entrées mal formées ignorées, jamais
+    # de crash ni de match-tout (retour /code-review)
+    check("règle perso repère vide → n'attrape pas tout",
+          auto_mode.resolve("Un document - Éditeur", "",
+                            [("email", ["gmail", ""])]), "voice_to_text")
+    check("règle perso couple mal formé → ignoré sans lever",
+          auto_mode.resolve("x", "", [("email",), ("messages", ["slack"])]),
+          "voice_to_text")
+    check("règle perso repères en chaîne nue → pas d'itération par lettre",
+          auto_mode.resolve("a - b", "", [("email", "gmail")]), "voice_to_text")
+    # bordures Unicode : un repère générique n'attrape pas un mot accentué
+    check("bordure accentuée : « line » n'attrape pas « câline »",
+          auto_mode.resolve("câline", "câline.exe",
+                            [("messages", ["line"])]), "voice_to_text")
     check("current_mode ne lève jamais (winext stubbé)",
           auto_mode.current_mode(), "voice_to_text")
+    # _user_rules ne garde que des mode_id CONCRETS du registre : une faute de
+    # frappe ou « auto » dans config.json est écartée (retour /code-review)
+    import core as _core
+    _saved = _core.CFG.get("auto_rules")
+    _core.CFG["auto_rules"] = {"emial": ["x"], "auto": ["y"], "email": ["moncrm"]}
+    check("auto_rules : mode_id invalide/auto filtré, valide conservé",
+          auto_mode._user_rules(), [("email", ["moncrm"])])
+    if _saved is None:
+        _core.CFG.pop("auto_rules", None)
+    else:
+        _core.CFG["auto_rules"] = _saved
 
 
 # --------------------------------------------------- Custom Variables --------

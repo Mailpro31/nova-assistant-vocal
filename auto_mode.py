@@ -31,10 +31,13 @@ DEFAULT_ID = "voice_to_text"   # défaut : dictée brute nettoyée (brief Phase 
 def _rx(token):
     """Compile un repère en motif « mot entier » (insensible à la casse via un
     foin déjà en minuscules). Les espaces du repère acceptent plusieurs espaces
-    réels ; les bornes rejettent lettres/chiffres/underscore adjacents pour ne
-    pas matcher « gmail » dans « gmailx » ni « to do » dans « photodo »."""
+    réels ; les bornes `\\w` (Unicode) rejettent toute lettre/chiffre adjacente —
+    y compris accentuée — pour ne pas matcher « gmail » dans « gmailx », « to do »
+    dans « photodo », ni « line » dans « câline »."""
     esc = re.escape(token.strip().lower()).replace(r"\ ", r"\s+")
-    return re.compile(r"(?<![0-9a-z_])" + esc + r"(?![0-9a-z_])")
+    if not esc:
+        return re.compile(r"(?!x)x")   # repère vide → ne matche jamais
+    return re.compile(r"(?<!\w)" + esc + r"(?!\w)")
 
 
 # Ordre = priorité (première règle qui matche gagne). Chaque règle =
@@ -77,12 +80,16 @@ _RULES = [
 
 def _compile_user(extra_rules):
     """Compile les règles utilisateur (mode_id, [repères]) au même format que
-    `_RULES` — repères testés à la fois sur le titre et le process. Tolérant
-    aux entrées mal formées (ignore silencieusement)."""
+    `_RULES` — repères testés à la fois sur le titre et le process. Réellement
+    tolérant : une entrée mal formée (pas un couple, repères en chaîne nue,
+    repères vides) est ignorée sans lever ni matcher tout."""
     out = []
-    for mode_id, tokens in extra_rules or ():
+    for entry in extra_rules or ():
         try:
-            pats = [_rx(t) for t in tokens]
+            mode_id, tokens = entry
+            if isinstance(tokens, str):
+                tokens = [tokens]
+            pats = [_rx(t) for t in tokens if str(t).strip()]
         except Exception:
             continue
         if mode_id and pats:
@@ -110,16 +117,22 @@ def resolve(title, proc="", extra_rules=None):
 
 def _user_rules():
     """Règles depuis config.json (`auto_rules`), ou None. Forme attendue :
-    { "email": ["moncrm", "facturation"], "notes": ["mon wiki"] }."""
+    { "email": ["moncrm", "facturation"], "notes": ["mon wiki"] }. Les mode_id
+    inconnus ou « auto » (faute de frappe, id invalide) sont ignorés : seul un
+    mode CONCRET du registre peut être renvoyé par resolve()."""
     try:
         import core
+        import modes_registry
+        valid = set(modes_registry.mode_ids()) - {"auto"}
         raw = core.CFG.get("auto_rules") or {}
         rules = []
         for mode_id, toks in raw.items():
+            if mode_id not in valid:
+                continue
             if isinstance(toks, str):
                 toks = [toks]
             toks = [str(t) for t in (toks or []) if str(t).strip()]
-            if mode_id and toks:
+            if toks:
                 rules.append((mode_id, toks))
         return rules or None
     except Exception:
@@ -128,11 +141,11 @@ def _user_rules():
 
 def current_mode():
     """Résout le mode d'après la fenêtre RÉELLE au premier plan (Windows).
-    Repli sur le défaut si winext est indisponible."""
+    Repli sur le défaut si winext est indisponible OU si la résolution lève
+    (garantie « jamais de plantage » : resolve reste dans le try)."""
     try:
         import winext
-        title = winext.active_window_title()
-        proc = winext.active_process_name()
+        return resolve(winext.active_window_title(),
+                       winext.active_process_name(), _user_rules())
     except Exception:
         return DEFAULT_ID
-    return resolve(title, proc, _user_rules())
