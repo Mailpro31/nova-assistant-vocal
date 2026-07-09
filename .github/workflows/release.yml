@@ -47,8 +47,9 @@ jobs:
           --add-data "ui;ui"
           app.py
 
-      - name: Copier la config par défaut à côté de l'exe
-        run: copy config.json dist\Nova\
+      # Pas de config.json à copier : il est gitignoré (données perso + clés
+      # chiffrées) et absent du checkout CI. L'app le recrée au premier
+      # lancement depuis core.DEFAULT_CONFIG (_load renvoie {} si absent).
 
       - name: Installer Inno Setup
         run: choco install innosetup --no-progress -y
