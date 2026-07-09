@@ -21,7 +21,28 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Compiler un exécutable autonome : `build.bat` (PyInstaller).
+Compiler un exécutable autonome : `build.bat` (PyInstaller → dossier
+portable `dist\Nova\`).
+
+### Créer un installateur `.exe` complet
+
+Pour un vrai assistant d'installation (raccourcis menu Démarrer / bureau,
+démarrage automatique facultatif, désinstallateur) :
+
+1. Prépare l'environnement une fois :
+   ```bash
+   python -m venv .venv
+   .venv\Scripts\activate
+   pip install -r requirements.txt pyinstaller
+   ```
+2. Installe **[Inno Setup 6](https://jrsoftware.org/isdl.php)** (gratuit).
+3. Lance **`build_installer.bat`** : il enchaîne PyInstaller puis Inno Setup et
+   produit **`dist\Nova-Setup.exe`** — le fichier unique à distribuer.
+
+> **WebView2** : le dock et l'onboarding web utilisent le runtime *Microsoft
+> Edge WebView2*, préinstallé sur Windows 10/11 à jour. Sur un PC sans lui,
+> [téléchargez l'« Evergreen Bootstrapper »](https://developer.microsoft.com/microsoft-edge/webview2/).
+> Sans WebView2, Nova bascule automatiquement sur la pastille tkinter.
 
 **Externe, facultatif** : [FFmpeg](https://ffmpeg.org) dans le PATH (flux IPTV),
 [Ollama](https://ollama.com) (IA 100 % locale).
@@ -98,7 +119,7 @@ webhooks (IFTTT / Zapier / Home Assistant).
 |---|---|
 | `app.py` | Fenêtre, pilule tkinter, boucle d'éveil, orchestration |
 | `core.py` | Config, STT (Whisper/Groq), agent multi-IA, TTS |
-| `modes.py` | Classifieur vocal + handlers (~1 800 lignes de grammaire FR) |
+| `modes.py` | Classifieur vocal + handlers (~2 900 lignes de grammaire FR) |
 | `winext.py` | Windows natif : DPAPI, volume, fenêtres, vision, MCI |
 | `storage.py` | SQLite (historique, mémoire, listes, rappels, profils) |
 | `integrations.py` | Météo, Gmail/Docs, Spotify, Home Assistant, Twilio |

@@ -1,5 +1,5 @@
 # ==========================================================
-#  Nova — assistant vocal Windows — dépendances Python
+#  Nova v3 (Speechly-lite) — dictée vocale Windows — dépendances Python
 #  Python 3.11 / 3.12 / 3.13. Installer :  pip install -r requirements.txt
 # ==========================================================
 
@@ -8,26 +8,20 @@ faster-whisper>=1.0.0
 sounddevice>=0.4.6
 numpy>=1.24.0
 
-# --- Interface (fenêtre bleu nuit + pilule tkinter) ---
-pywebview>=4.0.0
+# --- Interface (pilule flottante tkinter + icône barre des tâches) ---
 pystray>=0.19.0
 Pillow>=10.0.0
 
-# --- Contrôle Windows ---
+# --- Onboarding 1er lancement (vidéo + assistant, écran ponctuel uniquement) ---
+pywebview>=4.0.0
+
+# --- Windows : push-to-talk, presse-papiers, fenêtre active ---
 keyboard>=0.13.5
-pycaw>=20230407              # volume système / par application
-comtypes>=1.4.0
-psutil>=5.9.0
+psutil>=5.9.0                # nom du process au premier plan (mode Automatique)
 pywin32>=306                 # win32 (facultatif selon la plateforme)
 
-# --- Voix de synthèse ---
-edge-tts>=6.1.0             # voix neuronale en ligne (fallback : SAPI Windows natif)
-
-# --- Réseau & intégrations ---
+# --- Réseau (reformulation IA cloud + STT Groq) ---
 requests>=2.28.0
-
-# --- Fuseaux horaires (« quelle heure à Tokyo ») ---
-tzdata>=2024.1
 
 # ---------- ACCÉLÉRATION GPU (facultatif : ~500× plus rapide, sinon repli CPU) ----------
 # GPU NVIDIA + pilote récent (CUDA 12+). Sans ces paquets, Nova tourne sur CPU.
@@ -36,12 +30,5 @@ tzdata>=2024.1
 # nvidia-cudnn-cu12           # cuDNN (cuDNN 9 ; ctranslate2 embarque déjà cudnn64_9)
 
 # ---------- OPTIONNEL (imports paresseux, Nova dégrade proprement si absent) ----------
-# pvporcupine>=3.0.0        # mot d'éveil Porcupine (alternative à Whisper)
-# opencv-python>=4.8.0      # webcam (« regarde-moi »)
-# youtube-transcript-api>=0.6.0   # résumé de vidéos YouTube
-# anthropic>=0.40.0        # SDK Claude (sinon appel HTTP direct)
-# pyserial>=3.5            # OBD-II / véhicule (ELM327)
-
-# ---------- Externe (hors pip) ----------
-# ffmpeg  dans le PATH  → conversion des flux IPTV pour le navigateur
-# Ollama  (ollama.com)  → modèles IA 100 % locaux (facultatif)
+# anthropic>=0.40.0        # SDK Claude pour la reformulation (sinon appel HTTP direct)
+# Ollama (ollama.com)      # modèles IA 100 % locaux pour la reformulation (facultatif)

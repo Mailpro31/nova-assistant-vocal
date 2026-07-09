@@ -54,3 +54,6 @@ desktop.ini
 models/
 *.bin
 *.pt
+
+# Vidéo d'onboarding (lourde, propre à chaque build — voir assets/README.md)
+assets/*.mp4

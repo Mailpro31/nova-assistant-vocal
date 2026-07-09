@@ -1,0 +1,43 @@
+# CI Nova v3 (Speechly-lite) — vérifications légères et déterministes sur Linux.
+#
+# L'app est Windows (micro, tray, collage curseur). Mais le cœur logique est
+# testable hors Windows : registre de modes, résolution du mode Automatique
+# (fonction pure) et Custom Variables. test_v3.py stube winext (Win32) pour
+# tourner sur CI. La CI vérifie donc :
+#   1. lint ruff (règles à fort signal — cf. pyproject.toml)
+#   2. compilation de tous les modules (erreurs de syntaxe / indentation)
+#   3. tests logiques v3 (registre, auto-map, custom variables)
+# Validation runtime complète (push-to-talk, STT, reformulation) : sous Windows.
+
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Lint, compile & tests v3
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Installer les outils (ruff épinglé + numpy)
+        run: pip install "ruff==0.15.8" "numpy>=1.24"
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Compiler tous les modules Python
+        run: python -m compileall -q .
+
+      - name: Tests logiques v3 (registre, auto-map, custom variables)
+        run: python test_v3.py

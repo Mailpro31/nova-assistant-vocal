@@ -18,6 +18,11 @@ _DB = os.path.join(APP_DIR, "nova.db")
 _lock = threading.Lock()
 _conn = None
 
+# Champs perso persistés (« Mes infos »). SOURCE UNIQUE : save_profile filtre
+# là-dessus (une clé hors liste est silencieusement ignorée), et l'UI Réglages
+# itère cette même liste — aucune dérive possible entre écran et stockage.
+PERSONAL_FIELDS = ("prenom", "nom", "email", "telephone", "adresse")
+
 
 def _db():
     global _conn
@@ -237,15 +242,17 @@ def conv_recent(limit=30):
 
 # ------------------------------------------ rappels à heure fixe (JARVIS) ---
 
-def reminder_add(text, hhmm, daily=False):
+def reminder_add(text, hhmm, daily=False, date=None):
+    """date : 'YYYY-MM-DD' explicite (rappel futur « dans 3 jours »). Sinon
+    aujourd'hui (ponctuel) ou vide (quotidien)."""
     rid = uuid.uuid4().hex[:8]
+    if date is None:
+        date = "" if daily else time.strftime("%Y-%m-%d")
     with _lock:
         _db().execute(
             "INSERT INTO reminders(id, text, time, date, triggered, created_at)"
             " VALUES(?,?,?,?,0,?)",
-            (rid, text.strip()[:300], hhmm,
-             "" if daily else time.strftime("%Y-%m-%d"),
-             int(time.time() * 1000)))
+            (rid, text.strip()[:300], hhmm, date, int(time.time() * 1000)))
         _db().commit()
     return rid
 
@@ -327,7 +334,7 @@ def save_profile(p):
     ]
     vocab = [str(v)[:80] for v in (p.get("vocabulary") or []) if str(v).strip()][:200]
     personal = {k: str(v)[:200] for k, v in (p.get("personal") or {}).items()
-                if k in ("prenom", "nom", "adresse", "telephone", "email") and str(v).strip()}
+                if k in PERSONAL_FIELDS and str(v).strip()}
     with _lock:
         _db().execute(
             "INSERT INTO profiles(id, name, vocabulary, contacts, language, created_at,"

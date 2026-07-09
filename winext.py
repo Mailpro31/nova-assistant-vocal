@@ -128,6 +128,31 @@ CF_UNICODETEXT = 13
 GMEM_MOVEABLE_ZEROINIT = 0x2042
 
 
+def _declare_clipboard_prototypes():
+    """Fixe les signatures ctypes UNE fois au chargement. Sous Windows 64 bits,
+    les HANDLE/pointeurs font 8 octets ; sans restype/argtypes, ctypes suppose un
+    int 32 bits et TRONQUE le handle renvoyé par GlobalAlloc/GlobalLock → pointeur
+    invalide → collage cassé. La signature appartient à la fonction DLL, pas à
+    l'appelant : on la déclare donc au niveau module, pas à chaque collage."""
+    k32 = ctypes.windll.kernel32
+    u32 = ctypes.windll.user32
+    k32.GlobalAlloc.restype = ctypes.c_void_p
+    k32.GlobalAlloc.argtypes = [ctypes.c_uint, ctypes.c_size_t]
+    k32.GlobalLock.restype = ctypes.c_void_p
+    k32.GlobalLock.argtypes = [ctypes.c_void_p]
+    k32.GlobalUnlock.argtypes = [ctypes.c_void_p]
+    k32.GlobalFree.restype = ctypes.c_void_p
+    k32.GlobalFree.argtypes = [ctypes.c_void_p]
+    u32.SetClipboardData.restype = ctypes.c_void_p
+    u32.SetClipboardData.argtypes = [ctypes.c_uint, ctypes.c_void_p]
+
+
+try:
+    _declare_clipboard_prototypes()
+except Exception:
+    pass   # hors Windows (dev/CI) : ctypes.windll absent, sans conséquence
+
+
 def set_clipboard(text):
     u32 = ctypes.windll.user32
     k32 = ctypes.windll.kernel32
@@ -141,10 +166,18 @@ def set_clipboard(text):
     try:
         u32.EmptyClipboard()
         h = k32.GlobalAlloc(GMEM_MOVEABLE_ZEROINIT, len(data))
+        if not h:
+            return False
         p = k32.GlobalLock(h)
+        if not p:
+            k32.GlobalFree(h)
+            return False
         ctypes.memmove(p, data, len(data))
         k32.GlobalUnlock(h)
-        u32.SetClipboardData(CF_UNICODETEXT, h)
+        # succès → le système devient propriétaire du bloc ; échec → on le libère.
+        if not u32.SetClipboardData(CF_UNICODETEXT, h):
+            k32.GlobalFree(h)
+            return False
     finally:
         u32.CloseClipboard()
     return True
@@ -734,6 +767,42 @@ def list_windows():
 
     user32.EnumWindows(cb, 0)
     return out
+
+
+def active_window_title():
+    """Titre de la fenêtre au premier plan (« Boîte de réception - Gmail »,
+    « WhatsApp », « claude.ai/new — Chrome »…), ou "" si indéterminé.
+    Base de détection du mode Automatique (auto_mode.py)."""
+    try:
+        user32 = ctypes.windll.user32
+        h = user32.GetForegroundWindow()
+        if not h:
+            return ""
+        n = user32.GetWindowTextLengthW(h)
+        if not n:
+            return ""
+        buf = ctypes.create_unicode_buffer(n + 1)
+        user32.GetWindowTextW(h, buf, n + 1)
+        return buf.value or ""
+    except Exception:
+        return ""
+
+
+def active_process_name():
+    """Nom de l'exécutable au premier plan en minuscules (« outlook.exe »,
+    « slack.exe », « code.exe »…), ou "" si indéterminé. Complète le titre
+    pour les apps de bureau dont le titre est peu parlant."""
+    try:
+        user32 = ctypes.windll.user32
+        h = user32.GetForegroundWindow()
+        if not h:
+            return ""
+        pid = ctypes.c_ulong()
+        user32.GetWindowThreadProcessId(h, ctypes.byref(pid))
+        import psutil
+        return psutil.Process(pid.value).name().lower()
+    except Exception:
+        return ""
 
 
 def find_window(name):
