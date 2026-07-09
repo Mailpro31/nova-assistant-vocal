@@ -1,0 +1,71 @@
+# Construit l'installateur Windows Nova-Setup.exe sur un runner Windows, puis
+# le publie automatiquement dans une Release GitHub — que n'importe qui peut
+# télécharger et installer en double-cliquant (aucun outil à installer côté
+# utilisateur).
+#
+# Déclenchement :
+#   - push d'un tag « v* » (ex. git tag v3.0 && git push origin v3.0) : build
+#     + Release publique avec Nova-Setup.exe attaché ;
+#   - « Run workflow » (bouton manuel dans l'onglet Actions) : build seul, l'exe
+#     est déposé en artifact téléchargeable (utile pour tester sans publier).
+
+name: Release installateur Nova
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # nécessaire pour créer la Release
+
+jobs:
+  build-installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Dépendances Python
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Compiler l'exe (PyInstaller -> dist\Nova\)
+        run: >
+          pyinstaller --noconfirm --noconsole --onedir --name Nova --icon icon.ico
+          --collect-all faster_whisper
+          --collect-all ctranslate2
+          --collect-all webview
+          --hidden-import pystray._win32
+          --add-data "icon.png;."
+          --add-data "onboarding;onboarding"
+          --add-data "assets;assets"
+          --add-data "ui;ui"
+          app.py
+
+      - name: Copier la config par défaut à côté de l'exe
+        run: copy config.json dist\Nova\
+
+      - name: Installer Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Compiler l'installateur (-> dist\Nova-Setup.exe)
+        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\nova.iss'
+
+      - name: Publier dans la Release (push d'un tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/Nova-Setup.exe
+          fail_on_unmatched_files: true
+
+      - name: Déposer en artifact (déclenchement manuel)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nova-Setup
+          path: dist/Nova-Setup.exe
