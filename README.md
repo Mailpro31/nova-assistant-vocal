@@ -83,7 +83,9 @@ Pour épingler **vos propres apps**, ajoutez dans `config.json` :
 ```
 
 Ces règles gagnent sur les règles intégrées (modes valides : `email`, `messages`,
-`prompt_engineer`, `todo`, `notes`, `voice_to_text`).
+`prompt_engineer`, `todo`, `notes`, `voice_to_text`). Chaque repère est cherché
+comme un mot entier dans le **titre de la fenêtre** (nom de l'onglet inclus) **et**
+le nom du process — préférez donc un terme distinctif propre à votre app.
 
 ---
 
