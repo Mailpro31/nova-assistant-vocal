@@ -65,6 +65,26 @@ Après une réponse, vous pouvez **enchaîner sans redire « Nova »** (conversa
 continue). La **pilule flottante** (5 états) montre l'écoute, la transcription en
 direct, la réflexion, le succès ou l'erreur.
 
+### Mode Automatique — le bon ton selon l'app
+
+En mode **Automatique**, Nova choisit le style de reformulation d'après l'app (ou
+l'onglet de navigateur) au premier plan : un Gmail devient un e-mail soigné, un
+Slack un message court, un ChatGPT/Claude un prompt structuré, un Notion une note.
+La détection matche des **noms d'apps entiers** (pas de sous-chaîne), donc
+« Le chat » ou « Release notes » dans un document ne faussent pas le choix.
+
+Pour épingler **vos propres apps**, ajoutez dans `config.json` :
+
+```json
+"auto_rules": {
+  "email":  ["moncrm", "facturation"],
+  "notes":  ["mon wiki interne"]
+}
+```
+
+Ces règles gagnent sur les règles intégrées (modes valides : `email`, `messages`,
+`prompt_engineer`, `todo`, `notes`, `voice_to_text`).
+
 ---
 
 ## Ce que Nova comprend

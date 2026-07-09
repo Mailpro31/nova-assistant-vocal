@@ -81,10 +81,33 @@ def test_auto_resolve():
         ("Todoist", "todoist.exe", "todo"),
         ("Visual Studio Code", "code.exe", "voice_to_text"),  # défaut : dictée brute
         ("", "", "voice_to_text"),
+        # --- onglets de navigateur réels (le titre porte le nom de l'onglet) --
+        ("Boîte de réception (12) - moi@gmail.com - Gmail - Google Chrome",
+         "chrome.exe", "email"),
+        ("(2) WhatsApp", "chrome.exe", "messages"),
+        ("ChatGPT - Google Chrome", "msedge.exe", "prompt_engineer"),
+        ("Claude", "firefox.exe", "prompt_engineer"),
+        ("#général - Mon Serveur - Discord", "discord.exe", "messages"),
+        ("Perplexity", "chrome.exe", "prompt_engineer"),
+        # --- process fiable même quand le titre est muet -------------------
+        ("Signal", "signal.exe", "messages"),
+        # --- GARDE-FOUS anti-faux-positifs (le vrai sujet : ne pas se tromper)
+        ("Le chat de ma voisine - Google Docs", "chrome.exe", "voice_to_text"),
+        ("Release notes v2.1 - Google Docs", "chrome.exe", "voice_to_text"),
+        ("Signal processing basics - YouTube", "chrome.exe", "voice_to_text"),
+        ("Paramètres", "explorer.exe", "voice_to_text"),
+        ("Choses à faire aujourd'hui - Google Docs", "chrome.exe", "voice_to_text"),
     ]
     for title, proc, want in cases:
         check(f"{title or '(vide)'} / {proc or '-'}",
               auto_mode.resolve(title, proc), want)
+    # règles utilisateur (config.json → auto_rules) : gagnent sur l'intégré
+    check("règle perso : MonCRM → email",
+          auto_mode.resolve("MonCRM - Tableau de bord", "chrome.exe",
+                            [("email", ["moncrm"])]), "email")
+    check("règle perso n'altère pas un titre neutre",
+          auto_mode.resolve("Bloc-notes", "notepad.exe",
+                            [("email", ["moncrm"])]), "voice_to_text")
     check("current_mode ne lève jamais (winext stubbé)",
           auto_mode.current_mode(), "voice_to_text")
 
