@@ -10,6 +10,7 @@ pyinstaller --noconfirm --noconsole --onedir --name Nova --icon icon.ico ^
   --add-data "icon.png;." ^
   --add-data "onboarding;onboarding" ^
   --add-data "assets;assets" ^
+  --add-data "ui;ui" ^
   app.py
 
 rem --- DLLs CUDA (accélération GPU) : copiées à côté de l'exe pour que
@@ -23,4 +24,5 @@ if exist secrets.json copy /y secrets.json "dist\Nova\" >nul
 if exist nova.db copy /y nova.db "dist\Nova\" >nul
 echo.
 echo Termine ! Lance : dist\Nova\Nova.exe
-pause
+rem NOVA_NOPAUSE=1 : appele depuis build_installer.bat, on ne bloque pas.
+if not defined NOVA_NOPAUSE pause
