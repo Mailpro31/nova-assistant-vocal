@@ -75,16 +75,19 @@ _RULES = [
 ]
 
 
-def _match_user(extra_rules, hay):
-    """Règles utilisateur : repères cherchés (mot entier) dans « titre +
-    process ». Tolérant aux formats mal formés (ignore silencieusement)."""
-    for mode_id, tokens in extra_rules:
+def _compile_user(extra_rules):
+    """Compile les règles utilisateur (mode_id, [repères]) au même format que
+    `_RULES` — repères testés à la fois sur le titre et le process. Tolérant
+    aux entrées mal formées (ignore silencieusement)."""
+    out = []
+    for mode_id, tokens in extra_rules or ():
         try:
-            if mode_id and any(_rx(t).search(hay) for t in tokens):
-                return mode_id
+            pats = [_rx(t) for t in tokens]
         except Exception:
             continue
-    return None
+        if mode_id and pats:
+            out.append((mode_id, pats, pats))
+    return out
 
 
 def resolve(title, proc="", extra_rules=None):
@@ -92,16 +95,13 @@ def resolve(title, proc="", extra_rules=None):
     (jamais « auto »). Fonction pure : aucun appel système, testable partout.
 
     `extra_rules` : liste de (mode_id, [repères]) prioritaire sur les règles
-    intégrées — permet à l'utilisateur d'épingler ses propres apps."""
+    intégrées — permet à l'utilisateur d'épingler ses propres apps. Ses repères
+    sont testés sur le titre ET le process (comme les règles intégrées)."""
     title_l = (title or "").lower()
     proc_l = (proc or "").lower()
 
-    if extra_rules:
-        got = _match_user(extra_rules, f"{title_l} {proc_l}")
-        if got:
-            return got
-
-    for mode_id, title_pats, proc_pats in _RULES:
+    rules = _compile_user(extra_rules) + _RULES if extra_rules else _RULES
+    for mode_id, title_pats, proc_pats in rules:
         if any(p.search(title_l) for p in title_pats) or \
            any(p.search(proc_l) for p in proc_pats):
             return mode_id
