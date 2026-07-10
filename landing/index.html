@@ -261,13 +261,56 @@
   .stymock .srow .ulock{font-size:8.5px;letter-spacing:1.2px;font-weight:700;
     color:var(--ultra);background:rgba(201,182,240,.12);
     border:1px solid rgba(201,182,240,.3);border-radius:999px;padding:2px 7px}
-  @media(max-width:720px){.bubblemock,.badgemock,.stymock{display:none}.mocks{height:250px}}
+  /* mobile : les fenêtres de l'app s'empilent au lieu de flotter — rien ne
+     disparaît, aucun vide. L'ordre raconte l'app : badge, pilule, dock, Styles. */
+  @media(max-width:720px){
+    .mocks{height:auto;display:flex;flex-direction:column;align-items:center;
+      gap:16px;margin-top:26px}
+    .mock{position:static;margin:0;--tilt:0deg;animation:none}
+    .badgemock{order:-1}
+    .pillmock{width:min(370px,90vw)}
+    .bubblemock{display:none}
+    .stymock{width:min(230px,80vw)}
+  }
+
+  /* ---------- galerie : l'app photographiée telle quelle ------------------ */
+  .shotsec{position:relative;padding:110px 6vw 30px;text-align:center}
+  .shotsec::before{content:"";position:absolute;left:50%;top:58%;transform:translate(-50%,-50%);
+    z-index:-1;width:min(1100px,96vw);height:70%;pointer-events:none;filter:blur(80px);
+    background:radial-gradient(50% 55% at 40% 46%,rgba(174,190,236,.15),transparent 70%),
+      radial-gradient(45% 50% at 64% 56%,rgba(199,185,234,.12),transparent 72%)}
+  .shotsec h2{font-size:clamp(30px,5vw,52px);font-weight:700;letter-spacing:-1.4px;line-height:1.08}
+  .gallery{display:grid;grid-template-columns:1fr 1.55fr;gap:18px;
+    max-width:980px;margin:40px auto 0;align-items:stretch}
+  .gallery .shot:last-child{grid-column:1/-1}
+  .gallery .shot:last-child img{max-height:500px;object-position:top}
+  @media(max-width:760px){.gallery{grid-template-columns:1fr}.gallery .shot:last-child{grid-column:auto}}
+  .shot{margin:0;background:var(--card);border:1px solid var(--line);border-radius:16px;
+    overflow:hidden;display:flex;flex-direction:column;text-align:left;
+    box-shadow:0 24px 70px rgba(0,0,0,.35);transition:transform .35s var(--spring)}
+  .light .shot{box-shadow:0 24px 70px rgba(0,0,0,.12)}
+  .shot:hover{transform:translateY(-5px)}
+  .shot img{width:100%;height:100%;display:block;object-fit:cover;min-height:0;flex:1}
+  .shot figcaption{padding:13px 16px;font-size:12.5px;line-height:1.5;color:var(--mut);
+    border-top:1px solid var(--line);flex:none}
+  .shot figcaption b{color:var(--txt);font-weight:600}
 
   .tones .stick{position:sticky;top:0;min-height:100svh;display:flex;flex-direction:column;
     align-items:center;justify-content:center;padding:90px 6vw;overflow:hidden}
   .tones h2{font-size:clamp(30px,5vw,52px);font-weight:700;letter-spacing:-1.4px;
     line-height:1.08;text-align:center}
-  .tones .said{margin-top:16px;color:var(--mut);font-size:15px;font-style:italic;text-align:center}
+  .tones .said{margin-top:20px;text-align:center}
+  /* la phrase dictée, dans la pilule d'écoute de l'app — bien visible */
+  .saidwin{display:inline-flex;align-items:center;gap:14px;max-width:min(640px,92vw);
+    background:#1A1B20;border:1.5px solid #2B517E;border-radius:26px;
+    padding:13px 24px;box-shadow:0 20px 54px rgba(0,0,0,.45);text-align:left}
+  .saidwin .sbars{display:flex;gap:4px;align-items:center;height:24px;flex:none}
+  .saidwin .sbars i{width:4px;border-radius:3px;background:var(--peri);height:6px;
+    animation:eqp 1.1s ease-in-out infinite}
+  .saidwin .sbars i:nth-child(2n){background:#9CC8F0}
+  .saidwin .sbars i:nth-child(2){animation-delay:.14s}.saidwin .sbars i:nth-child(3){animation-delay:.28s}
+  .saidwin .sbars i:nth-child(4){animation-delay:.42s}.saidwin .sbars i:nth-child(5){animation-delay:.56s}
+  .saidwin .stx{font-size:15px;line-height:1.5;color:#ECEFF7;font-style:italic}
   .frames{position:relative;margin-top:44px;width:min(560px,92vw);height:250px}
   .frames::before{content:"";position:absolute;inset:-90px -120px;pointer-events:none;
     filter:blur(70px);z-index:-1;
@@ -304,7 +347,9 @@
   @media(max-height:760px){
     .tones .stick{padding:40px 6vw}
     .tones h2{font-size:clamp(22px,4vw,38px)}
-    .tones .said{margin-top:10px;font-size:13.5px}
+    .tones .said{margin-top:12px}
+    .saidwin{padding:10px 18px}
+    .saidwin .stx{font-size:13px}
     .frames{margin-top:22px;height:220px}
     .tabs{margin-top:14px}
     .autonote{margin-top:12px;font-size:12px}
@@ -499,23 +544,46 @@
   </div>
 </section>
 
+<section class="shotsec" id="captures">
+  <p class="kicker rv" data-t="shots_kicker">En vrai</p>
+  <h2 class="rv" data-t="shots_h2">L'app, telle quelle.</h2>
+  <div class="gallery">
+    <figure class="shot rv">
+      <img src="https://cdn.jsdelivr.net/gh/Mailpro31/nova-assistant-vocal@main/landing/shots/app-menu-styles.png"
+        alt="Le menu des Styles de Nova, ouvert au-dessus du dock" width="860" height="940" loading="lazy">
+      <figcaption data-t="shot_1"><b>Sept Styles, un clic.</b> Le dock ouvre le menu ; l'orbe montre que Nova est prête.</figcaption>
+    </figure>
+    <figure class="shot rv">
+      <img src="https://cdn.jsdelivr.net/gh/Mailpro31/nova-assistant-vocal@main/landing/shots/app-styles.png"
+        alt="La fenêtre Styles sur mesure de Nova" width="1760" height="1240" loading="lazy">
+      <figcaption data-t="shot_2"><b>Vos Styles sur mesure.</b> Un nom, des mots-clés, votre consigne — Nova reformule à votre façon dans chaque app.</figcaption>
+    </figure>
+    <figure class="shot rv">
+      <img src="https://cdn.jsdelivr.net/gh/Mailpro31/nova-assistant-vocal@main/landing/shots/app-reglages.png"
+        alt="Les réglages généraux de Nova" width="1760" height="1240" loading="lazy">
+      <figcaption data-t="shot_3"><b>Des réglages qui se lisent.</b> Turbo, démarrage avec Windows, touche de dictée, profil de puissance adapté à votre machine.</figcaption>
+    </figure>
+  </div>
+</section>
+
 <section class="tones" id="tons">
   <div class="stick">
     <h2 class="rv" data-t="tones_h2">Une voix.<br>Tous vos Styles.</h2>
-    <p class="said rv" data-t="tones_said">« on décale la réunion à demain quatorze heures »</p>
+    <p class="said rv"><span class="saidwin"><span class="sbars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span class="stx" data-t="tones_said">« euh on décale la réunion à demain… quatorze heures, faut prévenir Claire et penser à mettre à jour l'invitation »</span></span></p>
     <div class="frames" id="frames">
       <div class="frame" data-i="0">
         <div class="fbar"><i></i><i></i><i></i>&nbsp;<span data-t="f1_bar">Nouveau message — E-mail</span>
           <span class="fsty" data-t="fsty_1">Style · E-mail</span></div>
         <div class="fbody" data-t="f1_body"><div class="to">À : Claire Fontaine</div>
           Bonjour Claire,<br><br>
-          Pourrions-nous décaler notre réunion à demain 14 h ?<br>
+          Notre réunion est décalée à demain 14 h. Pourriez-vous mettre à jour
+          l'invitation ?<br>
           Merci d'avance, bonne journée.</div>
       </div>
       <div class="frame" data-i="1">
         <div class="fbar"><i></i><i></i><i></i>&nbsp;<span data-t="f2_bar">Notes</span>
           <span class="fsty" data-t="fsty_2">Style · Prise de notes</span></div>
-        <div class="fbody" data-t="f2_body">— Réunion déplacée : <b>demain, 14 h</b><br>— Prévenir l'équipe<br>— Mettre à jour l'invitation</div>
+        <div class="fbody" data-t="f2_body">— Réunion décalée : <b>demain, 14 h</b><br>— Prévenir Claire<br>— Mettre à jour l'invitation</div>
       </div>
       <div class="frame" data-i="2">
         <div class="fbar"><i></i><i></i><i></i>&nbsp;<span data-t="f3_bar">À faire</span>
@@ -525,7 +593,7 @@
       <div class="frame" data-i="3">
         <div class="fbar"><i></i><i></i><i></i>&nbsp;<span data-t="f4_bar">Assistant IA</span>
           <span class="fsty" data-t="fsty_4">Style · Prompt IA</span></div>
-        <div class="fbody" data-t="f4_body"><div class="pbox">Rédige un message court et cordial proposant de décaler la réunion à demain 14 h, et demande une confirmation.</div></div>
+        <div class="fbody" data-t="f4_body"><div class="pbox">Rédige un message bref et cordial à Claire : la réunion est décalée à demain 14 h ; demande-lui de mettre à jour l'invitation. Ton professionnel, deux phrases maximum.</div></div>
       </div>
     </div>
     <div class="tabs"><span data-i="0" data-t="chip_1">E-mail</span><span data-i="1" data-t="chip_2">Prise de notes</span><span data-i="2" data-t="chip_3">To-do list</span><span data-i="3" data-t="chip_4">Prompt IA</span></div>
@@ -576,8 +644,8 @@
         <li data-t="ultra_2">Styles sur mesure, par application</li>
         <li data-t="ultra_3">Personnalisation complète — orbe, nom, Turbo</li>
       </ul>
-      <a class="btn" id="buyUltra" href="https://buy.stripe.com/dRmeVccAWf1g4Oj1d4efC00" data-t="ultra_btn">Essayer Ultra gratuitement</a>
-      <p class="trial" data-t="trial_note">7 jours offerts, sans engagement</p>
+      <a class="btn" id="buyUltra" href="https://buy.stripe.com/dRmeVccAWf1g4Oj1d4efC00" data-t="ultra_btn">Obtenir Ultra</a>
+      <p class="trial" aria-hidden="true"></p>
     </div>
   </div>
   <p class="plansNote rv" data-t="plans_note">Annulable à tout moment ·
@@ -857,15 +925,19 @@ const I18N = {
     app_kicker: "L'app", app_h2: "Discrète, jusqu'à<br>ce que vous parliez.",
     pill_listen: "Nova écoute…", pill_release: "relâchez pour coller", bubble_ready: "Prête",
     tones_h2: "Une voix.<br>Tous vos Styles.",
-    tones_said: "« on décale la réunion à demain quatorze heures »",
+    tones_said: "« euh on décale la réunion à demain… quatorze heures, faut prévenir Claire et penser à mettre à jour l'invitation »",
+    shots_kicker: "En vrai", shots_h2: "L'app, telle quelle.",
+    shot_1: "<b>Sept Styles, un clic.</b> Le dock ouvre le menu ; l'orbe montre que Nova est prête.",
+    shot_2: "<b>Vos Styles sur mesure.</b> Un nom, des mots-clés, votre consigne — Nova reformule à votre façon dans chaque app.",
+    shot_3: "<b>Des réglages qui se lisent.</b> Turbo, démarrage avec Windows, touche de dictée, profil de puissance adapté à votre machine.",
     f1_bar: "Nouveau message — E-mail",
-    f1_body: '<div class="to">À : Claire Fontaine</div>Bonjour Claire,<br><br>Pourrions-nous décaler notre réunion à demain 14 h ?<br>Merci d\'avance, bonne journée.',
+    f1_body: '<div class="to">À : Claire Fontaine</div>Bonjour Claire,<br><br>Notre réunion est décalée à demain 14 h. Pourriez-vous mettre à jour l\'invitation ?<br>Merci d\'avance, bonne journée.',
     f2_bar: "Notes",
-    f2_body: "— Réunion déplacée : <b>demain, 14 h</b><br>— Prévenir l'équipe<br>— Mettre à jour l'invitation",
+    f2_body: "— Réunion décalée : <b>demain, 14 h</b><br>— Prévenir Claire<br>— Mettre à jour l'invitation",
     f3_bar: "À faire",
     f3_body: '<span class="cb"></span>Décaler la réunion à demain 14 h<br><span class="cb"></span>Prévenir Claire<br><span class="cb"></span>Mettre à jour l\'invitation',
     f4_bar: "Assistant IA",
-    f4_body: '<div class="pbox">Rédige un message court et cordial proposant de décaler la réunion à demain 14 h, et demande une confirmation.</div>',
+    f4_body: '<div class="pbox">Rédige un message bref et cordial à Claire : la réunion est décalée à demain 14 h ; demande-lui de mettre à jour l\'invitation. Ton professionnel, deux phrases maximum.</div>',
     fsty_1: "Style · E-mail", fsty_2: "Style · Prise de notes",
     fsty_3: "Style · To-do list", fsty_4: "Style · Prompt IA",
     chip_1: "E-mail", chip_2: "Prise de notes", chip_3: "To-do list", chip_4: "Prompt IA",
@@ -882,7 +954,7 @@ const I18N = {
     pro_1: "<b>Dictée illimitée</b>", pro_2: "Tous les Styles, dans chaque application",
     pro_btn: "Essayer Pro gratuitement", price_ultra: "19,99 €<small> / mois</small>",
     ultra_1: "<b>Tout Pro</b>, en qualité maximale", ultra_2: "Styles sur mesure, par application",
-    ultra_3: "Personnalisation complète — orbe, nom, Turbo", ultra_btn: "Essayer Ultra gratuitement",
+    ultra_3: "Personnalisation complète — orbe, nom, Turbo", ultra_btn: "Obtenir Ultra",
     trial_note: "7 jours offerts, sans engagement",
     plans_note: 'Annulable à tout moment · équipes : <a href="mailto:mailprosasha2@gmail.com">écrivez-nous</a>',
     final_h2: "Votre voix tape plus vite<br>que vos doigts.",
@@ -910,15 +982,19 @@ const I18N = {
     app_kicker: "The app", app_h2: "Discreet, until<br>you speak.",
     pill_listen: "Nova is listening…", pill_release: "release to paste", bubble_ready: "Ready",
     tones_h2: "One voice.<br>All your Styles.",
-    tones_said: "“let’s move the meeting to tomorrow two pm”",
+    tones_said: "“uh let’s move the meeting to tomorrow… two pm, gotta tell Claire and remember to update the invite”",
+    shots_kicker: "For real", shots_h2: "The app, as it is.",
+    shot_1: "<b>Seven Styles, one click.</b> The dock opens the menu; the orb shows Nova is ready.",
+    shot_2: "<b>Your custom Styles.</b> A name, a few keywords, your instruction — Nova rewrites your way in every app.",
+    shot_3: "<b>Settings you can actually read.</b> Turbo, launch with Windows, dictation key, a power profile matched to your machine.",
     f1_bar: "New message — Email",
-    f1_body: '<div class="to">To: Claire Fontaine</div>Hi Claire,<br><br>Could we move our meeting to tomorrow at 2 pm?<br>Thanks in advance, have a great day.',
+    f1_body: '<div class="to">To: Claire Fontaine</div>Hi Claire,<br><br>Our meeting has moved to tomorrow at 2 pm. Could you update the invite?<br>Thanks in advance, have a great day.',
     f2_bar: "Notes",
-    f2_body: "— Meeting moved: <b>tomorrow, 2 pm</b><br>— Notify the team<br>— Update the invite",
+    f2_body: "— Meeting moved: <b>tomorrow, 2 pm</b><br>— Tell Claire<br>— Update the invite",
     f3_bar: "To-do",
     f3_body: '<span class="cb"></span>Move the meeting to tomorrow 2 pm<br><span class="cb"></span>Tell Claire<br><span class="cb"></span>Update the invite',
     f4_bar: "AI assistant",
-    f4_body: '<div class="pbox">Write a short, friendly message suggesting we move the meeting to tomorrow at 2 pm, and ask for confirmation.</div>',
+    f4_body: '<div class="pbox">Write a brief, friendly message to Claire: the meeting has moved to tomorrow at 2 pm; ask her to update the invite. Professional tone, two sentences max.</div>',
     fsty_1: "Style · Email", fsty_2: "Style · Notes",
     fsty_3: "Style · To-do list", fsty_4: "Style · AI prompt",
     chip_1: "Email", chip_2: "Notes", chip_3: "To-do list", chip_4: "AI prompt",
@@ -935,7 +1011,7 @@ const I18N = {
     pro_1: "<b>Unlimited dictation</b>", pro_2: "All Styles, in every application",
     pro_btn: "Try Pro for free", price_ultra: "€19.99<small> / month</small>",
     ultra_1: "<b>Everything in Pro</b>, at maximum quality", ultra_2: "Custom Styles, per application",
-    ultra_3: "Full personalization — orb, name, Turbo", ultra_btn: "Try Ultra for free",
+    ultra_3: "Full personalization — orb, name, Turbo", ultra_btn: "Get Ultra",
     trial_note: "7 days free, cancel anytime",
     plans_note: 'Cancel anytime · teams: <a href="mailto:mailprosasha2@gmail.com">write to us</a>',
     final_h2: "Your voice types faster<br>than your fingers.",
