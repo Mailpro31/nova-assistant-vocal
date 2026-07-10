@@ -28,6 +28,7 @@
   html{scroll-behavior:smooth}
   body{background:var(--bg);color:var(--txt);font-family:var(--font);
     -webkit-font-smoothing:antialiased;overflow-x:hidden}
+  html,body{overflow-x:clip}  /* les halos débordent sans créer de défilement */
   a{color:inherit;text-decoration:none}
   ::selection{background:rgba(10,132,255,.35)}
   .btn{display:inline-flex;align-items:center;gap:8px;background:var(--blue);color:#fff;
@@ -73,9 +74,11 @@
   @media(max-width:720px){nav .links{display:none}}
 
   /* ------------------------------------------------------------ hero ----- */
+  /* les halos ne sont jamais rognés : ils débordent d'une section à l'autre
+     (le fondu continu de la page) — overflow-x:hidden du body suffit */
   .hero{position:relative;min-height:100svh;display:flex;flex-direction:column;
     align-items:center;justify-content:center;text-align:center;
-    padding:96px 6vw 60px;overflow:hidden}
+    padding:96px 6vw 60px}
   #wave{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
   .aura{position:absolute;border-radius:50%;filter:blur(100px);opacity:.3;pointer-events:none;
     animation:drift 18s ease-in-out infinite alternate}
@@ -164,14 +167,10 @@
   .heroNote{margin-top:14px;font-size:12px;color:var(--mut)}
 
   /* ----------------------------------------------------- ruban langues --- */
-  /* hairlines fondues aux extrémités : jamais de trait coupé net */
+  /* aucun trait : le ruban flotte, fondu aux extrémités */
   .strip{position:relative;padding:34px 0;overflow:hidden;
     -webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);
     mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
-  .strip::before,.strip::after{content:"";position:absolute;left:0;right:0;height:1px;
-    background:linear-gradient(90deg,transparent,var(--line) 30%,var(--line) 70%,transparent)}
-  .strip::before{top:0}
-  .strip::after{bottom:0}
   .strip .track{display:flex;gap:52px;width:max-content;animation:scroll 36s linear infinite;
     font-size:19px;font-weight:600;letter-spacing:-.2px;color:var(--mut);white-space:nowrap}
   .strip .track b{color:var(--txt);font-weight:600}
@@ -179,7 +178,7 @@
 
   /* --------------------------------------------------- « le bon ton » ---- */
   /* ---------- le film : fondu dans la page, halo dégradé, zéro bordure --- */
-  .film{position:relative;padding:110px 6vw 90px;text-align:center;overflow:hidden}
+  .film{position:relative;padding:110px 6vw 90px;text-align:center}
   .film::before{content:"";position:absolute;left:50%;top:52%;transform:translate(-50%,-50%);
     width:min(1100px,96vw);height:80%;pointer-events:none;filter:blur(70px);
     background:radial-gradient(50% 50% at 42% 45%,rgba(174,190,236,.30),transparent 70%),
@@ -203,7 +202,7 @@
   .filmNote{margin-top:16px;font-size:12px;color:var(--mut)}
 
   /* ---------- vitrine : l'app recréée (pilule, dock, bulle) ------------------ */
-  .vitrine{position:relative;padding:120px 6vw 40px;text-align:center;overflow:hidden}
+  .vitrine{position:relative;padding:120px 6vw 40px;text-align:center}
   .vitrine::before{content:"";position:absolute;left:50%;top:60%;transform:translate(-50%,-50%);
     width:min(1000px,95vw);height:72%;pointer-events:none;filter:blur(80px);
     background:radial-gradient(50% 55% at 38% 48%,rgba(174,190,236,.17),transparent 70%),
@@ -246,13 +245,13 @@
     padding:9px 16px;border-radius:999px;font-size:10.5px;letter-spacing:1.4px;
     font-weight:700;color:var(--ultra);background:rgba(201,182,240,.12);
     border:1px solid rgba(201,182,240,.3)}
-  .stymock{left:3%;bottom:0;--tilt:1.8deg;animation-delay:-5.4s;width:196px;
+  .stymock{left:2%;bottom:0;--tilt:1.8deg;animation-delay:-5.4s;width:190px;
     background:#232327;border:1px solid rgba(255,255,255,.09);border-radius:13px;
     box-shadow:0 22px 54px rgba(0,0,0,.5);text-align:left;overflow:hidden}
-  .stymock .stitle{padding:10px 14px 8px;font-size:10px;letter-spacing:1.6px;
+  .stymock .stitle{padding:9px 14px 7px;font-size:10px;letter-spacing:1.6px;
     text-transform:uppercase;color:#8A8A92;font-weight:600}
   .stymock .srow{display:flex;align-items:center;justify-content:space-between;
-    padding:9px 14px;font-size:12.5px;color:#D9D9DE;
+    padding:6.5px 14px;font-size:12px;color:#D9D9DE;
     border-top:1px solid rgba(255,255,255,.055)}
   .stymock .srow svg{width:13px;height:13px;stroke:var(--blue);fill:none;
     stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
@@ -295,9 +294,15 @@
     transition:background .35s var(--ease),color .35s,border-color .35s}
   .tabs span.on{background:var(--blue);border-color:transparent;color:#fff;
     box-shadow:0 8px 26px rgba(10,132,255,.35)}
+  .autonote{margin-top:20px;font-size:13px;color:var(--mut);text-align:center;max-width:460px}
+  .autonote b{color:var(--txt);font-weight:600}
+  .cb{display:inline-block;width:13px;height:13px;border:1.5px solid var(--mut);
+    border-radius:4px;margin-right:9px;vertical-align:-2px;opacity:.7}
+  .pbox{background:var(--inset);border-radius:9px;padding:12px 14px;font-size:13.5px;
+    line-height:1.55;color:var(--txt)}
 
   /* -------------------------------------------------------- privé -------- */
-  .privacy{padding:150px 6vw;text-align:center;position:relative;overflow:hidden}
+  .privacy{padding:150px 6vw;text-align:center;position:relative}
   .privacy .aura{opacity:.14}
   .privacy h2{font-size:clamp(34px,6.4vw,72px);font-weight:700;letter-spacing:-.04em;line-height:1.04}
   .privacy h2 em{font-style:normal;color:var(--mut)}
@@ -336,7 +341,7 @@
   .plansNote a{color:var(--blue)}
 
   /* -------------------------------------------------------- fin ---------- */
-  .final{padding:140px 6vw 120px;text-align:center;position:relative;overflow:hidden}
+  .final{padding:140px 6vw 120px;text-align:center;position:relative}
   .final h2{font-size:clamp(34px,6vw,64px);font-weight:700;letter-spacing:-.04em;line-height:1.05}
   .final .cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:36px}
   footer{position:relative;padding:32px 5vw;display:flex;
@@ -460,11 +465,14 @@
     <div class="mock badgemock">NOVA ULTRA</div>
     <div class="mock stymock">
       <div class="stitle" data-t="sty_title">Styles</div>
-      <div class="srow"><span data-t="sty_1">Professionnel</span>
+      <div class="srow"><span data-t="sty_1">Automatique</span>
         <svg viewBox="0 0 24 24"><path d="M4.5 12.5 10 18 19.5 7"/></svg></div>
-      <div class="srow"><span data-t="sty_2">Direct</span></div>
-      <div class="srow"><span data-t="sty_3">Notes</span></div>
-      <div class="srow"><span data-t="sty_4">Sur mesure</span><span class="ulock">ULTRA</span></div>
+      <div class="srow"><span data-t="sty_2">Normal</span></div>
+      <div class="srow"><span data-t="sty_3">E-mail</span></div>
+      <div class="srow"><span data-t="sty_4">Prise de notes</span></div>
+      <div class="srow"><span data-t="sty_5">To-do list</span></div>
+      <div class="srow"><span data-t="sty_6">Prompt IA</span></div>
+      <div class="srow"><span data-t="sty_7">Sur mesure</span><span class="ulock">ULTRA</span></div>
     </div>
   </div>
 </section>
@@ -476,24 +484,31 @@
     <div class="frames" id="frames">
       <div class="frame" data-i="0">
         <div class="fbar"><i></i><i></i><i></i>&nbsp;<span data-t="f1_bar">Nouveau message — E-mail</span>
-          <span class="fsty" data-t="fsty_1">Style · Professionnel</span></div>
+          <span class="fsty" data-t="fsty_1">Style · E-mail</span></div>
         <div class="fbody" data-t="f1_body"><div class="to">À : Claire Fontaine</div>
           Bonjour Claire,<br><br>
           Pourrions-nous décaler notre réunion à demain 14 h ?<br>
           Merci d'avance, bonne journée.</div>
       </div>
       <div class="frame" data-i="1">
-        <div class="fbar"><i></i><i></i><i></i>&nbsp;<span data-t="f2_bar">Claire — Messages</span>
-          <span class="fsty" data-t="fsty_2">Style · Direct</span></div>
-        <div class="fbody"><div class="chatmsg" data-t="f2_msg">On décale la réunion à demain 14 h ?</div></div>
+        <div class="fbar"><i></i><i></i><i></i>&nbsp;<span data-t="f2_bar">Notes</span>
+          <span class="fsty" data-t="fsty_2">Style · Prise de notes</span></div>
+        <div class="fbody" data-t="f2_body">— Réunion déplacée : <b>demain, 14 h</b><br>— Prévenir l'équipe<br>— Mettre à jour l'invitation</div>
       </div>
       <div class="frame" data-i="2">
-        <div class="fbar"><i></i><i></i><i></i>&nbsp;<span data-t="f3_bar">Notes</span>
-          <span class="fsty" data-t="fsty_3">Style · Notes</span></div>
-        <div class="fbody" data-t="f3_body">— Réunion déplacée : <b>demain, 14 h</b><br>— Prévenir l'équipe<br>— Mettre à jour l'invitation</div>
+        <div class="fbar"><i></i><i></i><i></i>&nbsp;<span data-t="f3_bar">À faire</span>
+          <span class="fsty" data-t="fsty_3">Style · To-do list</span></div>
+        <div class="fbody" data-t="f3_body"><span class="cb"></span>Décaler la réunion à demain 14 h<br><span class="cb"></span>Prévenir Claire<br><span class="cb"></span>Mettre à jour l'invitation</div>
+      </div>
+      <div class="frame" data-i="3">
+        <div class="fbar"><i></i><i></i><i></i>&nbsp;<span data-t="f4_bar">Assistant IA</span>
+          <span class="fsty" data-t="fsty_4">Style · Prompt IA</span></div>
+        <div class="fbody" data-t="f4_body"><div class="pbox">Rédige un message court et cordial proposant de décaler la réunion à demain 14 h, et demande une confirmation.</div></div>
       </div>
     </div>
-    <div class="tabs" aria-hidden="true"><span data-i="0" data-t="chip_1">Professionnel</span><span data-i="1" data-t="chip_2">Direct</span><span data-i="2" data-t="chip_3">Notes</span></div>
+    <div class="tabs" aria-hidden="true"><span data-i="0" data-t="chip_1">E-mail</span><span data-i="1" data-t="chip_2">Prise de notes</span><span data-i="2" data-t="chip_3">To-do list</span><span data-i="3" data-t="chip_4">Prompt IA</span></div>
+    <p class="autonote rv" data-t="autonote">Et en <b>Automatique</b>, Nova détecte l'application
+      et choisit le bon Style toute seule.</p>
   </div>
 </section>
 
@@ -773,12 +788,12 @@ function setFrame(i) {
   tabs.forEach((tb, k) => tb.classList.toggle("on", k === i));
 }
 if (!RM) {
-  tones.style.height = "260svh";
+  tones.style.height = "320svh";
   const onScroll = () => {
     const r = tones.getBoundingClientRect();
     if (r.top > innerHeight || r.bottom < 0) return;
     const p = Math.min(0.999, Math.max(0, -r.top / (r.height - innerHeight)));
-    setFrame(Math.floor(p * 3));
+    setFrame(Math.floor(p * 4));
   };
   addEventListener("scroll", onScroll, { passive: true });
   onScroll();
@@ -811,12 +826,18 @@ const I18N = {
     tones_said: "« on décale la réunion à demain quatorze heures »",
     f1_bar: "Nouveau message — E-mail",
     f1_body: '<div class="to">À : Claire Fontaine</div>Bonjour Claire,<br><br>Pourrions-nous décaler notre réunion à demain 14 h ?<br>Merci d\'avance, bonne journée.',
-    f2_bar: "Claire — Messages", f2_msg: "On décale la réunion à demain 14 h ?",
-    f3_bar: "Notes",
-    f3_body: "— Réunion déplacée : <b>demain, 14 h</b><br>— Prévenir l'équipe<br>— Mettre à jour l'invitation",
-    fsty_1: "Style · Professionnel", fsty_2: "Style · Direct", fsty_3: "Style · Notes",
-    chip_1: "Professionnel", chip_2: "Direct", chip_3: "Notes",
-    sty_title: "Styles", sty_1: "Professionnel", sty_2: "Direct", sty_3: "Notes", sty_4: "Sur mesure",
+    f2_bar: "Notes",
+    f2_body: "— Réunion déplacée : <b>demain, 14 h</b><br>— Prévenir l'équipe<br>— Mettre à jour l'invitation",
+    f3_bar: "À faire",
+    f3_body: '<span class="cb"></span>Décaler la réunion à demain 14 h<br><span class="cb"></span>Prévenir Claire<br><span class="cb"></span>Mettre à jour l\'invitation',
+    f4_bar: "Assistant IA",
+    f4_body: '<div class="pbox">Rédige un message court et cordial proposant de décaler la réunion à demain 14 h, et demande une confirmation.</div>',
+    fsty_1: "Style · E-mail", fsty_2: "Style · Prise de notes",
+    fsty_3: "Style · To-do list", fsty_4: "Style · Prompt IA",
+    chip_1: "E-mail", chip_2: "Prise de notes", chip_3: "To-do list", chip_4: "Prompt IA",
+    autonote: "Et en <b>Automatique</b>, Nova détecte l'application et choisit le bon Style toute seule.",
+    sty_title: "Styles", sty_1: "Automatique", sty_2: "Normal", sty_3: "E-mail",
+    sty_4: "Prise de notes", sty_5: "To-do list", sty_6: "Prompt IA", sty_7: "Sur mesure",
     priv_h2: "Tout reste chez vous.<br><em>Par conception.</em>",
     priv_p: "L'Intelligence privée de Nova écoute, écrit et met en forme directement sur votre appareil — sans internet, sans compte. Le reste n'est qu'une option.",
     price_kicker: "Tarifs", price_h2: "Simple, comme le reste.",
@@ -858,12 +879,18 @@ const I18N = {
     tones_said: "“let’s move the meeting to tomorrow two pm”",
     f1_bar: "New message — Email",
     f1_body: '<div class="to">To: Claire Fontaine</div>Hi Claire,<br><br>Could we move our meeting to tomorrow at 2 pm?<br>Thanks in advance, have a great day.',
-    f2_bar: "Claire — Messages", f2_msg: "Move the meeting to tomorrow 2 pm?",
-    f3_bar: "Notes",
-    f3_body: "— Meeting moved: <b>tomorrow, 2 pm</b><br>— Notify the team<br>— Update the invite",
-    fsty_1: "Style · Professional", fsty_2: "Style · Direct", fsty_3: "Style · Notes",
-    chip_1: "Professional", chip_2: "Direct", chip_3: "Notes",
-    sty_title: "Styles", sty_1: "Professional", sty_2: "Direct", sty_3: "Notes", sty_4: "Custom",
+    f2_bar: "Notes",
+    f2_body: "— Meeting moved: <b>tomorrow, 2 pm</b><br>— Notify the team<br>— Update the invite",
+    f3_bar: "To-do",
+    f3_body: '<span class="cb"></span>Move the meeting to tomorrow 2 pm<br><span class="cb"></span>Tell Claire<br><span class="cb"></span>Update the invite',
+    f4_bar: "AI assistant",
+    f4_body: '<div class="pbox">Write a short, friendly message suggesting we move the meeting to tomorrow at 2 pm, and ask for confirmation.</div>',
+    fsty_1: "Style · Email", fsty_2: "Style · Notes",
+    fsty_3: "Style · To-do list", fsty_4: "Style · AI prompt",
+    chip_1: "Email", chip_2: "Notes", chip_3: "To-do list", chip_4: "AI prompt",
+    autonote: "And on <b>Automatic</b>, Nova detects the app and picks the right Style on its own.",
+    sty_title: "Styles", sty_1: "Automatic", sty_2: "Standard", sty_3: "Email",
+    sty_4: "Notes", sty_5: "To-do list", sty_6: "AI prompt", sty_7: "Custom",
     priv_h2: "Everything stays with you.<br><em>By design.</em>",
     priv_p: "Nova's Private Intelligence listens, writes and formats right on your device — no internet, no account. Everything else is just an option.",
     price_kicker: "Pricing", price_h2: "Simple, like everything else.",
