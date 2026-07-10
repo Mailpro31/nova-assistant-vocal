@@ -691,7 +691,7 @@ class WebDock:
     # agrandie quand le menu des modes ou les réglages s'ouvrent.
     COMPACT = (440, 170)
     MODES = (440, 470)
-    SETTINGS = (640, 800)
+    SETTINGS = (880, 620)   # fenêtre paysage type Réglages macOS (barre latérale)
 
     def __init__(self):
         self._win = None
