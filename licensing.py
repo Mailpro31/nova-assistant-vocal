@@ -42,9 +42,9 @@ FREE_WEEKLY_CHARS = 2500
 
 # Fonctionnalité → palier minimum requis. (Ajuster ici = changer l'offre.)
 FEATURES = {
+    # toutes les langues sont offertes en Gratuit (choix produit) — non gaté
     "cloud_stt":         PRO,     # transcription cloud (Groq)
     "all_modes":         PRO,     # les 7 modes (Free en a 3)
-    "all_languages":     PRO,     # toutes les langues (Free : la langue système)
     "custom_variables":  PRO,     # Custom Variables
     "power_profiles":    PRO,     # profils Élevé / Ultra (Free : Normal)
     "web_dock":          PRO,     # dock web « bille de verre »
