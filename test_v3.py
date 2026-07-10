@@ -9,7 +9,9 @@ se valide sur Windows — voir le rapport de handoff.
 Lancer :  python test_v3.py
 """
 
+import json
 import sys
+import time
 import types
 
 
@@ -34,6 +36,7 @@ import core                     # noqa: E402
 import modes_registry           # noqa: E402
 import auto_mode                # noqa: E402
 import power_profiles           # noqa: E402
+import licensing                # noqa: E402
 import onboarding               # noqa: E402  (ne doit PAS importer webview au chargement)
 
 _fails = []
@@ -296,6 +299,80 @@ def test_format_rules():
     check("vide → vide", core.format_rules("   "), "")
 
 
+# --------------------------------------------------- Licences & paliers ------
+def test_licensing():
+    print("Licences — paliers Free/Pro/Ultra/Business (logique pure)")
+    L = licensing
+    # gating par palier (tier explicite → n'exige ni crypto ni config)
+    check("free : pas de cloud", L.has("cloud_stt", L.FREE), False)
+    check("free : dictée locale de base ok", L.has("cloud_stt", L.FREE) is False
+          and L.mode_allowed("email", L.FREE), True)
+    check("pro : tout l'usage débloqué", L.has("cloud_stt", L.PRO), True)
+    check("pro : pas la perso Ultra", L.has("custom_modes", L.PRO), False)
+    check("pro : pas la meilleure IA", L.has("best_models", L.PRO), False)
+    check("ultra : meilleure IA", L.has("best_models", L.ULTRA), True)
+    check("ultra : personnalisation", L.has("orb_customization", L.ULTRA), True)
+    check("business = niveau Pro (fonctions)", L.has("cloud_stt", L.BUSINESS),
+          True)
+    check("business : pas la perso Ultra", L.has("custom_modes", L.BUSINESS),
+          False)
+    # modes offerts en Free
+    check("free : mode email autorisé", L.mode_allowed("email", L.FREE), True)
+    check("free : mode todo bloqué", L.mode_allowed("todo", L.FREE), False)
+    check("pro : tous les modes", L.mode_allowed("todo", L.PRO), True)
+    # dormant (pas de clé publique dans le dépôt) → accès complet + illimité
+    check("dormant → licences désactivées", L.enabled(), False)
+    check("dormant → has True partout", L.has("custom_modes"), True)
+    check("dormant → transcription illimitée", L.quota_status()["limit"], None)
+    check("dormant → can_transcribe", L.can_transcribe(), True)
+    # quota Free simulé sur un tier explicite (via record) — vérifie le calcul
+    _saved = core.CFG.get("usage")
+    core.CFG["usage"] = {"week": L._week_key(), "chars": L.FREE_WEEKLY_CHARS}
+    check("quota calc : used=limit → remaining 0 (tier free simulé)",
+          max(0, L.FREE_WEEKLY_CHARS - L._usage_used()), 0)
+    if _saved is None:
+        core.CFG.pop("usage", None)
+    else:
+        core.CFG["usage"] = _saved
+    # aller-retour cryptographique si `cryptography` est présent. Le backend
+    # Rust exige l'entropie de l'OS pour generate() : indisponible dans certains
+    # bacs à sable (panic pyo3) — on saute alors proprement ; ça tourne en CI
+    # (GitHub Actions) et sous Windows.
+    if L._HAVE_CRYPTO:
+        try:
+            import base64 as _b64
+            from cryptography.hazmat.primitives import serialization as _ser
+            from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+                Ed25519PrivateKey as _Priv)
+            _priv = _Priv.generate()
+            _pub = _b64.urlsafe_b64encode(_priv.public_key().public_bytes(
+                _ser.Encoding.Raw, _ser.PublicFormat.Raw)).decode().rstrip("=")
+
+            def _mk(tier, exp=0, seats=1):
+                p = json.dumps({"t": tier, "e": "a@b.com", "x": exp, "s": seats}
+                               ).encode("utf-8")
+                b = lambda x: _b64.urlsafe_b64encode(x).decode().rstrip("=")  # noqa: E731
+                return "NOVA1.%s.%s" % (b(p), b(_priv.sign(p)))
+        except BaseException as _e:     # entropie OS bloquée (bac à sable)
+            print(f"  [skip] round-trip crypto indisponible ici "
+                  f"({type(_e).__name__})")
+        else:
+            check("clé pro valide → tier pro",
+                  (L.verify_key(_mk("pro"), _pub) or {}).get("tier"), "pro")
+            check("clé business → sièges lus",
+                  (L.verify_key(_mk("business", seats=10), _pub)
+                   or {}).get("seats"), 10)
+            check("clé expirée → None",
+                  L.verify_key(_mk("pro", exp=int(time.time()) - 10), _pub),
+                  None)
+            check("signature trafiquée → None",
+                  L.verify_key(_mk("ultra")[:-3] + "aaa", _pub), None)
+            check("mauvaise clé publique → None",
+                  L.verify_key(_mk("pro"),
+                               _b64.urlsafe_b64encode(b"\x00" * 32).decode()),
+                  None)
+
+
 if __name__ == "__main__":
     test_registry()
     test_auto_resolve()
@@ -305,6 +382,7 @@ if __name__ == "__main__":
     test_onboarding()
     test_stt_language()
     test_format_rules()
+    test_licensing()
     print()
     if _fails:
         print(f"❌ {len(_fails)} échec(s) : {', '.join(_fails)}")

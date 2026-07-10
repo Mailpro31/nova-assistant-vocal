@@ -4,6 +4,9 @@
 # ─────────────────────────────────────────────────────────────
 
 # Secrets & données utilisateur (JAMAIS versionnés)
+# CLÉ PRIVÉE de signature des licences (infalsifiabilité — JAMAIS sur GitHub) :
+license_private.pem
+*.pem
 # clés API chiffrées DPAPI :
 secrets.json
 .env

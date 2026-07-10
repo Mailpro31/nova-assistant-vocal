@@ -135,6 +135,39 @@ webhooks (IFTTT / Zapier / Home Assistant).
 
 ---
 
+## Licences & versions
+
+Nova est vendu par **paliers**, avec une version gratuite utile. La validation
+est **hors-ligne** : la clé de licence est un jeton signé Ed25519 vérifié
+localement (aucun serveur, marche sans Internet, infalsifiable sans la clé
+privée de l'éditeur).
+
+| | 🆓 **Free** | 💼 **Pro** | 🏢 **Business** | 🚀 **Ultra** |
+|---|---|---|---|---|
+| Dictée locale (Whisper) | ✅ | ✅ | ✅ | ✅ |
+| Transcription / semaine | **~2 500 car.** | illimitée | illimitée | illimitée |
+| Modes de reformulation | 3 | les 7 | les 7 | les 7 |
+| STT Cloud (Groq) + langues | ❌ | ✅ | ✅ | ✅ |
+| Custom Variables · profils · dock web | ❌ | ✅ | ✅ | ✅ |
+| **Meilleure IA / qualité** | ❌ | ❌ | ❌ | ✅ |
+| **Personnalisation** (couleurs de l'orbe, noms, modes sur mesure, `auto_rules`) | ❌ | ❌ | ❌ | ✅ |
+| Nouveautés en avant-première | ❌ | ❌ | ❌ | ✅ |
+| Licence | 1 poste | 1 poste | **multi-postes** (tarif/siège réduit) | 1 poste |
+
+- **Activer** une licence : Réglages → « Entrer ma licence » (ou clé `license_key`
+  dans `config.json`).
+- **Éditeur** — générer la paire de clés puis signer des licences :
+  ```bash
+  pip install cryptography
+  python tools/mint_license.py genkey          # → colle la clé publique dans licensing.py
+  python tools/mint_license.py mint --tier pro     --email client@ex.com --days 365
+  python tools/mint_license.py mint --tier business --email equipe@ex.com --seats 10 --days 365
+  ```
+  Tant que `licensing.PUBLIC_KEY_B64` est vide, les licences sont **dormantes**
+  (tout débloqué) — l'app fonctionne normalement en développement.
+
+---
+
 ## Architecture
 
 | Fichier | Rôle |
