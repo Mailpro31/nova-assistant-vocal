@@ -60,3 +60,6 @@ models/
 
 # Vidéo d'onboarding (lourde, propre à chaque build — voir assets/README.md)
 assets/*.mp4
+
+# bande-son du film (régénérable via landing/film/audio.py)
+landing/film/nova-film-audio.wav
