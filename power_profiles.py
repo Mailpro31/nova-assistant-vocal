@@ -35,18 +35,10 @@ DEFAULT_ID = "normal"          # le plus léger : sûr sur toute machine ciblée
 def best_local_llm(ram_gb=None):
     """« Meilleure IA » locale (palier Ultra) : le meilleur modèle Ollama que la
     RAM peut tenir sans faire ramer la machine. 16 Go → qwen2.5:7b (idéal,
-    ~5 Go) ; 24 Go+ → qwen2.5:14b ; en dessous → qwen2.5:3b. Réutilise la table
-    PROFILES (source unique du mapping)."""
-    if ram_gb is None:
-        try:
-            ram_gb = detect_hardware()["ram_total_gb"]
-        except Exception:
-            ram_gb = 8.0
-    best = PROFILES[0]["llm"]
-    for p in PROFILES:                     # PROFILES trié par min_ram_gb croissant
-        if ram_gb + _RAM_MARGIN_GB >= p["min_ram_gb"] and p["llm"]:
-            best = p["llm"]
-    return best
+    ~5 Go) ; 24 Go+ → qwen2.5:14b ; en dessous → qwen2.5:3b. Réutilise la
+    logique de déverrouillage des profils (source unique du mapping)."""
+    hw = detect_hardware() if ram_gb is None else {"ram_total_gb": ram_gb}
+    return get_profile(recommended_id(hw))["llm"]
 
 # marge de sécurité : on ne débloque un profil que si la RAM totale dépasse son
 # minimum d'au moins cette marge (évite le cas « pile à la limite » qui swappe)
@@ -58,9 +50,17 @@ _GPU_MSG = "Optimal avec un GPU ; fonctionnera plus lentement sans."
 
 
 # ------------------------------------------------- détection matérielle ------
+_HW_CACHE = None  # le matériel ne change pas en cours de session → mesuré 1 fois
+
+
 def detect_hardware():
     """{ram_total_gb, ram_avail_gb, has_gpu, gpu_name, vram_gb}. Ne lève jamais :
-    en cas de doute, renvoie une machine modeste (→ seul Normal débloqué)."""
+    en cas de doute, renvoie une machine modeste (→ seul Normal débloqué).
+    Mémoïsé : la sonde GPU (CTranslate2/CUDA) est coûteuse et le résultat est
+    stable pour toute la session."""
+    global _HW_CACHE
+    if _HW_CACHE is not None:
+        return dict(_HW_CACHE)
     ram_total = ram_avail = 8.0
     try:
         import psutil
@@ -70,13 +70,14 @@ def detect_hardware():
     except Exception:
         pass
     gpu_name, vram = _detect_gpu()
-    return {
+    _HW_CACHE = {
         "ram_total_gb": round(ram_total, 1),
         "ram_avail_gb": round(ram_avail, 1),
         "has_gpu": bool(gpu_name),
         "gpu_name": gpu_name,
         "vram_gb": vram,
     }
+    return dict(_HW_CACHE)
 
 
 def _detect_gpu():
