@@ -574,7 +574,7 @@ class Pill(threading.Thread):
                        relief="flat").pack(anchor="w")
 
         # « Meilleure IA » (palier Ultra) : meilleur modèle local (selon la RAM)
-        # ou cloud (Claude Opus) pour la reformulation
+        # ou cloud (petit modèle rapide et multilingue) pour la reformulation
         can_best = licensing.has("best_models")
         best_ai = tk.BooleanVar(value=bool(core.CFG.get("best_ai")))
 

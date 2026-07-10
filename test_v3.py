@@ -191,8 +191,10 @@ def test_auto_resolve():
     check("_reform_model : best_ai off → modèle configuré",
           _core._reform_model("anthropic"), _sv)
     _core.CFG["best_ai"] = True   # dormant → licensing.has renvoie True
-    check("_reform_model : best_ai on → Claude Opus (cloud premium)",
-          _core._reform_model("anthropic"), "claude-opus-4-8")
+    check("_reform_model : best_ai on → petit modèle cloud rapide (Haiku)",
+          _core._reform_model("anthropic"), "claude-haiku-4-5")
+    check("_reform_model : best_ai on (Groq) → Llama 70B (quasi gratuit)",
+          _core._reform_model("groq"), "llama-3.3-70b-versatile")
     _core.CFG.pop("best_ai", None)
     # dédoublonnage sur l'id
     _dup = _core.save_custom_modes([

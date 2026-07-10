@@ -1153,12 +1153,15 @@ def test_provider(provider):
     return {"ok": ok, "ms": ms, "detail": detail}
 
 
-# « Meilleure IA » (palier Ultra) : modèle premium par fournisseur cloud. Pour
-# le local, cf. power_profiles.best_local_llm (meilleur modèle que la RAM tient).
+# « Meilleure IA » (palier Ultra) : modèle cloud PETIT, RAPIDE et PEU COÛTEUX
+# couvrant la plupart des langues — l'API cloud du palier Ultra étant illimitée,
+# le coût unitaire doit rester négligeable (décision produit : pas de modèle
+# phare type Opus ici). Pour le local, cf. power_profiles.best_local_llm.
 # Les fournisseurs non listés gardent le modèle choisi par l'utilisateur.
 BEST_CLOUD_LLM = {
-    "anthropic": "claude-opus-4-8",           # modèle Claude phare
-    "groq":      "llama-3.3-70b-versatile",   # meilleur modèle Groq (déjà le STT)
+    "groq":      "llama-3.3-70b-versatile",   # quasi gratuit, le plus rapide,
+    #                                           même clé que le STT Groq
+    "anthropic": "claude-haiku-4-5",          # petit, rapide, 100+ langues
 }
 
 
