@@ -46,7 +46,9 @@
   nav{position:fixed;top:0;left:0;right:0;z-index:60;display:flex;align-items:center;
     justify-content:space-between;padding:14px 5vw;
     background:rgba(31,31,34,.6);backdrop-filter:blur(20px);
-    -webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--line)}
+    -webkit-backdrop-filter:blur(20px)}
+  nav::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;
+    background:linear-gradient(90deg,transparent,var(--line) 18%,var(--line) 82%,transparent)}
   .light nav{background:rgba(245,245,247,.65)}
   .navr{display:flex;align-items:center;gap:10px}
   #themeBtn{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);
@@ -162,10 +164,14 @@
   .heroNote{margin-top:14px;font-size:12px;color:var(--mut)}
 
   /* ----------------------------------------------------- ruban langues --- */
-  .strip{position:relative;padding:34px 0;border-top:1px solid var(--line);
-    border-bottom:1px solid var(--line);overflow:hidden;
+  /* hairlines fondues aux extrémités : jamais de trait coupé net */
+  .strip{position:relative;padding:34px 0;overflow:hidden;
     -webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);
     mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
+  .strip::before,.strip::after{content:"";position:absolute;left:0;right:0;height:1px;
+    background:linear-gradient(90deg,transparent,var(--line) 30%,var(--line) 70%,transparent)}
+  .strip::before{top:0}
+  .strip::after{bottom:0}
   .strip .track{display:flex;gap:52px;width:max-content;animation:scroll 36s linear infinite;
     font-size:19px;font-weight:600;letter-spacing:-.2px;color:var(--mut);white-space:nowrap}
   .strip .track b{color:var(--txt);font-weight:600}
@@ -198,6 +204,10 @@
 
   /* ---------- vitrine : l'app recréée (pilule, dock, bulle) ------------------ */
   .vitrine{position:relative;padding:120px 6vw 40px;text-align:center;overflow:hidden}
+  .vitrine::before{content:"";position:absolute;left:50%;top:60%;transform:translate(-50%,-50%);
+    width:min(1000px,95vw);height:72%;pointer-events:none;filter:blur(80px);
+    background:radial-gradient(50% 55% at 38% 48%,rgba(174,190,236,.17),transparent 70%),
+      radial-gradient(45% 50% at 66% 52%,rgba(174,226,204,.11),transparent 72%)}
   .vitrine h2{font-size:clamp(30px,5vw,52px);font-weight:700;letter-spacing:-1.4px;line-height:1.08}
   .mocks{position:relative;height:330px;max-width:820px;margin:30px auto 0}
   .mock{position:absolute;animation:floaty 7s ease-in-out infinite}
@@ -236,7 +246,20 @@
     padding:9px 16px;border-radius:999px;font-size:10.5px;letter-spacing:1.4px;
     font-weight:700;color:var(--ultra);background:rgba(201,182,240,.12);
     border:1px solid rgba(201,182,240,.3)}
-  @media(max-width:720px){.bubblemock,.badgemock{display:none}.mocks{height:250px}}
+  .stymock{left:3%;bottom:0;--tilt:1.8deg;animation-delay:-5.4s;width:196px;
+    background:#232327;border:1px solid rgba(255,255,255,.09);border-radius:13px;
+    box-shadow:0 22px 54px rgba(0,0,0,.5);text-align:left;overflow:hidden}
+  .stymock .stitle{padding:10px 14px 8px;font-size:10px;letter-spacing:1.6px;
+    text-transform:uppercase;color:#8A8A92;font-weight:600}
+  .stymock .srow{display:flex;align-items:center;justify-content:space-between;
+    padding:9px 14px;font-size:12.5px;color:#D9D9DE;
+    border-top:1px solid rgba(255,255,255,.055)}
+  .stymock .srow svg{width:13px;height:13px;stroke:var(--blue);fill:none;
+    stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+  .stymock .srow .ulock{font-size:8.5px;letter-spacing:1.2px;font-weight:700;
+    color:var(--ultra);background:rgba(201,182,240,.12);
+    border:1px solid rgba(201,182,240,.3);border-radius:999px;padding:2px 7px}
+  @media(max-width:720px){.bubblemock,.badgemock,.stymock{display:none}.mocks{height:250px}}
 
   .tones .stick{position:sticky;top:0;min-height:100svh;display:flex;flex-direction:column;
     align-items:center;justify-content:center;padding:90px 6vw;overflow:hidden}
@@ -244,6 +267,10 @@
     line-height:1.08;text-align:center}
   .tones .said{margin-top:16px;color:var(--mut);font-size:15px;font-style:italic;text-align:center}
   .frames{position:relative;margin-top:44px;width:min(560px,92vw);height:250px}
+  .frames::before{content:"";position:absolute;inset:-90px -120px;pointer-events:none;
+    filter:blur(70px);z-index:-1;
+    background:radial-gradient(50% 50% at 44% 46%,rgba(199,185,234,.17),transparent 70%),
+      radial-gradient(45% 55% at 60% 58%,rgba(174,190,236,.13),transparent 72%)}
   .frame{position:absolute;inset:0;background:var(--card);border:1px solid var(--line);
     border-radius:13px;box-shadow:0 30px 80px rgba(0,0,0,.5);overflow:hidden;
     opacity:0;transform:translateY(30px) scale(.96);
@@ -252,15 +279,22 @@
   .frame .fbar{display:flex;align-items:center;gap:9px;padding:12px 16px;
     border-bottom:1px solid var(--line);font-size:12px;color:var(--mut)}
   .frame .fbar i{width:10px;height:10px;border-radius:50%;background:#3A3A3F}
+  .frame .fsty{margin-left:auto;display:inline-flex;align-items:center;gap:6px;
+    padding:3px 10px;border-radius:999px;font-size:10.5px;font-weight:600;
+    color:var(--blue);background:rgba(10,132,255,.10);border:1px solid rgba(10,132,255,.25);
+    white-space:nowrap}
+  .frame .fsty::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--blue)}
   .frame .fbody{padding:20px 24px;font-size:14.5px;line-height:1.65;text-align:left;color:var(--txt)}
   .frame .fbody .to{color:var(--mut);font-size:12.5px;margin-bottom:10px}
   .chatmsg{background:var(--blue);color:#fff;border-radius:16px 16px 4px 16px;
     padding:11px 15px;max-width:78%;margin-left:auto;font-size:14.5px}
-  .tabs{display:flex;gap:8px;margin-top:26px}
-  .tabs span{width:34px;height:5px;border-radius:999px;background:rgba(255,255,255,.14);
-    transition:background .3s}
-  .light .tabs span{background:rgba(0,0,0,.12)}
-  .tabs span.on{background:var(--blue)}
+  /* pilules de Styles : montrent le mode actif pendant la démo */
+  .tabs{display:flex;gap:8px;margin-top:28px;flex-wrap:wrap;justify-content:center}
+  .tabs span{padding:8px 16px;border-radius:999px;font-size:12.5px;font-weight:600;
+    color:var(--mut);border:1px solid var(--line);
+    transition:background .35s var(--ease),color .35s,border-color .35s}
+  .tabs span.on{background:var(--blue);border-color:transparent;color:#fff;
+    box-shadow:0 8px 26px rgba(10,132,255,.35)}
 
   /* -------------------------------------------------------- privé -------- */
   .privacy{padding:150px 6vw;text-align:center;position:relative;overflow:hidden}
@@ -270,7 +304,12 @@
   .privacy p{margin:20px auto 0;max-width:430px;color:var(--mut);font-size:15px;line-height:1.6}
 
   /* -------------------------------------------------------- tarifs ------- */
-  .pricing{padding:60px 6vw 130px;max-width:1080px;margin:0 auto;text-align:center}
+  .pricing{position:relative;padding:60px 6vw 130px;max-width:1080px;margin:0 auto;text-align:center}
+  .pricing::before{content:"";position:absolute;left:50%;top:58%;transform:translate(-50%,-50%);
+    width:min(1100px,96vw);height:70%;pointer-events:none;filter:blur(90px);
+    background:radial-gradient(45% 55% at 50% 44%,rgba(10,132,255,.10),transparent 70%),
+      radial-gradient(42% 50% at 28% 62%,rgba(174,190,236,.12),transparent 72%),
+      radial-gradient(40% 48% at 74% 60%,rgba(199,185,234,.10),transparent 72%)}
   .kicker{font-size:12px;letter-spacing:2.5px;text-transform:uppercase;color:var(--blue);
     font-weight:600;margin-bottom:14px}
   .pricing h2{font-size:clamp(30px,5vw,52px);font-weight:700;letter-spacing:-1.4px}
@@ -292,6 +331,7 @@
   .plan li{padding:7px 0;font-size:13.5px;color:var(--mut);line-height:1.45}
   .plan li b{color:var(--txt);font-weight:600}
   .plan .btn{width:100%;justify-content:center;padding:12px;font-size:14px}
+  .plan .trial{margin-top:10px;font-size:11.5px;color:var(--ok);font-weight:500}
   .plansNote{margin-top:24px;color:var(--mut);font-size:12.5px}
   .plansNote a{color:var(--blue)}
 
@@ -299,9 +339,11 @@
   .final{padding:140px 6vw 120px;text-align:center;position:relative;overflow:hidden}
   .final h2{font-size:clamp(34px,6vw,64px);font-weight:700;letter-spacing:-.04em;line-height:1.05}
   .final .cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:36px}
-  footer{border-top:1px solid var(--line);padding:32px 5vw;display:flex;
+  footer{position:relative;padding:32px 5vw;display:flex;
     justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;
     color:var(--mut);font-size:12.5px}
+  footer::before{content:"";position:absolute;top:0;left:0;right:0;height:1px;
+    background:linear-gradient(90deg,transparent,var(--line) 18%,var(--line) 82%,transparent)}
   footer .links{display:flex;gap:20px}
   footer a:hover{color:var(--txt)}
 
@@ -416,6 +458,14 @@
     </div>
     <div class="mock bubblemock" data-t="bubble_ready">Prête</div>
     <div class="mock badgemock">NOVA ULTRA</div>
+    <div class="mock stymock">
+      <div class="stitle" data-t="sty_title">Styles</div>
+      <div class="srow"><span data-t="sty_1">Professionnel</span>
+        <svg viewBox="0 0 24 24"><path d="M4.5 12.5 10 18 19.5 7"/></svg></div>
+      <div class="srow"><span data-t="sty_2">Direct</span></div>
+      <div class="srow"><span data-t="sty_3">Notes</span></div>
+      <div class="srow"><span data-t="sty_4">Sur mesure</span><span class="ulock">ULTRA</span></div>
+    </div>
   </div>
 </section>
 
@@ -425,22 +475,25 @@
     <p class="said rv" data-t="tones_said">« on décale la réunion à demain quatorze heures »</p>
     <div class="frames" id="frames">
       <div class="frame" data-i="0">
-        <div class="fbar"><i></i><i></i><i></i>&nbsp;<span data-t="f1_bar">Nouveau message — E-mail</span></div>
+        <div class="fbar"><i></i><i></i><i></i>&nbsp;<span data-t="f1_bar">Nouveau message — E-mail</span>
+          <span class="fsty" data-t="fsty_1">Style · Professionnel</span></div>
         <div class="fbody" data-t="f1_body"><div class="to">À : Claire Fontaine</div>
           Bonjour Claire,<br><br>
           Pourrions-nous décaler notre réunion à demain 14 h ?<br>
           Merci d'avance, bonne journée.</div>
       </div>
       <div class="frame" data-i="1">
-        <div class="fbar"><i></i><i></i><i></i>&nbsp;<span data-t="f2_bar">Claire — Messages</span></div>
+        <div class="fbar"><i></i><i></i><i></i>&nbsp;<span data-t="f2_bar">Claire — Messages</span>
+          <span class="fsty" data-t="fsty_2">Style · Direct</span></div>
         <div class="fbody"><div class="chatmsg" data-t="f2_msg">On décale la réunion à demain 14 h ?</div></div>
       </div>
       <div class="frame" data-i="2">
-        <div class="fbar"><i></i><i></i><i></i>&nbsp;<span data-t="f3_bar">Notes</span></div>
+        <div class="fbar"><i></i><i></i><i></i>&nbsp;<span data-t="f3_bar">Notes</span>
+          <span class="fsty" data-t="fsty_3">Style · Notes</span></div>
         <div class="fbody" data-t="f3_body">— Réunion déplacée : <b>demain, 14 h</b><br>— Prévenir l'équipe<br>— Mettre à jour l'invitation</div>
       </div>
     </div>
-    <div class="tabs" aria-hidden="true"><span data-i="0"></span><span data-i="1"></span><span data-i="2"></span></div>
+    <div class="tabs" aria-hidden="true"><span data-i="0" data-t="chip_1">Professionnel</span><span data-i="1" data-t="chip_2">Direct</span><span data-i="2" data-t="chip_3">Notes</span></div>
   </div>
 </section>
 
@@ -469,22 +522,24 @@
     <div class="plan star rv">
       <span class="badge" data-t="badge_pop">Le plus populaire</span>
       <h3>Pro</h3>
-      <div class="price" data-t="price_pro">12 €<small> / mois</small></div>
+      <div class="price" data-t="price_pro">9,99 €<small> / mois</small></div>
       <ul>
         <li data-t="pro_1"><b>Dictée illimitée</b></li>
         <li data-t="pro_2">Tous les Styles, dans chaque application</li>
       </ul>
-      <a class="btn" id="buyPro" href="https://buy.stripe.com/test_dRmeVccAWf1g4Oj1d4efC00" data-t="pro_btn">S'abonner à Pro</a>
+      <a class="btn" id="buyPro" href="https://buy.stripe.com/test_dRmeVccAWf1g4Oj1d4efC00" data-t="pro_btn">Essayer Pro gratuitement</a>
+      <p class="trial" data-t="trial_note">7 jours offerts, sans engagement</p>
     </div>
     <div class="plan rv">
       <h3>Ultra</h3>
-      <div class="price" data-t="price_ultra">24 €<small> / mois</small></div>
+      <div class="price" data-t="price_ultra">19,99 €<small> / mois</small></div>
       <ul>
         <li data-t="ultra_1"><b>Tout Pro</b>, en qualité maximale</li>
         <li data-t="ultra_2">Styles sur mesure, par application</li>
         <li data-t="ultra_3">Personnalisation complète — orbe, nom, Turbo</li>
       </ul>
-      <a class="btn" id="buyUltra" href="https://buy.stripe.com/test_8x23cu58u7yO5Sn1d4efC01" data-t="ultra_btn">S'abonner à Ultra</a>
+      <a class="btn" id="buyUltra" href="https://buy.stripe.com/test_8x23cu58u7yO5Sn1d4efC01" data-t="ultra_btn">Essayer Ultra gratuitement</a>
+      <p class="trial" data-t="trial_note2">7 jours offerts, sans engagement</p>
     </div>
   </div>
   <p class="plansNote rv" data-t="plans_note">Annulable à tout moment ·
@@ -759,17 +814,21 @@ const I18N = {
     f2_bar: "Claire — Messages", f2_msg: "On décale la réunion à demain 14 h ?",
     f3_bar: "Notes",
     f3_body: "— Réunion déplacée : <b>demain, 14 h</b><br>— Prévenir l'équipe<br>— Mettre à jour l'invitation",
+    fsty_1: "Style · Professionnel", fsty_2: "Style · Direct", fsty_3: "Style · Notes",
+    chip_1: "Professionnel", chip_2: "Direct", chip_3: "Notes",
+    sty_title: "Styles", sty_1: "Professionnel", sty_2: "Direct", sty_3: "Notes", sty_4: "Sur mesure",
     priv_h2: "Tout reste chez vous.<br><em>Par conception.</em>",
     priv_p: "L'Intelligence privée de Nova écoute, écrit et met en forme directement sur votre appareil — sans internet, sans compte. Le reste n'est qu'une option.",
     price_kicker: "Tarifs", price_h2: "Simple, comme le reste.",
     plan_free: "Gratuit", price_free: "0 €",
     free_1: "<b>Intelligence privée</b>, toutes les langues",
     free_2: "3 Styles d'écriture", free_3: "2 500 caractères / semaine", free_btn: "Télécharger",
-    badge_pop: "Le plus populaire", price_pro: "12 €<small> / mois</small>",
+    badge_pop: "Le plus populaire", price_pro: "9,99 €<small> / mois</small>",
     pro_1: "<b>Dictée illimitée</b>", pro_2: "Tous les Styles, dans chaque application",
-    pro_btn: "S'abonner à Pro", price_ultra: "24 €<small> / mois</small>",
+    pro_btn: "Essayer Pro gratuitement", price_ultra: "19,99 €<small> / mois</small>",
     ultra_1: "<b>Tout Pro</b>, en qualité maximale", ultra_2: "Styles sur mesure, par application",
-    ultra_3: "Personnalisation complète — orbe, nom, Turbo", ultra_btn: "S'abonner à Ultra",
+    ultra_3: "Personnalisation complète — orbe, nom, Turbo", ultra_btn: "Essayer Ultra gratuitement",
+    trial_note: "7 jours offerts, sans engagement", trial_note2: "7 jours offerts, sans engagement",
     plans_note: 'Annulable à tout moment · équipes : <a href="mailto:mailprosasha2@gmail.com">écrivez-nous</a>',
     final_h2: "Votre voix tape plus vite<br>que vos doigts.",
     final_btn: "Télécharger Nova gratuitement",
@@ -802,17 +861,21 @@ const I18N = {
     f2_bar: "Claire — Messages", f2_msg: "Move the meeting to tomorrow 2 pm?",
     f3_bar: "Notes",
     f3_body: "— Meeting moved: <b>tomorrow, 2 pm</b><br>— Notify the team<br>— Update the invite",
+    fsty_1: "Style · Professional", fsty_2: "Style · Direct", fsty_3: "Style · Notes",
+    chip_1: "Professional", chip_2: "Direct", chip_3: "Notes",
+    sty_title: "Styles", sty_1: "Professional", sty_2: "Direct", sty_3: "Notes", sty_4: "Custom",
     priv_h2: "Everything stays with you.<br><em>By design.</em>",
     priv_p: "Nova's Private Intelligence listens, writes and formats right on your device — no internet, no account. Everything else is just an option.",
     price_kicker: "Pricing", price_h2: "Simple, like everything else.",
     plan_free: "Free", price_free: "€0",
     free_1: "<b>Private Intelligence</b>, every language",
     free_2: "3 writing Styles", free_3: "2,500 characters / week", free_btn: "Download",
-    badge_pop: "Most popular", price_pro: "€12<small> / month</small>",
+    badge_pop: "Most popular", price_pro: "€9.99<small> / month</small>",
     pro_1: "<b>Unlimited dictation</b>", pro_2: "All Styles, in every application",
-    pro_btn: "Subscribe to Pro", price_ultra: "€24<small> / month</small>",
+    pro_btn: "Try Pro for free", price_ultra: "€19.99<small> / month</small>",
     ultra_1: "<b>Everything in Pro</b>, at maximum quality", ultra_2: "Custom Styles, per application",
-    ultra_3: "Full personalization — orb, name, Turbo", ultra_btn: "Subscribe to Ultra",
+    ultra_3: "Full personalization — orb, name, Turbo", ultra_btn: "Try Ultra for free",
+    trial_note: "7 days free, cancel anytime", trial_note2: "7 days free, cancel anytime",
     plans_note: 'Cancel anytime · teams: <a href="mailto:mailprosasha2@gmail.com">write to us</a>',
     final_h2: "Your voice types faster<br>than your fingers.",
     final_btn: "Download Nova for free",
