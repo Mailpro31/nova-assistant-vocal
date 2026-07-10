@@ -50,7 +50,7 @@ SET_BG = "#1F1F22"        # fond fenêtre
 SET_FG = "#F2F2F4"        # texte principal
 SET_MUT = "#98989F"       # texte secondaire
 SET_INSET = "#1A1A1D"     # champs / listes / séparateurs discrets
-SET_LINE = "#3A3A3F"      # séparateurs de sections
+SET_LINE = "#2E2E30"      # hairline (rgba(255,255,255,.065) composé sur SET_BG)
 SET_ACCENT = "#0A84FF"    # accent unique (boutons d'action)
 SET_WHITE = "#FFFFFF"     # texte sur accent
 SET_OK = "#8FE7B0"        # état succès
@@ -458,7 +458,7 @@ class Pill(threading.Thread):
 
         # — Personnalisation (palier Ultra) —
         def ultra_header(title, unlocked):
-            tk.Label(win, text=title + ("" if unlocked else "   🔒 Ultra"),
+            tk.Label(win, text=title + ("" if unlocked else "   — Nécessite Nova Ultra"),
                      bg=SET_BG, fg=SET_FG, font=("Segoe UI", 15, "bold")
                      ).pack(anchor="w", padx=16, pady=(0, 4))
 
@@ -596,7 +596,8 @@ class Pill(threading.Thread):
                 return
             core.save_config({"best_ai": bool(best_ai.get())})
         cb_best = tk.Checkbutton(
-            eng, text="Meilleure IA — qualité maximale" + ("" if can_best else "   🔒 Ultra"),
+            eng, text="Meilleure IA — qualité maximale"
+            + ("" if can_best else "   (Nécessite Nova Ultra)"),
             variable=best_ai, command=toggle_best, bg=SET_BG, fg=SET_FG,
             selectcolor=SET_INSET, activebackground=SET_BG,
             activeforeground=SET_FG, relief="flat")
@@ -620,8 +621,8 @@ class Pill(threading.Thread):
             prof_var.set(STATE.get("profile", "normal"))   # reflète le repli éventuel
 
         for ev in power_profiles.evaluate(hw):
-            txt = ev["label"] + (f"   🔒 {ev['reason']}" if ev["locked"]
-                                 else (f"   ⚠ {ev['warning']}" if ev["warning"] else ""))
+            txt = ev["label"] + (f"   — {ev['reason']}" if ev["locked"]
+                                 else (f"   — {ev['warning']}" if ev["warning"] else ""))
             tk.Radiobutton(prof, text=txt, value=ev["id"], variable=prof_var,
                            command=choose_profile,
                            state=("disabled" if ev["locked"] else "normal"),
@@ -1178,8 +1179,8 @@ def _build_tray():
 
     def profile_item(ev):
         # profil trop lourd = verrouillé (grisé) + raison ; sinon avertissement discret
-        suffix = (f"  🔒 {ev['reason']}" if ev["locked"]
-                  else ("  ⚠" if ev["warning"] else ""))
+        suffix = (f"  — {ev['reason']}" if ev["locked"]
+                  else ("  — plus demandeur" if ev["warning"] else ""))
         return MenuItem(ev["label"] + suffix,
                         lambda _i, _it, pid=ev["id"]: _set_profile(pid),
                         checked=lambda _it, pid=ev["id"]: STATE.get("profile") == pid,
