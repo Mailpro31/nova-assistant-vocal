@@ -1338,6 +1338,35 @@ def save_custom_variables(items):
     return clean
 
 
+def clean_tokens(toks):
+    """Repères utilisateur → liste de chaînes non vides, chacune rognée. Accepte
+    une chaîne nue (→ [chaîne]). Source UNIQUE du nettoyage des mots-clés (mode
+    Automatique + modes sur mesure)."""
+    if isinstance(toks, str):
+        toks = [toks]
+    return [s for t in (toks or []) if (s := str(t).strip())]
+
+
+def save_custom_modes(items):
+    """Modes sur mesure (palier Ultra) : [{id?, name, match, prompt}]. Nettoie
+    et persiste — source UNIQUE de la validation du schéma (tray + dock).
+    Retourne la liste propre effectivement stockée."""
+    clean = []
+    for cm in items or []:
+        try:
+            name = str(cm.get("name") or "").strip()[:40]
+            match = clean_tokens(cm.get("match"))
+            prompt = str(cm.get("prompt") or "").strip()
+        except Exception:
+            continue
+        if name and match and prompt:
+            cid = str(cm.get("id") or "").strip() or uuid.uuid4().hex[:8]
+            clean.append({"id": cid, "name": name, "match": match,
+                          "prompt": prompt})
+    save_config({"custom_modes": clean})
+    return clean
+
+
 def fill_personal(text):
     """Substitution locale : champs de profil (« mon adresse » → …) PUIS Custom
     Variables utilisateur. Tout se fait AVANT tout envoi IA, jamais transmis."""

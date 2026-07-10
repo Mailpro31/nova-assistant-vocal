@@ -115,13 +115,6 @@ def resolve(title, proc="", extra_rules=None):
     return DEFAULT_ID
 
 
-def _clean_tokens(toks):
-    """Repères utilisateur → liste de chaînes non vides (str nu accepté)."""
-    if isinstance(toks, str):
-        toks = [toks]
-    return [str(t) for t in (toks or []) if str(t).strip()]
-
-
 def _user_rules():
     """Règles depuis config.json, ou None. Deux sources, par priorité :
 
@@ -140,7 +133,7 @@ def _user_rules():
         if licensing.has("custom_modes"):
             for cm in core.CFG.get("custom_modes") or []:
                 try:
-                    toks = _clean_tokens(cm.get("match"))
+                    toks = core.clean_tokens(cm.get("match"))
                     if toks and str(cm.get("prompt") or "").strip() \
                             and str(cm.get("id") or "").strip():
                         rules.append((f"custom:{cm['id']}", toks))
@@ -150,7 +143,7 @@ def _user_rules():
             valid = set(modes_registry.mode_ids()) - {"auto"}
             for mode_id, toks in (core.CFG.get("auto_rules") or {}).items():
                 if mode_id in valid:
-                    toks = _clean_tokens(toks)
+                    toks = core.clean_tokens(toks)
                     if toks:
                         rules.append((mode_id, toks))
         return rules or None

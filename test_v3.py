@@ -157,6 +157,21 @@ def test_auto_resolve():
           auto_mode.custom_mode("inconnu"), None)
     check("custom_mode sans prompt → None",
           auto_mode.custom_mode("np"), None)
+    # core.save_custom_modes : normaliseur UNIQUE (nom rogné à 40, tokens
+    # nettoyés, id auto, entrées invalides écartées) — retour /simplify
+    _cm = _core.save_custom_modes([
+        {"name": "X" * 60, "match": [" jira ", "", "atlassian"], "prompt": "p"},
+        {"name": "SansMatch", "match": [], "prompt": "p"},   # écarté
+        {"id": "keep", "name": "Wiki", "match": "notion", "prompt": "q"},
+    ])
+    check("save_custom_modes : 2 valides sur 3", len(_cm), 2)
+    check("save_custom_modes : nom rogné à 40", len(_cm[0]["name"]), 40)
+    check("save_custom_modes : tokens nettoyés (rognés, vides retirés)",
+          _cm[0]["match"], ["jira", "atlassian"])
+    check("save_custom_modes : id auto attribué", bool(_cm[0]["id"]), True)
+    check("save_custom_modes : id fourni conservé + str→[str]",
+          (_cm[1]["id"], _cm[1]["match"]), ("keep", ["notion"]))
+    _core.CFG.pop("custom_modes", None)
     if _saved_cm is None:
         _core.CFG.pop("custom_modes", None)
     else:
