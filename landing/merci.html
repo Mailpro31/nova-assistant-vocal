@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Nova — votre licence</title>
+<style>
+  :root{--font:-apple-system,"SF Pro Display","SF Pro Text","Segoe UI",Inter,system-ui,sans-serif}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background:#1F1F22;color:#F2F2F4;font-family:var(--font);padding:20px}
+  .card{background:#2C2C30;border:1px solid rgba(255,255,255,.07);border-radius:13px;
+    padding:40px 44px;max-width:440px;text-align:center}
+  .dot{width:26px;height:26px;border-radius:50%;margin:0 auto 12px;
+    background:radial-gradient(circle at 34% 30%,#fff 0%,#DFE7FA 18%,#AEBEEC 45%,#93A6E0 72%,#7E92D6 100%);
+    box-shadow:0 0 16px rgba(174,190,236,.55)}
+  h1{font-size:21px;font-weight:700;letter-spacing:-.3px;margin-bottom:6px}
+  .sub{color:#98989F;font-size:13px;margin-bottom:18px;line-height:1.5}
+  .key{background:#1A1A1D;border-radius:9px;padding:14px;font-size:17px;letter-spacing:1px;
+    font-family:ui-monospace,Menlo,Consolas,monospace;margin-bottom:14px;user-select:all;
+    min-height:49px;display:flex;align-items:center;justify-content:center}
+  .btn{background:#0A84FF;color:#fff;border:none;border-radius:6px;padding:9px 18px;
+    font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+  .btn:hover{filter:brightness(1.08)}
+  .foot{color:#98989F;font-size:11.5px;line-height:1.55;margin-top:16px}
+  .foot a{color:#0A84FF;text-decoration:none}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="dot" aria-hidden="true"></div>
+  <h1>Nova</h1>
+  <p class="sub" id="sub">Récupération de votre clé de licence…</p>
+  <div class="key" id="k">…</div>
+  <button class="btn" id="copy" style="display:none">Copier la clé</button>
+  <p class="foot" id="foot">Cette page nécessite JavaScript. Si rien ne s'affiche,
+    <a href="mailto:mailprosasha2@gmail.com">écrivez-nous</a> avec votre reçu Stripe.</p>
+</div>
+<script>
+const API = "https://cvpucqsxgjczkdskohte.supabase.co/functions/v1/license/key";
+const sid = new URLSearchParams(location.search).get("session_id") || "";
+const $ = (id) => document.getElementById(id);
+const TIERS = { pro: "Pro", ultra: "Ultra", business: "Business" };
+let tries = 0;
+
+async function load() {
+  if (!sid) { $("sub").textContent = "Lien incomplet — ouvrez le lien reçu après votre paiement."; return; }
+  try {
+    const r = await fetch(API + "?session_id=" + encodeURIComponent(sid));
+    const d = await r.json();
+    if (d.ok && d.key) {
+      $("sub").textContent = "Merci ! Voici votre clé de licence Nova " + (TIERS[d.tier] || "") + " :";
+      $("k").textContent = d.key;
+      $("copy").style.display = "";
+      $("foot").innerHTML = "Ouvrez Nova → Réglages → Abonnement, collez la clé puis cliquez « Activer ».<br>" +
+        "Conservez cette page : la clé est personnelle (2 appareils max).";
+      return;
+    }
+  } catch (_e) { /* réseau : on retente */ }
+  // paiement encore en cours de traitement par le webhook : on repolle
+  if (++tries < 24) {
+    $("sub").textContent = "Votre paiement est en cours de traitement…";
+    setTimeout(load, 5000);
+  } else {
+    $("sub").textContent = "Le traitement prend plus de temps que prévu.";
+    $("foot").innerHTML = "Votre clé arrivera — réactualisez cette page dans quelques minutes, ou " +
+      "<a href='mailto:mailprosasha2@gmail.com'>écrivez-nous</a> avec votre reçu Stripe.";
+  }
+}
+$("copy").onclick = () => navigator.clipboard.writeText($("k").textContent);
+load();
+</script>
+</body>
+</html>
