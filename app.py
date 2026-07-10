@@ -152,6 +152,10 @@ class Pill(threading.Thread):
         import tkinter.font as tkfont
         self.tk = tk
         self.root = tk.Tk()
+        # les exceptions des callbacks tkinter n'atteignent pas sys.excepthook :
+        # tkinter les imprime sur stderr (invisible en .exe) — on les journalise
+        self.root.report_callback_exception = \
+            lambda et, ev, tb: core.log_err("tk_callback", ev)
         self.root.withdraw()
         self.root.overrideredirect(True)
         self.root.attributes("-topmost", True)
@@ -585,6 +589,19 @@ class Pill(threading.Thread):
                        activebackground=SET_BG, activeforeground=SET_FG,
                        relief="flat").pack(anchor="w")
 
+        # démarrage avec Windows : lit et écrit directement la clé Run (même
+        # entrée que la case de l'installeur) — pas de copie dans config.json
+        autostart = tk.BooleanVar(value=winext.get_autostart())
+
+        def toggle_autostart():
+            if not winext.set_autostart(autostart.get()):
+                autostart.set(winext.get_autostart())   # échec → état réel
+        tk.Checkbutton(eng, text="Lancer Nova au démarrage de Windows",
+                       variable=autostart, command=toggle_autostart,
+                       bg=SET_BG, fg=SET_FG, selectcolor=SET_INSET,
+                       activebackground=SET_BG, activeforeground=SET_FG,
+                       relief="flat").pack(anchor="w")
+
         # « Meilleure IA » (palier Ultra) : meilleur modèle local (selon la RAM)
         # ou cloud (petit modèle rapide et multilingue) pour la reformulation
         can_best = licensing.has("best_models")
@@ -811,6 +828,7 @@ class DockApi:
             "ptt_key": core.CFG.get("ptt_key", "f9"),
             "language": core.CFG.get("language", "fr"),
             "cloud_enabled": bool(core.CFG.get("stt", {}).get("cloud_enabled")),
+            "autostart": winext.get_autostart(),
             "personal": core.personal_info(),
             "custom_vars": [{"trigger": t, "value": v}
                             for t, v in core.custom_variables()],
@@ -824,6 +842,11 @@ class DockApi:
             "custom_modes": core.CFG.get("custom_modes") or [],
             "best_ai": bool(core.CFG.get("best_ai")),
         }
+
+    def set_autostart(self, on):
+        """Démarrage avec Windows (clé Run HKCU). Renvoie l'état réel."""
+        winext.set_autostart(bool(on))
+        return winext.get_autostart()
 
     def set_best_ai(self, on):
         """« Meilleure IA » (palier Ultra) : meilleur modèle local/cloud."""
@@ -1205,7 +1228,16 @@ def _build_tray():
     return pystray.Icon(APP_NAME, img, f"{_app_display_name()} — dictée vocale", menu)
 
 
+def _hook_uncaught():
+    """Toute exception non rattrapée (thread principal ou threads de fond)
+    finit dans nova.log au lieu de disparaître avec la console — en .exe
+    fenêtré il n'y a AUCUNE console, c'est la seule trace d'un plantage."""
+    sys.excepthook = lambda t, v, tb: core.log_err("uncaught", v)
+    threading.excepthook = lambda a: core.log_err("uncaught_thread", a.exc_value)
+
+
 def main():
+    _hook_uncaught()
     # profil de puissance : bootstrap AVANT tout le reste, y compris l'onboarding
     # (best-effort, peut échouer ou être fermé sans être terminé) — la garantie
     # « jamais de saturation RAM » ne doit jamais dépendre de l'écran d'accueil.

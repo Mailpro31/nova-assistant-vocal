@@ -162,7 +162,7 @@
 <script>
 function api(m){try{return Promise.resolve(window.pywebview.api[m].apply(null,[].slice.call(arguments,1)));}
   catch(e){return Promise.resolve(null);}}
-let S={modes:[],profiles:[],languages:[],mode:'auto',ptt_key:'f9',language:'fr',cloud_enabled:false,
+let S={modes:[],profiles:[],languages:[],mode:'auto',ptt_key:'f9',language:'fr',cloud_enabled:false,autostart:false,
   personal:{},custom_vars:[],hardware:{},tier:'free',lic:null,perso:{},custom_modes:[],
   best_ai:false,orb_color:'',custom_name:''};
 
@@ -252,6 +252,8 @@ function paneGeneral(p){
    +G('Moteur',R('Transcription cloud','Groq + IA, plus rapide — sinon 100 % local',
       '<div class="sw'+(S.cloud_enabled?' on':'')+'" id="swCloud"></div>'),
       'Le moteur local fonctionne entièrement hors ligne.')
+   +G('Démarrage',R('Lancer au démarrage de Windows','Nova sera prête dès l\'ouverture de session',
+      '<div class="sw'+(S.autostart?' on':'')+'" id="swAuto"></div>'),'')
    +G('Touche push-to-talk',R('Maintenir pour dicter','Cliquez le champ puis appuyez sur une touche',
       '<input class="fieldc mono" id="pttIn" style="width:86px;text-align:center" readonly value="'+esc(S.ptt_key)+'">'),'')
    +G('Profil de puissance',profs,'Machine : '+(hw.ram_total_gb||'?')+' Go RAM'+
@@ -260,6 +262,9 @@ function paneGeneral(p){
       '<button class="btn sec" id="updBtn">Rechercher…</button>'),'');
   document.getElementById('swCloud').onclick=()=>api('toggle_cloud').then(on=>{S.cloud_enabled=!!on;
     document.getElementById('swCloud').className='sw'+(on?' on':'');});
+  document.getElementById('swAuto').onclick=()=>{const want=!document.getElementById('swAuto').classList.contains('on');
+    api('set_autostart',want).then(on=>{S.autostart=!!on;      // état réel du registre
+      document.getElementById('swAuto').className='sw'+(on?' on':'');});};
   document.getElementById('pttIn').addEventListener('keydown',e=>{e.preventDefault();
     const k=(e.key||'').toLowerCase();if(k){e.target.value=k;S.ptt_key=k;api('set_ptt_key',k);}});
   document.getElementById('updBtn').onclick=()=>api('check_update');
