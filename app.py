@@ -419,6 +419,42 @@ class Pill(threading.Thread):
                   bg="#3A2620", fg="#E7C9BF", relief="flat", padx=12,
                   pady=4).pack(side="left", padx=8)
 
+        # — Personnalisation (palier Ultra) —
+        tk.Frame(win, bg="#2A2C33", height=1).pack(fill="x", padx=16, pady=12)
+        can_perso = licensing.has("orb_customization")
+        tk.Label(win, text="Personnalisation" + ("" if can_perso else "   🔒 Ultra"),
+                 bg="#15161A", fg="#ECEFF7",
+                 font=("Segoe UI", 15, "bold")).pack(anchor="w", padx=16, pady=(0, 4))
+        pcol = tk.Frame(win, bg="#15161A")
+        pcol.pack(fill="x", padx=16, pady=4)
+        tk.Label(pcol, text="Couleur de l'orbe (#rrggbb) :", bg="#15161A",
+                 fg="#8A8F9C").pack(side="left")
+        e_color = tk.Entry(pcol, width=10, bg="#26272E", fg="#ECEFF7",
+                           insertbackground="#ECEFF7", relief="flat")
+        e_color.pack(side="left", padx=8, ipady=3)
+        e_color.insert(0, core.CFG.get("orb_color", ""))
+        pnam = tk.Frame(win, bg="#15161A")
+        pnam.pack(fill="x", padx=16, pady=4)
+        tk.Label(pnam, text="Nom personnalisé :", bg="#15161A",
+                 fg="#8A8F9C").pack(side="left")
+        e_name = tk.Entry(pnam, width=20, bg="#26272E", fg="#ECEFF7",
+                          insertbackground="#ECEFF7", relief="flat")
+        e_name.pack(side="left", padx=8, ipady=3)
+        e_name.insert(0, core.CFG.get("custom_name", ""))
+
+        def save_perso():
+            if licensing.has("orb_customization"):
+                core.save_config({"orb_color": e_color.get().strip()})
+            if licensing.has("custom_naming"):
+                core.save_config({"custom_name": e_name.get().strip()[:40]})
+        b_perso = tk.Button(win, text="Enregistrer la personnalisation",
+                            command=save_perso, bg="#2A3B55", fg="#DCE6F7",
+                            relief="flat", padx=12, pady=4)
+        b_perso.pack(anchor="w", padx=16, pady=(4, 0))
+        if not can_perso:                       # verrouillé sous Ultra
+            for wdg in (e_color, e_name, b_perso):
+                wdg.config(state="disabled")
+
         # moteur + touche push-to-talk
         sep = tk.Frame(win, bg="#2A2C33", height=1)
         sep.pack(fill="x", padx=16, pady=12)
@@ -646,7 +682,26 @@ class DockApi:
             "personal": core.personal_info(),
             "custom_vars": [{"trigger": t, "value": v}
                             for t, v in core.custom_variables()],
+            "tier": licensing.status()["tier"],
+            "perso": {"orb": licensing.has("orb_customization"),
+                      "name": licensing.has("custom_naming")},
+            "orb_color": core.CFG.get("orb_color", ""),
+            "custom_name": core.CFG.get("custom_name", ""),
         }
+
+    def set_orb_color(self, hex_):
+        """Couleur d'orbe personnalisée (palier Ultra). '' = défaut."""
+        if not licensing.has("orb_customization"):
+            return {"ok": False}
+        core.save_config({"orb_color": (hex_ or "").strip()})
+        return {"ok": True, "orb_color": core.CFG.get("orb_color", "")}
+
+    def set_custom_name(self, name):
+        """Nom personnalisé de l'app (palier Ultra)."""
+        if not licensing.has("custom_naming"):
+            return {"ok": False}
+        core.save_config({"custom_name": (name or "").strip()[:40]})
+        return {"ok": True, "custom_name": core.CFG.get("custom_name", "")}
 
     def set_mode(self, mode_id):
         _set_mode(mode_id)
@@ -895,6 +950,12 @@ def _request_quit(icon=None):
     pill.destroy()
 
 
+def _app_display_name():
+    """Nom affiché : personnalisé si palier Ultra + nom défini, sinon « Nova »."""
+    name = core.CFG.get("custom_name", "").strip()
+    return name if (name and licensing.has("custom_naming")) else "Nova"
+
+
 def _license_tray_label():
     """Libellé dynamique du palier dans le menu (ouvre les Réglages au clic)."""
     st = licensing.status()
@@ -959,7 +1020,7 @@ def _build_tray():
         MenuItem("Vérifier les mises à jour", lambda _i, _it: _check_update()),
         MenuItem("Quitter", lambda icon, _it: _request_quit(icon)),
     )
-    return pystray.Icon(APP_NAME, img, "Nova — dictée vocale", menu)
+    return pystray.Icon(APP_NAME, img, f"{_app_display_name()} — dictée vocale", menu)
 
 
 def main():
