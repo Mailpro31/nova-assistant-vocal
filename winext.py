@@ -193,6 +193,30 @@ def paste_into_active_app(text):
     return True
 
 
+# ------------------------------------------------- empreinte machine --------
+
+def machine_fingerprint():
+    """Empreinte stable et anonyme de CE poste (sha256 du MachineGuid Windows,
+    tronqué) : lie une activation de licence à la machine sans transmettre
+    d'identifiant brut. Repli dev Linux : machine-id, puis nom d'hôte."""
+    ident = ""
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
+                            r"SOFTWARE\Microsoft\Cryptography", 0,
+                            winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as k:
+            ident = winreg.QueryValueEx(k, "MachineGuid")[0]
+    except Exception:
+        try:
+            with open("/etc/machine-id", encoding="ascii") as f:
+                ident = f.read().strip()
+        except Exception:
+            import socket
+            ident = socket.gethostname()
+    import hashlib
+    return hashlib.sha256(f"nova:{ident}".encode()).hexdigest()[:32]
+
+
 # ------------------------------------------------- démarrage avec Windows ---
 # Même valeur « Nova » que la case à cocher de l'installeur (nova.iss) : le
 # réglage dans l'app et celui de l'installation pilotent la même entrée Run.
