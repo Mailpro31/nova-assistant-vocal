@@ -193,6 +193,55 @@ def paste_into_active_app(text):
     return True
 
 
+# ------------------------------------------------- démarrage avec Windows ---
+# Même valeur « Nova » que la case à cocher de l'installeur (nova.iss) : le
+# réglage dans l'app et celui de l'installation pilotent la même entrée Run.
+
+_RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
+_RUN_NAME = "Nova"
+
+
+def _autostart_command():
+    """Commande lancée au démarrage : l'exe gelé, ou python + script en dev."""
+    if getattr(sys, "frozen", False):
+        return f'"{sys.executable}"'
+    script = os.path.abspath(sys.argv[0])
+    return f'"{sys.executable}" "{script}"'
+
+
+def set_autostart(enabled):
+    """Inscrit ou retire Nova de la clé Run (HKCU, aucun droit admin requis).
+    Renvoie True si l'état demandé est effectif — False sinon (l'UI reflète
+    alors l'état réel au lieu de mentir)."""
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, _RUN_KEY, 0,
+                            winreg.KEY_SET_VALUE) as key:
+            if enabled:
+                winreg.SetValueEx(key, _RUN_NAME, 0, winreg.REG_SZ,
+                                  _autostart_command())
+            else:
+                try:
+                    winreg.DeleteValue(key, _RUN_NAME)
+                except FileNotFoundError:
+                    pass
+        return True
+    except Exception:
+        return False
+
+
+def get_autostart():
+    """True si Nova est inscrite au démarrage de Windows (source de vérité :
+    le registre lui-même — jamais de copie dans config.json qui dériverait)."""
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, _RUN_KEY) as key:
+            winreg.QueryValueEx(key, _RUN_NAME)
+        return True
+    except Exception:
+        return False
+
+
 # -------------------------------------------------------- touches média -----
 
 MEDIA_VK = {

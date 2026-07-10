@@ -11,6 +11,7 @@ import re
 import sys
 import threading
 import time
+import traceback
 import unicodedata
 import uuid
 
@@ -172,12 +173,29 @@ def normalize(text):
     return re.sub(r"\s+", " ", text).strip()
 
 
+_LOG_MAX_BYTES = 512 * 1024   # rotation simple : nova.log → nova.log.1 (2 fichiers max)
+
+
 def log_err(context, err):
-    """Journal d'erreurs (nova.log à côté de l'exe) : les pannes silencieuses
-    de l'écoute continue ou du chargement des modèles deviennent visibles."""
+    """Journal d'erreurs (nova.log à côté de l'exe — installation par
+    utilisateur, donc inscriptible) : les pannes silencieuses de la dictée ou
+    du chargement des modèles deviennent visibles. Si `err` est une exception,
+    sa trace complète est jointe (indispensable pour diagnostiquer à distance
+    la machine d'un client)."""
     try:
-        with open(_path("nova.log"), "a", encoding="utf-8") as f:
-            f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')}  {context}: {err}\n")
+        p = _path("nova.log")
+        try:
+            if os.path.getsize(p) > _LOG_MAX_BYTES:
+                os.replace(p, _path("nova.log.1"))
+        except OSError:
+            pass                       # fichier absent : rien à faire pivoter
+        line = f"{time.strftime('%Y-%m-%d %H:%M:%S')}  {context}: {err}\n"
+        if isinstance(err, BaseException) and err.__traceback__ is not None:
+            tb = "".join(traceback.format_exception(type(err), err,
+                                                    err.__traceback__))
+            line += "    " + tb.replace("\n", "\n    ").rstrip() + "\n"
+        with open(p, "a", encoding="utf-8") as f:
+            f.write(line)
     except Exception:
         pass
 
