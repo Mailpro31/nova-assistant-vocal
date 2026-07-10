@@ -40,6 +40,9 @@ Name: "french"; MessagesFile: "compiler:Languages\French.isl"
 [Tasks]
 Name: "desktopicon"; Description: "Créer un raccourci sur le bureau"; GroupDescription: "Raccourcis :"
 Name: "autostart"; Description: "Lancer Nova au démarrage de Windows"; GroupDescription: "Options :"; Flags: unchecked
+; cochée par défaut : sans le modèle, la première dictée devrait attendre son
+; téléchargement — on le fait pendant l'installation, où l'attente est attendue
+Name: "preload"; Description: "Télécharger l'Intelligence privée maintenant (recommandé, ~500 Mo)"; GroupDescription: "Options :"
 
 [Files]
 ; Tout le dossier produit par PyInstaller (build.bat -> dist\Nova\).
@@ -57,5 +60,10 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
   Flags: uninsdeletevalue; Tasks: autostart
 
 [Run]
+; Pré-télécharge le modèle de l'Intelligence privée (profil adapté à la machine)
+; pour que la première dictée fonctionne immédiatement, même hors ligne.
+Filename: "{app}\{#MyAppExeName}"; Parameters: "--preload-models"; \
+  StatusMsg: "Téléchargement de l'Intelligence privée (quelques minutes)…"; \
+  Flags: runhidden waituntilterminated; Tasks: preload
 Filename: "{app}\{#MyAppExeName}"; Description: "Lancer Nova"; \
   Flags: nowait postinstall skipifsilent

@@ -178,11 +178,50 @@ def _week_key():
     return time.strftime("%G-W%V")
 
 
-def _usage_used():
+def _usage_read():
+    """Usage hebdo, stocké CHIFFRÉ (DPAPI via winext) : éditer ou supprimer le
+    config.json ne réinitialise plus le quota. Repli sur l'ancien emplacement
+    config (migration douce) puis {}. Ne lève jamais."""
+    try:
+        import winext
+        raw = winext.get_secret("usage")
+        if raw:
+            u = json.loads(raw)
+            if isinstance(u, dict):
+                return u
+    except Exception:
+        pass
     try:
         import core
-        u = core.CFG.get("usage") or {}
-        return int(u.get("chars", 0)) if u.get("week") == _week_key() else 0
+        return dict(core.CFG.get("usage") or {})
+    except Exception:
+        return {}
+
+
+def _usage_write(week, chars):
+    """Persiste l'usage dans le coffre chiffré, avec l'horodatage qui sert de
+    garde anti-recul d'horloge. Défensif : silencieux si le coffre échoue."""
+    try:
+        import winext
+        winext.set_secret("usage", json.dumps(
+            {"week": week, "chars": int(chars), "ts": int(time.time())}))
+    except Exception:
+        pass
+
+
+def _effective_week(u):
+    """Semaine à comptabiliser. Si l'horloge système a RECULÉ de plus de 6 h
+    par rapport au dernier enregistrement (triche pour réinitialiser le quota),
+    on continue de compter dans la semaine déjà enregistrée."""
+    if int(u.get("ts", 0) or 0) - time.time() > 6 * 3600 and u.get("week"):
+        return u["week"]
+    return _week_key()
+
+
+def _usage_used():
+    try:
+        u = _usage_read()
+        return int(u.get("chars", 0)) if u.get("week") == _effective_week(u) else 0
     except Exception:
         return 0
 
@@ -205,16 +244,15 @@ def can_transcribe():
 
 
 def record_transcription(text):
-    """Comptabilise les caractères transcrits (Free uniquement). Défensif :
-    n'écrit rien et ne lève jamais pour un palier illimité."""
+    """Comptabilise les caractères transcrits (Free uniquement) dans le coffre
+    chiffré. Défensif : n'écrit rien et ne lève jamais pour un palier illimité."""
     try:
         if has("unlimited_stt"):
             return
-        import core
-        week = _week_key()
-        used = _usage_used()
-        core.save_config({"usage": {"week": week,
-                                    "chars": used + len(text or "")}})
+        u = _usage_read()
+        week = _effective_week(u)
+        used = int(u.get("chars", 0)) if u.get("week") == week else 0
+        _usage_write(week, used + len(text or ""))
     except Exception:
         pass
 
