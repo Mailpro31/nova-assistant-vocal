@@ -44,28 +44,66 @@ const $ = (id) => document.getElementById(id);
 const TIERS = { pro: "Pro", ultra: "Ultra", business: "Business" };
 let tries = 0;
 
+/* français / anglais : même préférence que la page d'accueil */
+const M = {
+  fr: {
+    title: "Nova — votre licence",
+    loading: "Récupération de votre clé de licence…",
+    copy: "Copier la clé",
+    nolink: "Lien incomplet — ouvrez le lien reçu après votre paiement.",
+    thanks: (t) => "Merci ! Voici votre clé de licence Nova " + t + " :",
+    okfoot: "Ouvrez Nova → Réglages → Abonnement, collez la clé puis cliquez « Activer ».<br>" +
+      "Conservez cette page : votre clé est personnelle.",
+    wait: "Votre paiement est en cours de traitement…",
+    slow: "Le traitement prend plus de temps que prévu.",
+    slowfoot: "Votre clé arrivera — réactualisez cette page dans quelques minutes, ou " +
+      "<a href='mailto:mailprosasha2@gmail.com'>écrivez-nous</a> avec votre reçu Stripe."
+  },
+  en: {
+    title: "Nova — your license",
+    loading: "Retrieving your license key…",
+    copy: "Copy the key",
+    nolink: "Incomplete link — open the link you received after payment.",
+    thanks: (t) => "Thank you! Here is your Nova " + t + " license key:",
+    okfoot: "Open Nova → Settings → Subscription, paste the key and click “Activate”.<br>" +
+      "Keep this page: your key is personal.",
+    wait: "Your payment is being processed…",
+    slow: "This is taking a little longer than expected.",
+    slowfoot: "Your key is on its way — refresh this page in a few minutes, or " +
+      "<a href='mailto:mailprosasha2@gmail.com'>write to us</a> with your Stripe receipt."
+  }
+};
+let lang = null;
+try { lang = localStorage.getItem("nova-lang"); } catch (_e) { /* privé */ }
+if (lang !== "fr" && lang !== "en") {
+  lang = (navigator.language || "fr").toLowerCase().startsWith("fr") ? "fr" : "en";
+}
+const L = M[lang];
+document.documentElement.lang = lang;
+document.title = L.title;
+$("sub").textContent = L.loading;
+$("copy").textContent = L.copy;
+
 async function load() {
-  if (!sid) { $("sub").textContent = "Lien incomplet — ouvrez le lien reçu après votre paiement."; return; }
+  if (!sid) { $("sub").textContent = L.nolink; return; }
   try {
     const r = await fetch(API + "?session_id=" + encodeURIComponent(sid));
     const d = await r.json();
     if (d.ok && d.key) {
-      $("sub").textContent = "Merci ! Voici votre clé de licence Nova " + (TIERS[d.tier] || "") + " :";
+      $("sub").textContent = L.thanks(TIERS[d.tier] || "");
       $("k").textContent = d.key;
       $("copy").style.display = "";
-      $("foot").innerHTML = "Ouvrez Nova → Réglages → Abonnement, collez la clé puis cliquez « Activer ».<br>" +
-        "Conservez cette page : votre clé est personnelle.";
+      $("foot").innerHTML = L.okfoot;
       return;
     }
   } catch (_e) { /* réseau : on retente */ }
   // paiement encore en cours de traitement par le webhook : on repolle
   if (++tries < 24) {
-    $("sub").textContent = "Votre paiement est en cours de traitement…";
+    $("sub").textContent = L.wait;
     setTimeout(load, 5000);
   } else {
-    $("sub").textContent = "Le traitement prend plus de temps que prévu.";
-    $("foot").innerHTML = "Votre clé arrivera — réactualisez cette page dans quelques minutes, ou " +
-      "<a href='mailto:mailprosasha2@gmail.com'>écrivez-nous</a> avec votre reçu Stripe.";
+    $("sub").textContent = L.slow;
+    $("foot").innerHTML = L.slowfoot;
   }
 }
 $("copy").onclick = () => navigator.clipboard.writeText($("k").textContent);
