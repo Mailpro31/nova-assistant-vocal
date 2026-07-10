@@ -123,6 +123,9 @@ def _user_rules():
     try:
         import core
         import modes_registry
+        import licensing
+        if not licensing.has("custom_auto_rules"):
+            return None                 # règles perso : palier Ultra
         valid = set(modes_registry.mode_ids()) - {"auto"}
         raw = core.CFG.get("auto_rules") or {}
         rules = []
