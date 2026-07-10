@@ -134,6 +134,33 @@ def test_auto_resolve():
     _core.CFG["auto_rules"] = {"emial": ["x"], "auto": ["y"], "email": ["moncrm"]}
     check("auto_rules : mode_id invalide/auto filtré, valide conservé",
           auto_mode._user_rules(), [("email", ["moncrm"])])
+    # modes SUR MESURE (Ultra) : prioritaires sur auto_rules et les intégrés ;
+    # entrées sans prompt/match/id écartées
+    _saved_cm = _core.CFG.get("custom_modes")
+    _core.CFG["custom_modes"] = [
+        {"id": "j1", "name": "Jira", "match": ["jira"], "prompt": "Ticket."},
+        {"id": "", "name": "sans id", "match": ["x"], "prompt": "p"},
+        {"id": "np", "name": "sans prompt", "match": ["y"], "prompt": " "},
+    ]
+    check("custom_modes : règle perso en tête, mal formées écartées",
+          auto_mode._user_rules(),
+          [("custom:j1", ["jira"]), ("email", ["moncrm"])])
+    check("resolve → custom:j1 sur un onglet Jira",
+          auto_mode.resolve("PROJ-42 - Jira - Google Chrome", "chrome.exe",
+                            auto_mode._user_rules()), "custom:j1")
+    check("resolve custom prioritaire sur un intégré (gmail)",
+          auto_mode.resolve("Jira - Gmail - Google Chrome", "chrome.exe",
+                            auto_mode._user_rules()), "custom:j1")
+    check("custom_mode('j1') → prompt lisible",
+          (auto_mode.custom_mode("j1") or {}).get("prompt"), "Ticket.")
+    check("custom_mode inconnu → None (repli dictée dans app)",
+          auto_mode.custom_mode("inconnu"), None)
+    check("custom_mode sans prompt → None",
+          auto_mode.custom_mode("np"), None)
+    if _saved_cm is None:
+        _core.CFG.pop("custom_modes", None)
+    else:
+        _core.CFG["custom_modes"] = _saved_cm
     if _saved is None:
         _core.CFG.pop("auto_rules", None)
     else:

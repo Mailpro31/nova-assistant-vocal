@@ -20,6 +20,7 @@ import queue
 import sys
 import threading
 import time
+import uuid
 
 import keyboard
 
@@ -53,7 +54,25 @@ STATE = {"mode": core.CFG.get("mode", modes_registry.DEFAULT_MODE_ID),
 resource_path = core.resource_path
 
 
-# ============================================================ pilule flottante
+def _ph(entry, text):
+    """Texte indicatif gris dans un champ tkinter vide (effacé au focus).
+    Retourne un getter qui renvoie '' tant que l'indicatif est affiché."""
+    if not entry.get():
+        entry.insert(0, text)
+        entry.config(fg="#6A6F7C")
+
+    def on_in(_e):
+        if entry.get() == text:
+            entry.delete(0, "end")
+            entry.config(fg="#ECEFF7")
+
+    def on_out(_e):
+        if not entry.get():
+            entry.insert(0, text)
+            entry.config(fg="#6A6F7C")
+    entry.bind("<FocusIn>", on_in)
+    entry.bind("<FocusOut>", on_out)
+    return lambda: "" if entry.get() == text else entry.get()
 class Pill(threading.Thread):
     """Pilule flottante façon Speechly : fond sombre, coins arrondis, 5 états
     (repos / écoute / traitement / succès / erreur). Thread tkinter dédié ;
@@ -455,6 +474,83 @@ class Pill(threading.Thread):
             for wdg in (e_color, e_name, b_perso):
                 wdg.config(state="disabled")
 
+        # — Modes sur mesure (palier Ultra) : selon l'app / l'onglet actif,
+        #   appliquer SON prompt à la reformulation —
+        tk.Frame(win, bg="#2A2C33", height=1).pack(fill="x", padx=16, pady=12)
+        can_cm = licensing.has("custom_modes")
+        tk.Label(win, text="Modes sur mesure" + ("" if can_cm else "   🔒 Ultra"),
+                 bg="#15161A", fg="#ECEFF7",
+                 font=("Segoe UI", 15, "bold")).pack(anchor="w", padx=16)
+        tk.Label(win, text="Quand l'app ou l'onglet actif contient un de ces "
+                 "mots, votre prompt reformule à votre façon.",
+                 bg="#15161A", fg="#8A8F9C",
+                 font=("Segoe UI", 9)).pack(anchor="w", padx=16)
+
+        cmrow = tk.Frame(win, bg="#15161A")
+        cmrow.pack(fill="x", padx=16, pady=(8, 2))
+        e_cm_name = tk.Entry(cmrow, width=14, bg="#26272E", fg="#ECEFF7",
+                             insertbackground="#ECEFF7", relief="flat")
+        e_cm_name.pack(side="left", ipady=4)
+        g_cm_name = _ph(e_cm_name, "Nom (ex. Jira)")
+        e_cm_match = tk.Entry(cmrow, width=24, bg="#26272E", fg="#ECEFF7",
+                              insertbackground="#ECEFF7", relief="flat")
+        e_cm_match.pack(side="left", padx=8, ipady=4)
+        g_cm_match = _ph(e_cm_match, "Mots-clés app/onglet (virgules)")
+        t_cm_prompt = tk.Text(win, height=3, bg="#26272E", fg="#ECEFF7",
+                              insertbackground="#ECEFF7", relief="flat",
+                              font=("Segoe UI", 9), wrap="word")
+        t_cm_prompt.pack(fill="x", padx=16, pady=4)
+
+        cm_list = tk.Listbox(win, height=3, bg="#1A1B20", fg="#ECEFF7",
+                             selectbackground="#2A3B55", relief="flat",
+                             highlightthickness=0)
+        cm_list.pack(fill="x", padx=16, pady=4)
+
+        def cm_refresh():
+            cm_list.delete(0, "end")
+            for cm in core.CFG.get("custom_modes") or []:
+                cm_list.insert("end", f"{cm.get('name', '?')}   ←   "
+                               f"{', '.join(cm.get('match') or [])}")
+
+        def cm_add():
+            name = g_cm_name().strip()
+            match = [t.strip() for t in g_cm_match().split(",") if t.strip()]
+            prompt = t_cm_prompt.get("1.0", "end").strip()
+            if not (name and match and prompt):
+                return
+            items = list(core.CFG.get("custom_modes") or [])
+            items.append({"id": uuid.uuid4().hex[:8], "name": name,
+                          "match": match, "prompt": prompt})
+            core.save_config({"custom_modes": items})
+            e_cm_name.delete(0, "end")
+            e_cm_match.delete(0, "end")
+            t_cm_prompt.delete("1.0", "end")
+            cm_refresh()
+
+        def cm_del():
+            sel = cm_list.curselection()
+            if not sel:
+                return
+            items = list(core.CFG.get("custom_modes") or [])
+            del items[sel[0]]
+            core.save_config({"custom_modes": items})
+            cm_refresh()
+
+        cmb = tk.Frame(win, bg="#15161A")
+        cmb.pack(fill="x", padx=16)
+        b_cm_add = tk.Button(cmb, text="+ Créer le mode", command=cm_add,
+                             bg="#2A3B55", fg="#DCE6F7", relief="flat",
+                             padx=12, pady=4)
+        b_cm_add.pack(side="left")
+        b_cm_del = tk.Button(cmb, text="Supprimer la sélection", command=cm_del,
+                             bg="#3A2620", fg="#E7C9BF", relief="flat",
+                             padx=12, pady=4)
+        b_cm_del.pack(side="left", padx=8)
+        cm_refresh()
+        if not can_cm:                          # verrouillé sous Ultra
+            for wdg in (e_cm_name, e_cm_match, t_cm_prompt, b_cm_add, b_cm_del):
+                wdg.config(state="disabled")
+
         # moteur + touche push-to-talk
         sep = tk.Frame(win, bg="#2A2C33", height=1)
         sep.pack(fill="x", padx=16, pady=12)
@@ -684,10 +780,32 @@ class DockApi:
                             for t, v in core.custom_variables()],
             "tier": licensing.status()["tier"],
             "perso": {"orb": licensing.has("orb_customization"),
-                      "name": licensing.has("custom_naming")},
+                      "name": licensing.has("custom_naming"),
+                      "modes": licensing.has("custom_modes")},
             "orb_color": core.CFG.get("orb_color", ""),
             "custom_name": core.CFG.get("custom_name", ""),
+            "custom_modes": core.CFG.get("custom_modes") or [],
         }
+
+    def save_custom_modes(self, items):
+        """Modes sur mesure (palier Ultra) : [{id?, name, match, prompt}]."""
+        if not licensing.has("custom_modes"):
+            return {"ok": False}
+        clean = []
+        for cm in items or []:
+            try:
+                name = str(cm.get("name") or "").strip()
+                match = [str(t).strip() for t in (cm.get("match") or [])
+                         if str(t).strip()]
+                prompt = str(cm.get("prompt") or "").strip()
+                if name and match and prompt:
+                    clean.append({"id": str(cm.get("id") or uuid.uuid4().hex[:8]),
+                                  "name": name[:40], "match": match,
+                                  "prompt": prompt})
+            except Exception:
+                continue
+        core.save_config({"custom_modes": clean})
+        return {"ok": True, "custom_modes": clean}
 
     def set_orb_color(self, hex_):
         """Couleur d'orbe personnalisée (palier Ultra). '' = défaut."""
@@ -782,9 +900,23 @@ def _resolve_prompt(mode_id):
     au moment du collage (jamais avant)."""
     if mode_id == "auto":
         mode_id = auto_mode.current_mode()
+    if mode_id.startswith("custom:"):             # mode sur mesure (Ultra)
+        cm = auto_mode.custom_mode(mode_id[7:])
+        if cm:
+            return cm["prompt"], mode_id
+        mode_id = "voice_to_text"                 # mode perso supprimé entre-temps
     if not licensing.mode_allowed(mode_id):       # mode Pro sur palier Free
         mode_id = "voice_to_text"
     return modes_registry.prompt_of(mode_id), mode_id
+
+
+def _mode_label(mode_id):
+    """Libellé d'un mode, y compris sur mesure (« custom:<id> » → son nom)."""
+    if mode_id.startswith("custom:"):
+        cm = auto_mode.custom_mode(mode_id[7:])
+        if cm:
+            return cm.get("name") or "Mode perso"
+    return modes_registry.label_of(mode_id)
 
 
 def _ptt_session():
@@ -837,7 +969,7 @@ def _ptt_session():
         pasted = winext.paste_into_active_app(out)
         dt = time.time() - t_release
         if pasted:
-            pill.show("ok", modes_registry.label_of(concrete),
+            pill.show("ok", _mode_label(concrete),
                       f"{engine} · {dt:.1f}s")
             pill.hide(1.6)
         else:
