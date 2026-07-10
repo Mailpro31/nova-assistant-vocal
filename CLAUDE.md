@@ -46,6 +46,11 @@ surface existante qui s'en écarte doit y être ramenée.
   texte brut (`format_rules`) — le curseur ne reste jamais vide.
 - `licensing` est **dormant** tant que `PUBLIC_KEY_B64` est vide : `has()`
   renvoie True partout. Tout nouveau gate doit rester un no-op en dormant.
+- **Deux écrans de réglages, c'est voulu** : la fenêtre tkinter (mode pilule)
+  et l'écran du dock web (`ui/dock.html`) coexistent. Ne PAS les unifier :
+  `webview.start()` exige le thread principal, que le tray possède en mode
+  pilule — un webview de réglages y est donc impossible. Toute nouvelle
+  option de réglage doit être ajoutée **aux deux** écrans.
 - Windows-only à l'exécution ; le développement se fait sous Linux.
 
 ## Vérifications avant tout commit

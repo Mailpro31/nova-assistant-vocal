@@ -312,8 +312,12 @@ const ORBCHOICES=[['','Nova (défaut)','#AEBEEC'],['#E8A0C0','Rose pastel','#E8A
   ['#C7B9EA','Lavande','#C7B9EA'],['#9CC8F0','Ciel','#9CC8F0']];
 function panePerso(p){
   const ok=!!(S.perso&&S.perso.orb);
+  // couleur posée ailleurs (ex. champ libre tkinter) : option « Personnalisée »
+  // ajoutée plutôt qu'écrasée en silence par le premier choix de la liste
+  const cur=S.orb_color||'';
+  const choices=ORBCHOICES.some(o=>o[0]===cur)?ORBCHOICES:ORBCHOICES.concat([[cur,'Personnalisée',cur]]);
   const sel='<span class="dotc" id="orbDot"></span><select class="fieldc" id="orbSel">'+
-    ORBCHOICES.map(([v,n])=>'<option value="'+v+'"'+((S.orb_color||'')===v?' selected':'')+'>'+n+'</option>').join('')+'</select>';
+    choices.map(([v,n])=>'<option value="'+esc(v)+'"'+(cur===v?' selected':'')+'>'+n+'</option>').join('')+'</select>';
   p.innerHTML='<h1>Personnalisation'+(ok?'':' <span class="badge-lock">NÉCESSITE NOVA ULTRA</span>')+'</h1>'
    +'<div class="'+(ok?'':'locked')+'">'
    +G('Intelligence artificielle',R('Meilleure IA','Le meilleur modèle disponible — rapide et multilingue,<br>en local comme dans le cloud',
@@ -326,8 +330,8 @@ function panePerso(p){
       'L\'orbe et le nom reviennent au style Nova si la licence est retirée.')
    +'</div>';
   const dot=document.getElementById('orbDot');
-  const paint=v=>{dot.style.background=(ORBCHOICES.find(o=>o[0]===v)||ORBCHOICES[0])[2];};
-  paint(S.orb_color||'');
+  const paint=v=>{dot.style.background=(choices.find(o=>o[0]===v)||choices[0])[2];};
+  paint(cur);
   if(!ok)return;
   document.getElementById('swAI').onclick=()=>{const on=!document.getElementById('swAI').classList.contains('on');
     api('set_best_ai',on).then(r=>{if(!(r&&r.ok===false)){S.best_ai=on;
@@ -456,7 +460,10 @@ const ORB=(function(){
   const DPR=Math.min(2,devicePixelRatio||1),t0=performance.now();
   function fit(){const r=cv.getBoundingClientRect();cv.width=Math.max(1,r.width*DPR);cv.height=Math.max(1,r.height*DPR);gl.viewport(0,0,cv.width,cv.height);}
   fit();addEventListener('resize',fit);
+  const SETEL=document.getElementById('settings');
   (function f(now){const t=(now-t0)/1000;
+    // réglages ouverts : #settings couvre tout le dock → on saute le rendu GL
+    if(SETEL.classList.contains('on')){requestAnimationFrame(f);return;}
     // le micro ne pilote le volume QU'EN écoute ; sinon l'anim est intrinsèque (repos/traitement/succès)
     const target=(state==='listening')?micTgt:0;
     level+=(target-level)*(target>level?0.30:0.10);
