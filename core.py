@@ -1340,18 +1340,22 @@ def save_custom_variables(items):
 
 def clean_tokens(toks):
     """Repères utilisateur → liste de chaînes non vides, chacune rognée. Accepte
-    une chaîne nue (→ [chaîne]). Source UNIQUE du nettoyage des mots-clés (mode
-    Automatique + modes sur mesure)."""
+    une chaîne nue (→ [chaîne]) ; toute autre valeur non itérable-de-tokens
+    (int, dict…) → []. Source UNIQUE du nettoyage des mots-clés (mode
+    Automatique + modes sur mesure). Défensif : ne lève jamais sur une config
+    éditée à la main."""
     if isinstance(toks, str):
         toks = [toks]
-    return [s for t in (toks or []) if (s := str(t).strip())]
+    if not isinstance(toks, (list, tuple, set)):
+        return []
+    return [s for t in toks if (s := str(t).strip())]
 
 
 def save_custom_modes(items):
-    """Modes sur mesure (palier Ultra) : [{id?, name, match, prompt}]. Nettoie
-    et persiste — source UNIQUE de la validation du schéma (tray + dock).
-    Retourne la liste propre effectivement stockée."""
-    clean = []
+    """Modes sur mesure (palier Ultra) : [{id?, name, match, prompt}]. Nettoie,
+    dédoublonne sur l'id et persiste — source UNIQUE de la validation du schéma
+    (tray + dock). Retourne la liste propre effectivement stockée."""
+    clean, seen = [], set()
     for cm in items or []:
         try:
             name = str(cm.get("name") or "").strip()[:40]
@@ -1359,17 +1363,34 @@ def save_custom_modes(items):
             prompt = str(cm.get("prompt") or "").strip()
         except Exception:
             continue
-        if name and match and prompt:
-            cid = str(cm.get("id") or "").strip() or uuid.uuid4().hex[:8]
-            clean.append({"id": cid, "name": name, "match": match,
-                          "prompt": prompt})
+        if not (name and match and prompt):
+            continue
+        cid = str(cm.get("id") or "").strip() or uuid.uuid4().hex[:8]
+        while cid in seen:                       # collision d'id → nouvel id
+            cid = uuid.uuid4().hex[:8]
+        seen.add(cid)
+        clean.append({"id": cid, "name": name, "match": match, "prompt": prompt})
     save_config({"custom_modes": clean})
     return clean
 
 
-def fill_personal(text):
+def _cloud_licensed():
+    """Le palier autorise-t-il le STT cloud ? Défensif : si licensing est
+    indisponible (dormant/erreur), on n'ajoute aucune restriction."""
+    try:
+        import licensing
+        return licensing.has("cloud_stt")
+    except Exception:
+        return True
+
+
+def fill_personal(text, custom_vars=True):
     """Substitution locale : champs de profil (« mon adresse » → …) PUIS Custom
-    Variables utilisateur. Tout se fait AVANT tout envoi IA, jamais transmis."""
+    Variables utilisateur. Tout se fait AVANT tout envoi IA, jamais transmis.
+
+    `custom_vars=False` n'applique QUE les champs de profil (fonction de base,
+    non facturée) — les Custom Variables sont un palier Pro, gaté par l'appelant.
+    """
     if not text:
         return text
     info = personal_info()
@@ -1377,6 +1398,8 @@ def fill_personal(text):
         val = (info.get(key) or "").strip()
         if val:
             text = rx.sub(lambda _m, v=val: v, text)
+    if not custom_vars:
+        return text
     for trig, val in custom_variables():
         # Frontières conditionnelles : on n'exige un bord « mot » que si le
         # trigger COMMENCE / FINIT par un caractère de mot. Sinon un trigger à
@@ -1540,8 +1563,8 @@ def transcribe_routed(audio, fast=False):
     Un échec cloud retombe TOUJOURS sur le local. fast = commandes courtes.
     Retourne (texte, moteur)."""
     import integrations
-    if (CFG.get("stt", {}).get("cloud_enabled") and winext.has_secret("groq")
-            and integrations.is_online()):
+    if (CFG.get("stt", {}).get("cloud_enabled") and _cloud_licensed()
+            and winext.has_secret("groq") and integrations.is_online()):
         try:
             text = integrations.groq_transcribe(
                 audio, language=_stt_language(),

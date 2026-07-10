@@ -57,8 +57,10 @@ FEATURES = {
     "priority_updates":  ULTRA,   # nouveautés en avant-première
 }
 
-# Modes de reformulation offerts en Free (les autres exigent Pro).
-FREE_MODES = ("voice_to_text", "email", "messages")
+# Modes de reformulation offerts en Free. « auto » est inclus : c'est le mode
+# PAR DÉFAUT — il se résout ensuite vers un mode concret, downgradé sur
+# voice_to_text si l'app détectée est réservée à un palier payant.
+FREE_MODES = ("auto", "voice_to_text", "email", "messages")
 
 try:
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
@@ -207,7 +209,7 @@ def activate(key):
         import core
         core.save_config({"license_key": key.strip()})
     except Exception:
-        pass
+        return {"ok": False, "error": "Impossible d'enregistrer la licence."}
     st = status()
     st["ok"] = True
     return st
