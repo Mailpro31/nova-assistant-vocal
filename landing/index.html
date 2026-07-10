@@ -22,12 +22,16 @@
   .light{
     --bg:#F5F5F7; --card:#FFFFFF; --inset:#ECECEE;
     --line:rgba(0,0,0,.08); --txt:#1D1D1F; --mut:#6E6E73;
+    --ok:#248A3D;   /* vert succès lisible sur carte blanche */
   }
   [id]{scroll-margin-top:76px}
   *{margin:0;padding:0;box-sizing:border-box}
   html{scroll-behavior:smooth}
   body{background:var(--bg);color:var(--txt);font-family:var(--font);
-    -webkit-font-smoothing:antialiased;overflow-x:hidden}
+    -webkit-font-smoothing:antialiased}
+  /* les halos débordent d'une section à l'autre : clip (sans conteneur de
+     défilement) là où c'est supporté, hidden en repli pour les vieux moteurs */
+  html,body{overflow-x:hidden;overflow-x:clip}
   a{color:inherit;text-decoration:none}
   ::selection{background:rgba(10,132,255,.35)}
   .btn{display:inline-flex;align-items:center;gap:8px;background:var(--blue);color:#fff;
@@ -46,7 +50,9 @@
   nav{position:fixed;top:0;left:0;right:0;z-index:60;display:flex;align-items:center;
     justify-content:space-between;padding:14px 5vw;
     background:rgba(31,31,34,.6);backdrop-filter:blur(20px);
-    -webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--line)}
+    -webkit-backdrop-filter:blur(20px)}
+  nav::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;
+    background:linear-gradient(90deg,transparent,var(--line) 18%,var(--line) 82%,transparent)}
   .light nav{background:rgba(245,245,247,.65)}
   .navr{display:flex;align-items:center;gap:10px}
   #themeBtn{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);
@@ -71,9 +77,11 @@
   @media(max-width:720px){nav .links{display:none}}
 
   /* ------------------------------------------------------------ hero ----- */
+  /* les halos ne sont jamais rognés : ils débordent d'une section à l'autre
+     (le fondu continu de la page) — le clip horizontal est géré sur html/body */
   .hero{position:relative;min-height:100svh;display:flex;flex-direction:column;
     align-items:center;justify-content:center;text-align:center;
-    padding:96px 6vw 60px;overflow:hidden}
+    padding:96px 6vw 60px}
   #wave{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
   .aura{position:absolute;border-radius:50%;filter:blur(100px);opacity:.3;pointer-events:none;
     animation:drift 18s ease-in-out infinite alternate}
@@ -162,8 +170,8 @@
   .heroNote{margin-top:14px;font-size:12px;color:var(--mut)}
 
   /* ----------------------------------------------------- ruban langues --- */
-  .strip{position:relative;padding:34px 0;border-top:1px solid var(--line);
-    border-bottom:1px solid var(--line);overflow:hidden;
+  /* aucun trait : le ruban flotte, fondu aux extrémités */
+  .strip{position:relative;padding:34px 0;overflow:hidden;
     -webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);
     mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
   .strip .track{display:flex;gap:52px;width:max-content;animation:scroll 36s linear infinite;
@@ -173,9 +181,9 @@
 
   /* --------------------------------------------------- « le bon ton » ---- */
   /* ---------- le film : fondu dans la page, halo dégradé, zéro bordure --- */
-  .film{position:relative;padding:110px 6vw 90px;text-align:center;overflow:hidden}
+  .film{position:relative;padding:110px 6vw 90px;text-align:center}
   .film::before{content:"";position:absolute;left:50%;top:52%;transform:translate(-50%,-50%);
-    width:min(1100px,96vw);height:80%;pointer-events:none;filter:blur(70px);
+    z-index:-1;width:min(1100px,96vw);height:80%;pointer-events:none;filter:blur(70px);
     background:radial-gradient(50% 50% at 42% 45%,rgba(174,190,236,.30),transparent 70%),
       radial-gradient(45% 55% at 62% 58%,rgba(199,185,234,.22),transparent 72%)}
   .vwrap{position:relative;width:min(880px,92vw);margin:34px auto 0;border-radius:22px;
@@ -197,7 +205,11 @@
   .filmNote{margin-top:16px;font-size:12px;color:var(--mut)}
 
   /* ---------- vitrine : l'app recréée (pilule, dock, bulle) ------------------ */
-  .vitrine{position:relative;padding:120px 6vw 40px;text-align:center;overflow:hidden}
+  .vitrine{position:relative;padding:120px 6vw 40px;text-align:center}
+  .vitrine::before{content:"";position:absolute;left:50%;top:60%;transform:translate(-50%,-50%);
+    z-index:-1;width:min(1000px,95vw);height:72%;pointer-events:none;filter:blur(80px);
+    background:radial-gradient(50% 55% at 38% 48%,rgba(174,190,236,.17),transparent 70%),
+      radial-gradient(45% 50% at 66% 52%,rgba(174,226,204,.11),transparent 72%)}
   .vitrine h2{font-size:clamp(30px,5vw,52px);font-weight:700;letter-spacing:-1.4px;line-height:1.08}
   .mocks{position:relative;height:330px;max-width:820px;margin:30px auto 0}
   .mock{position:absolute;animation:floaty 7s ease-in-out infinite}
@@ -232,11 +244,24 @@
     padding:10px 20px;border-radius:999px;font-size:13px;color:#ECEFF7;
     background:rgba(20,23,32,.85);border:1px solid rgba(174,226,204,.5);
     box-shadow:0 14px 36px rgba(0,0,0,.45)}
-  .badgemock{left:5%;top:150px;--tilt:-2.2deg;animation-delay:-3.2s;
+  .badgemock{left:6%;top:64px;--tilt:-2.2deg;animation-delay:-3.2s;
     padding:9px 16px;border-radius:999px;font-size:10.5px;letter-spacing:1.4px;
     font-weight:700;color:var(--ultra);background:rgba(201,182,240,.12);
     border:1px solid rgba(201,182,240,.3)}
-  @media(max-width:720px){.bubblemock,.badgemock{display:none}.mocks{height:250px}}
+  .stymock{left:2%;bottom:0;--tilt:1.8deg;animation-delay:-5.4s;width:190px;
+    background:#2C2C30;border:1px solid rgba(255,255,255,.07);border-radius:13px;
+    box-shadow:0 22px 54px rgba(0,0,0,.5);text-align:left;overflow:hidden}
+  .stymock .stitle{padding:9px 14px 7px;font-size:10px;letter-spacing:1.6px;
+    text-transform:uppercase;color:#98989F;font-weight:600}
+  .stymock .srow{display:flex;align-items:center;justify-content:space-between;
+    padding:6.5px 14px;font-size:12px;color:#F2F2F4;
+    border-top:1px solid rgba(255,255,255,.055)}
+  .stymock .srow svg{width:13px;height:13px;stroke:var(--blue);fill:none;
+    stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .stymock .srow .ulock{font-size:8.5px;letter-spacing:1.2px;font-weight:700;
+    color:var(--ultra);background:rgba(201,182,240,.12);
+    border:1px solid rgba(201,182,240,.3);border-radius:999px;padding:2px 7px}
+  @media(max-width:720px){.bubblemock,.badgemock,.stymock{display:none}.mocks{height:250px}}
 
   .tones .stick{position:sticky;top:0;min-height:100svh;display:flex;flex-direction:column;
     align-items:center;justify-content:center;padding:90px 6vw;overflow:hidden}
@@ -244,6 +269,10 @@
     line-height:1.08;text-align:center}
   .tones .said{margin-top:16px;color:var(--mut);font-size:15px;font-style:italic;text-align:center}
   .frames{position:relative;margin-top:44px;width:min(560px,92vw);height:250px}
+  .frames::before{content:"";position:absolute;inset:-90px -120px;pointer-events:none;
+    filter:blur(70px);z-index:-1;
+    background:radial-gradient(50% 50% at 44% 46%,rgba(199,185,234,.17),transparent 70%),
+      radial-gradient(45% 55% at 60% 58%,rgba(174,190,236,.13),transparent 72%)}
   .frame{position:absolute;inset:0;background:var(--card);border:1px solid var(--line);
     border-radius:13px;box-shadow:0 30px 80px rgba(0,0,0,.5);overflow:hidden;
     opacity:0;transform:translateY(30px) scale(.96);
@@ -252,25 +281,62 @@
   .frame .fbar{display:flex;align-items:center;gap:9px;padding:12px 16px;
     border-bottom:1px solid var(--line);font-size:12px;color:var(--mut)}
   .frame .fbar i{width:10px;height:10px;border-radius:50%;background:#3A3A3F}
+  .frame .fsty{margin-left:auto;display:inline-flex;align-items:center;gap:6px;
+    padding:3px 10px;border-radius:999px;font-size:10.5px;font-weight:600;
+    color:var(--blue);background:rgba(10,132,255,.10);border:1px solid rgba(10,132,255,.25);
+    white-space:nowrap}
+  .frame .fsty::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--blue)}
+  @media(max-width:380px){.frame .fsty{display:none}}  /* barre sur une ligne, corps jamais tronqué */
   .frame .fbody{padding:20px 24px;font-size:14.5px;line-height:1.65;text-align:left;color:var(--txt)}
   .frame .fbody .to{color:var(--mut);font-size:12.5px;margin-bottom:10px}
-  .chatmsg{background:var(--blue);color:#fff;border-radius:16px 16px 4px 16px;
-    padding:11px 15px;max-width:78%;margin-left:auto;font-size:14.5px}
-  .tabs{display:flex;gap:8px;margin-top:26px}
-  .tabs span{width:34px;height:5px;border-radius:999px;background:rgba(255,255,255,.14);
-    transition:background .3s}
-  .light .tabs span{background:rgba(0,0,0,.12)}
-  .tabs span.on{background:var(--blue)}
+  /* pilules de Styles : montrent le mode actif pendant la démo */
+  .tabs{display:flex;gap:8px;margin-top:28px;flex-wrap:wrap;justify-content:center}
+  .tabs span{padding:8px 16px;border-radius:999px;font-size:12.5px;font-weight:600;
+    color:var(--mut);border:1px solid var(--line);cursor:pointer;
+    transition:background .35s var(--ease),color .35s,border-color .35s}
+  .tabs span:hover{color:var(--txt)}
+  .tabs span.on{background:var(--blue);border-color:transparent;color:#fff;
+    box-shadow:0 8px 26px rgba(10,132,255,.35)}
+  .autonote{margin-top:20px;font-size:13px;color:var(--mut);text-align:center;max-width:460px}
+  .autonote b{color:var(--txt);font-weight:600}
+  /* viewports courts (portable zoomé, téléphone paysage) : tout tient à l'écran
+     — déclaré APRÈS les règles de base pour l'emporter à spécificité égale */
+  @media(max-height:760px){
+    .tones .stick{padding:40px 6vw}
+    .tones h2{font-size:clamp(22px,4vw,38px)}
+    .tones .said{margin-top:10px;font-size:13.5px}
+    .frames{margin-top:22px;height:220px}
+    .tabs{margin-top:14px}
+    .autonote{margin-top:12px;font-size:12px}
+  }
+  @media(max-height:620px){
+    .tones .stick{padding:16px 6vw}
+    .tones h2{font-size:20px}
+    .tones .said{display:none}
+    .frames{margin-top:12px;height:168px}
+    .frame .fbody{padding:12px 18px;font-size:12.5px}
+    .tabs{margin-top:10px}
+    .autonote{margin-top:8px}
+  }
+  .cb{display:inline-block;width:13px;height:13px;border:1.5px solid var(--mut);
+    border-radius:4px;margin-right:9px;vertical-align:-2px;opacity:.7}
+  .pbox{background:var(--inset);border-radius:9px;padding:12px 14px;font-size:13.5px;
+    line-height:1.55;color:var(--txt)}
 
   /* -------------------------------------------------------- privé -------- */
-  .privacy{padding:150px 6vw;text-align:center;position:relative;overflow:hidden}
+  .privacy{padding:150px 6vw;text-align:center;position:relative}
   .privacy .aura{opacity:.14}
   .privacy h2{font-size:clamp(34px,6.4vw,72px);font-weight:700;letter-spacing:-.04em;line-height:1.04}
   .privacy h2 em{font-style:normal;color:var(--mut)}
   .privacy p{margin:20px auto 0;max-width:430px;color:var(--mut);font-size:15px;line-height:1.6}
 
   /* -------------------------------------------------------- tarifs ------- */
-  .pricing{padding:60px 6vw 130px;max-width:1080px;margin:0 auto;text-align:center}
+  .pricing{position:relative;padding:60px 6vw 130px;max-width:1080px;margin:0 auto;text-align:center}
+  .pricing::before{content:"";position:absolute;left:50%;top:58%;transform:translate(-50%,-50%);
+    z-index:-1;width:min(1100px,96vw);height:70%;pointer-events:none;filter:blur(90px);
+    background:radial-gradient(45% 55% at 50% 44%,rgba(10,132,255,.10),transparent 70%),
+      radial-gradient(42% 50% at 28% 62%,rgba(174,190,236,.12),transparent 72%),
+      radial-gradient(40% 48% at 74% 60%,rgba(199,185,234,.10),transparent 72%)}
   .kicker{font-size:12px;letter-spacing:2.5px;text-transform:uppercase;color:var(--blue);
     font-weight:600;margin-bottom:14px}
   .pricing h2{font-size:clamp(30px,5vw,52px);font-weight:700;letter-spacing:-1.4px}
@@ -292,16 +358,19 @@
   .plan li{padding:7px 0;font-size:13.5px;color:var(--mut);line-height:1.45}
   .plan li b{color:var(--txt);font-weight:600}
   .plan .btn{width:100%;justify-content:center;padding:12px;font-size:14px}
+  .plan .trial{margin-top:10px;min-height:15px;font-size:11.5px;color:var(--ok);font-weight:500}
   .plansNote{margin-top:24px;color:var(--mut);font-size:12.5px}
   .plansNote a{color:var(--blue)}
 
   /* -------------------------------------------------------- fin ---------- */
-  .final{padding:140px 6vw 120px;text-align:center;position:relative;overflow:hidden}
+  .final{padding:140px 6vw 120px;text-align:center;position:relative}
   .final h2{font-size:clamp(34px,6vw,64px);font-weight:700;letter-spacing:-.04em;line-height:1.05}
   .final .cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:36px}
-  footer{border-top:1px solid var(--line);padding:32px 5vw;display:flex;
+  footer{position:relative;padding:32px 5vw;display:flex;
     justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;
     color:var(--mut);font-size:12.5px}
+  footer::before{content:"";position:absolute;top:0;left:0;right:0;height:1px;
+    background:linear-gradient(90deg,transparent,var(--line) 18%,var(--line) 82%,transparent)}
   footer .links{display:flex;gap:20px}
   footer a:hover{color:var(--txt)}
 
@@ -393,14 +462,14 @@
 <section class="film" id="film">
   <p class="kicker rv" data-t="film_kicker">Le film</p>
   <div class="vwrap rv" id="vwrap">
-    <video id="filmv" poster="https://cdn.jsdelivr.net/gh/Mailpro31/nova-assistant-vocal@main/landing/film-poster.jpg" preload="metadata" muted loop playsinline
-      src="https://cdn.jsdelivr.net/gh/Mailpro31/nova-assistant-vocal@main/landing/nova-film.mp4"></video>
+    <video id="filmv" poster="https://cdn.jsdelivr.net/gh/Mailpro31/nova-assistant-vocal@main/landing/film2-poster.jpg" preload="metadata" muted loop playsinline
+      src="https://cdn.jsdelivr.net/gh/Mailpro31/nova-assistant-vocal@main/landing/nova-film2.mp4"></video>
     <button id="vsound" aria-label="Activer ou couper le son">
       <svg class="voff" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="m17 9 4 6m0-6-4 6"/></svg>
       <svg class="von" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>
     </button>
   </div>
-  <p class="filmNote rv" data-t="film_note">42 secondes, sans un mot de trop.</p>
+  <p class="filmNote rv" data-t="film_note">68 secondes pour tout voir. Sans un mot de trop.</p>
 </section>
 
 <section class="vitrine" id="app">
@@ -416,6 +485,17 @@
     </div>
     <div class="mock bubblemock" data-t="bubble_ready">Prête</div>
     <div class="mock badgemock">NOVA ULTRA</div>
+    <div class="mock stymock">
+      <div class="stitle" data-t="sty_title">Styles</div>
+      <div class="srow"><span data-t="sty_1">Automatique</span>
+        <svg viewBox="0 0 24 24"><path d="M4.5 12.5 10 18 19.5 7"/></svg></div>
+      <div class="srow"><span data-t="sty_2">Normal</span></div>
+      <div class="srow"><span data-t="sty_3">E-mail</span></div>
+      <div class="srow"><span data-t="sty_4">Prise de notes</span></div>
+      <div class="srow"><span data-t="sty_5">To-do list</span></div>
+      <div class="srow"><span data-t="sty_6">Prompt IA</span></div>
+      <div class="srow"><span data-t="sty_7">Sur mesure</span><span class="ulock">ULTRA</span></div>
+    </div>
   </div>
 </section>
 
@@ -425,22 +505,32 @@
     <p class="said rv" data-t="tones_said">« on décale la réunion à demain quatorze heures »</p>
     <div class="frames" id="frames">
       <div class="frame" data-i="0">
-        <div class="fbar"><i></i><i></i><i></i>&nbsp;<span data-t="f1_bar">Nouveau message — E-mail</span></div>
+        <div class="fbar"><i></i><i></i><i></i>&nbsp;<span data-t="f1_bar">Nouveau message — E-mail</span>
+          <span class="fsty" data-t="fsty_1">Style · E-mail</span></div>
         <div class="fbody" data-t="f1_body"><div class="to">À : Claire Fontaine</div>
           Bonjour Claire,<br><br>
           Pourrions-nous décaler notre réunion à demain 14 h ?<br>
           Merci d'avance, bonne journée.</div>
       </div>
       <div class="frame" data-i="1">
-        <div class="fbar"><i></i><i></i><i></i>&nbsp;<span data-t="f2_bar">Claire — Messages</span></div>
-        <div class="fbody"><div class="chatmsg" data-t="f2_msg">On décale la réunion à demain 14 h ?</div></div>
+        <div class="fbar"><i></i><i></i><i></i>&nbsp;<span data-t="f2_bar">Notes</span>
+          <span class="fsty" data-t="fsty_2">Style · Prise de notes</span></div>
+        <div class="fbody" data-t="f2_body">— Réunion déplacée : <b>demain, 14 h</b><br>— Prévenir l'équipe<br>— Mettre à jour l'invitation</div>
       </div>
       <div class="frame" data-i="2">
-        <div class="fbar"><i></i><i></i><i></i>&nbsp;<span data-t="f3_bar">Notes</span></div>
-        <div class="fbody" data-t="f3_body">— Réunion déplacée : <b>demain, 14 h</b><br>— Prévenir l'équipe<br>— Mettre à jour l'invitation</div>
+        <div class="fbar"><i></i><i></i><i></i>&nbsp;<span data-t="f3_bar">À faire</span>
+          <span class="fsty" data-t="fsty_3">Style · To-do list</span></div>
+        <div class="fbody" data-t="f3_body"><span class="cb"></span>Décaler la réunion à demain 14 h<br><span class="cb"></span>Prévenir Claire<br><span class="cb"></span>Mettre à jour l'invitation</div>
+      </div>
+      <div class="frame" data-i="3">
+        <div class="fbar"><i></i><i></i><i></i>&nbsp;<span data-t="f4_bar">Assistant IA</span>
+          <span class="fsty" data-t="fsty_4">Style · Prompt IA</span></div>
+        <div class="fbody" data-t="f4_body"><div class="pbox">Rédige un message court et cordial proposant de décaler la réunion à demain 14 h, et demande une confirmation.</div></div>
       </div>
     </div>
-    <div class="tabs" aria-hidden="true"><span data-i="0"></span><span data-i="1"></span><span data-i="2"></span></div>
+    <div class="tabs"><span data-i="0" data-t="chip_1">E-mail</span><span data-i="1" data-t="chip_2">Prise de notes</span><span data-i="2" data-t="chip_3">To-do list</span><span data-i="3" data-t="chip_4">Prompt IA</span></div>
+    <p class="autonote rv" data-t="autonote">Et en <b>Automatique</b>, Nova détecte l'application
+      et choisit le bon Style toute seule.</p>
   </div>
 </section>
 
@@ -465,26 +555,29 @@
         <li data-t="free_3">2 500 caractères / semaine</li>
       </ul>
       <a class="btn ghost" href="https://github.com/Mailpro31/nova-assistant-vocal/releases/latest/download/Nova-Setup.exe" data-t="free_btn">Télécharger</a>
+      <p class="trial" aria-hidden="true"></p>
     </div>
     <div class="plan star rv">
       <span class="badge" data-t="badge_pop">Le plus populaire</span>
       <h3>Pro</h3>
-      <div class="price" data-t="price_pro">12 €<small> / mois</small></div>
+      <div class="price" data-t="price_pro">9,99 €<small> / mois</small></div>
       <ul>
         <li data-t="pro_1"><b>Dictée illimitée</b></li>
         <li data-t="pro_2">Tous les Styles, dans chaque application</li>
       </ul>
-      <a class="btn" id="buyPro" href="https://buy.stripe.com/test_dRmeVccAWf1g4Oj1d4efC00" data-t="pro_btn">S'abonner à Pro</a>
+      <a class="btn" id="buyPro" href="https://buy.stripe.com/8x23cu58u7yO5Sn1d4efC01" data-t="pro_btn">Essayer Pro gratuitement</a>
+      <p class="trial" data-t="trial_note">7 jours offerts, sans engagement</p>
     </div>
     <div class="plan rv">
       <h3>Ultra</h3>
-      <div class="price" data-t="price_ultra">24 €<small> / mois</small></div>
+      <div class="price" data-t="price_ultra">19,99 €<small> / mois</small></div>
       <ul>
         <li data-t="ultra_1"><b>Tout Pro</b>, en qualité maximale</li>
         <li data-t="ultra_2">Styles sur mesure, par application</li>
         <li data-t="ultra_3">Personnalisation complète — orbe, nom, Turbo</li>
       </ul>
-      <a class="btn" id="buyUltra" href="https://buy.stripe.com/test_8x23cu58u7yO5Sn1d4efC01" data-t="ultra_btn">S'abonner à Ultra</a>
+      <a class="btn" id="buyUltra" href="https://buy.stripe.com/dRmeVccAWf1g4Oj1d4efC00" data-t="ultra_btn">Essayer Ultra gratuitement</a>
+      <p class="trial" data-t="trial_note">7 jours offerts, sans engagement</p>
     </div>
   </div>
   <p class="plansNote rv" data-t="plans_note">Annulable à tout moment ·
@@ -622,7 +715,8 @@ requestAnimationFrame(drawWave);
 const keycap = $("keycap"), garble = $("garble"), result = $("result"),
       bubble = $("bubble"), pill = $("statepill"), stateTxt = $("stateTxt"),
       hint = $("hint"), hero = document.querySelector(".hero");
-let holding = false, wordTimer = null, wi = 0, typeTimer = null, resetTimer = null;
+let holding = false, wordTimer = null, wi = 0, typeTimer = null, resetTimer = null,
+    typingActive = false;
 
 function startHold(e) {
   if (holding) return;
@@ -662,10 +756,12 @@ function endHold() {
     result.classList.add("on");
     const C = I18N[LANG]._clean;
     let i = 0;
+    typingActive = true;
     typeTimer = setInterval(() => {
       bubble.innerHTML = C.slice(0, ++i) + '<span class="caret"></span>';
       if (i >= C.length) {
         clearInterval(typeTimer);
+        typingActive = false;
         bubble.textContent = C;
         sndDone();
         pill.classList.remove("on");
@@ -718,15 +814,23 @@ function setFrame(i) {
   tabs.forEach((tb, k) => tb.classList.toggle("on", k === i));
 }
 if (!RM) {
-  tones.style.height = "260svh";
+  tones.style.height = (frames.length * 80) + "svh";   // 80svh de défilement par cadre
   const onScroll = () => {
     const r = tones.getBoundingClientRect();
     if (r.top > innerHeight || r.bottom < 0) return;
     const p = Math.min(0.999, Math.max(0, -r.top / (r.height - innerHeight)));
-    setFrame(Math.floor(p * 3));
+    setFrame(Math.floor(p * frames.length));
   };
   addEventListener("scroll", onScroll, { passive: true });
   onScroll();
+  // clic sur une pilule de Style : on défile jusqu'au cadre correspondant
+  tabs.forEach((tb, k) => {
+    tb.onclick = () => {
+      const target = tones.offsetTop +
+        ((k + 0.4) / frames.length) * (tones.offsetHeight - innerHeight);
+      scrollTo({ top: target, behavior: "smooth" });
+    };
+  });
 } else { frames.forEach((f) => f.classList.add("on")); }
 if (cur === -1) setFrame(0);
 
@@ -743,33 +847,43 @@ const I18N = {
     _listen: "Nova écoute…", _write: "Nova écrit…",
     _hint_done: "<b>Collé au curseur.</b> Voilà toute l'app.",
     _key_aria: "Maintenir pour essayer la dictée",
-    _video: CDN + "nova-film.mp4", _poster: CDN + "film-poster.jpg",
+    _video: CDN + "nova-film2.mp4", _poster: CDN + "film2-poster.jpg",
     _track: "<span><b>Français</b></span><span>English</span><span>Español</span><span>Deutsch</span><span>Italiano</span><span>Português</span><span>Nederlands</span><span>Polski</span><span>Русский</span><span>العربية</span><span>Türkçe</span><span>हिन्दी</span><span>中文</span><span>日本語</span><span>한국어</span>",
     nav_film: "Le film", nav_demo: "La démo", nav_pricing: "Tarifs", nav_get: "Obtenir Nova",
     hint_idle: "<b>Maintenez la touche</b> — comme dans Nova.",
     hero_dl: "Télécharger gratuitement", hero_pricing: "Voir les tarifs",
     hero_note: "Windows 10/11 · sans carte bancaire · vos données restent chez vous",
-    film_kicker: "Le film", film_note: "42 secondes, sans un mot de trop.",
+    film_kicker: "Le film", film_note: "68 secondes pour tout voir. Sans un mot de trop.",
     app_kicker: "L'app", app_h2: "Discrète, jusqu'à<br>ce que vous parliez.",
     pill_listen: "Nova écoute…", pill_release: "relâchez pour coller", bubble_ready: "Prête",
     tones_h2: "Une voix.<br>Tous vos Styles.",
     tones_said: "« on décale la réunion à demain quatorze heures »",
     f1_bar: "Nouveau message — E-mail",
     f1_body: '<div class="to">À : Claire Fontaine</div>Bonjour Claire,<br><br>Pourrions-nous décaler notre réunion à demain 14 h ?<br>Merci d\'avance, bonne journée.',
-    f2_bar: "Claire — Messages", f2_msg: "On décale la réunion à demain 14 h ?",
-    f3_bar: "Notes",
-    f3_body: "— Réunion déplacée : <b>demain, 14 h</b><br>— Prévenir l'équipe<br>— Mettre à jour l'invitation",
+    f2_bar: "Notes",
+    f2_body: "— Réunion déplacée : <b>demain, 14 h</b><br>— Prévenir l'équipe<br>— Mettre à jour l'invitation",
+    f3_bar: "À faire",
+    f3_body: '<span class="cb"></span>Décaler la réunion à demain 14 h<br><span class="cb"></span>Prévenir Claire<br><span class="cb"></span>Mettre à jour l\'invitation',
+    f4_bar: "Assistant IA",
+    f4_body: '<div class="pbox">Rédige un message court et cordial proposant de décaler la réunion à demain 14 h, et demande une confirmation.</div>',
+    fsty_1: "Style · E-mail", fsty_2: "Style · Prise de notes",
+    fsty_3: "Style · To-do list", fsty_4: "Style · Prompt IA",
+    chip_1: "E-mail", chip_2: "Prise de notes", chip_3: "To-do list", chip_4: "Prompt IA",
+    autonote: "Et en <b>Automatique</b>, Nova détecte l'application et choisit le bon Style toute seule.",
+    sty_title: "Styles", sty_1: "Automatique", sty_2: "Normal", sty_3: "E-mail",
+    sty_4: "Prise de notes", sty_5: "To-do list", sty_6: "Prompt IA", sty_7: "Sur mesure",
     priv_h2: "Tout reste chez vous.<br><em>Par conception.</em>",
     priv_p: "L'Intelligence privée de Nova écoute, écrit et met en forme directement sur votre appareil — sans internet, sans compte. Le reste n'est qu'une option.",
     price_kicker: "Tarifs", price_h2: "Simple, comme le reste.",
     plan_free: "Gratuit", price_free: "0 €",
     free_1: "<b>Intelligence privée</b>, toutes les langues",
     free_2: "3 Styles d'écriture", free_3: "2 500 caractères / semaine", free_btn: "Télécharger",
-    badge_pop: "Le plus populaire", price_pro: "12 €<small> / mois</small>",
+    badge_pop: "Le plus populaire", price_pro: "9,99 €<small> / mois</small>",
     pro_1: "<b>Dictée illimitée</b>", pro_2: "Tous les Styles, dans chaque application",
-    pro_btn: "S'abonner à Pro", price_ultra: "24 €<small> / mois</small>",
+    pro_btn: "Essayer Pro gratuitement", price_ultra: "19,99 €<small> / mois</small>",
     ultra_1: "<b>Tout Pro</b>, en qualité maximale", ultra_2: "Styles sur mesure, par application",
-    ultra_3: "Personnalisation complète — orbe, nom, Turbo", ultra_btn: "S'abonner à Ultra",
+    ultra_3: "Personnalisation complète — orbe, nom, Turbo", ultra_btn: "Essayer Ultra gratuitement",
+    trial_note: "7 jours offerts, sans engagement",
     plans_note: 'Annulable à tout moment · équipes : <a href="mailto:mailprosasha2@gmail.com">écrivez-nous</a>',
     final_h2: "Votre voix tape plus vite<br>que vos doigts.",
     final_btn: "Télécharger Nova gratuitement",
@@ -786,33 +900,43 @@ const I18N = {
     _listen: "Nova is listening…", _write: "Nova is writing…",
     _hint_done: "<b>Pasted at your cursor.</b> That's the whole app.",
     _key_aria: "Hold to try dictation",
-    _video: CDN + "nova-film-en.mp4", _poster: CDN + "film-poster-en.jpg",
+    _video: CDN + "nova-film2-en.mp4", _poster: CDN + "film2-poster-en.jpg",
     _track: "<span>Français</span><span><b>English</b></span><span>Español</span><span>Deutsch</span><span>Italiano</span><span>Português</span><span>Nederlands</span><span>Polski</span><span>Русский</span><span>العربية</span><span>Türkçe</span><span>हिन्दी</span><span>中文</span><span>日本語</span><span>한국어</span>",
     nav_film: "The film", nav_demo: "The demo", nav_pricing: "Pricing", nav_get: "Get Nova",
     hint_idle: "<b>Hold the key</b> — just like in Nova.",
     hero_dl: "Download for free", hero_pricing: "See pricing",
     hero_note: "Windows 10/11 · no credit card · your data stays on your device",
-    film_kicker: "The film", film_note: "42 seconds, not a word too many.",
+    film_kicker: "The film", film_note: "68 seconds to see it all. Not a word too many.",
     app_kicker: "The app", app_h2: "Discreet, until<br>you speak.",
     pill_listen: "Nova is listening…", pill_release: "release to paste", bubble_ready: "Ready",
     tones_h2: "One voice.<br>All your Styles.",
     tones_said: "“let’s move the meeting to tomorrow two pm”",
     f1_bar: "New message — Email",
     f1_body: '<div class="to">To: Claire Fontaine</div>Hi Claire,<br><br>Could we move our meeting to tomorrow at 2 pm?<br>Thanks in advance, have a great day.',
-    f2_bar: "Claire — Messages", f2_msg: "Move the meeting to tomorrow 2 pm?",
-    f3_bar: "Notes",
-    f3_body: "— Meeting moved: <b>tomorrow, 2 pm</b><br>— Notify the team<br>— Update the invite",
+    f2_bar: "Notes",
+    f2_body: "— Meeting moved: <b>tomorrow, 2 pm</b><br>— Notify the team<br>— Update the invite",
+    f3_bar: "To-do",
+    f3_body: '<span class="cb"></span>Move the meeting to tomorrow 2 pm<br><span class="cb"></span>Tell Claire<br><span class="cb"></span>Update the invite',
+    f4_bar: "AI assistant",
+    f4_body: '<div class="pbox">Write a short, friendly message suggesting we move the meeting to tomorrow at 2 pm, and ask for confirmation.</div>',
+    fsty_1: "Style · Email", fsty_2: "Style · Notes",
+    fsty_3: "Style · To-do list", fsty_4: "Style · AI prompt",
+    chip_1: "Email", chip_2: "Notes", chip_3: "To-do list", chip_4: "AI prompt",
+    autonote: "And on <b>Automatic</b>, Nova detects the app and picks the right Style on its own.",
+    sty_title: "Styles", sty_1: "Automatic", sty_2: "Standard", sty_3: "Email",
+    sty_4: "Notes", sty_5: "To-do list", sty_6: "AI prompt", sty_7: "Custom",
     priv_h2: "Everything stays with you.<br><em>By design.</em>",
     priv_p: "Nova's Private Intelligence listens, writes and formats right on your device — no internet, no account. Everything else is just an option.",
     price_kicker: "Pricing", price_h2: "Simple, like everything else.",
     plan_free: "Free", price_free: "€0",
     free_1: "<b>Private Intelligence</b>, every language",
     free_2: "3 writing Styles", free_3: "2,500 characters / week", free_btn: "Download",
-    badge_pop: "Most popular", price_pro: "€12<small> / month</small>",
+    badge_pop: "Most popular", price_pro: "€9.99<small> / month</small>",
     pro_1: "<b>Unlimited dictation</b>", pro_2: "All Styles, in every application",
-    pro_btn: "Subscribe to Pro", price_ultra: "€24<small> / month</small>",
+    pro_btn: "Try Pro for free", price_ultra: "€19.99<small> / month</small>",
     ultra_1: "<b>Everything in Pro</b>, at maximum quality", ultra_2: "Custom Styles, per application",
-    ultra_3: "Full personalization — orb, name, Turbo", ultra_btn: "Subscribe to Ultra",
+    ultra_3: "Full personalization — orb, name, Turbo", ultra_btn: "Try Ultra for free",
+    trial_note: "7 days free, cancel anytime",
     plans_note: 'Cancel anytime · teams: <a href="mailto:mailprosasha2@gmail.com">write to us</a>',
     final_h2: "Your voice types faster<br>than your fingers.",
     final_btn: "Download Nova for free",
@@ -829,9 +953,16 @@ function applyLang(l) {
   document.querySelector('meta[name="description"]').setAttribute("content", d._desc);
   document.querySelector('meta[property="og:title"]').setAttribute("content", d._title);
   document.querySelector('meta[property="og:description"]').setAttribute("content", d._desc);
-  for (const [k, v] of Object.entries(d)) {
-    if (k[0] === "_") continue;
-    document.querySelectorAll('[data-t="' + k + '"]').forEach((el) => { el.innerHTML = v; });
+  // une seule passe sur le DOM plutôt qu'un querySelectorAll par clé
+  document.querySelectorAll("[data-t]").forEach((el) => {
+    const v = d[el.dataset.t];
+    if (v != null) el.innerHTML = v;
+  });
+  // ne pas écraser l'état de la démo en cours : indice, pilule et bulle
+  if (pill.classList.contains("on")) stateTxt.textContent = holding ? d._listen : d._write;
+  if (result.classList.contains("on") && !typingActive) {
+    bubble.textContent = d._clean;
+    hint.innerHTML = d._hint_done;
   }
   const h1 = document.querySelector("h1");
   h1.setAttribute("aria-label", d._h1a + " " + d._h1b);
