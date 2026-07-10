@@ -33,6 +33,12 @@ surface existante qui s'en écarte doit y être ramenée.
   round).
 - **Jamais de nom de modèle IA visible** (ni Whisper, ni Qwen, ni Claude…) :
   parler de « Meilleure IA », « profil de puissance », etc.
+- **Lexique produit (obligatoire dans toute l'UI et le marketing)** : les modes
+  de reformulation s'appellent des **« Styles »** ; le moteur local s'appelle
+  **« Intelligence privée »** ; le moteur en ligne s'appelle **« Turbo »**.
+  Jamais « cloud », « IA locale » ni « mode » nus dans un texte utilisateur.
+  (Les identifiants techniques — `mode`, `custom_modes`, `cloud_enabled` —
+  ne changent pas : seul le texte visible est rebrandé.)
 - Textes utilisateur **en français**, ton sobre (pas de superlatifs criards).
 - Fonctionnalité au-dessus du palier : griser les contrôles + badge
   « NÉCESSITE NOVA ULTRA » (`licensing.has(...)` décide).

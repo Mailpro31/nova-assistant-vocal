@@ -408,7 +408,7 @@ class Pill(threading.Thread):
         tk.Label(win, text="Custom Variables", bg=SET_BG, fg=SET_FG,
                  font=("Segoe UI", 15, "bold")).pack(anchor="w", **pad)
         tk.Label(win, text="Quand je dis…  →  le texte collé à la place "
-                 "(100 % local, jamais envoyé à une IA)",
+                 "(100 % privé, jamais envoyé à une IA)",
                  bg=SET_BG, fg=SET_MUT, font=("Segoe UI", 9)).pack(anchor="w",
                                                                         padx=16)
 
@@ -504,7 +504,7 @@ class Pill(threading.Thread):
         #   appliquer SON prompt à la reformulation —
         tk.Frame(win, bg=SET_LINE, height=1).pack(fill="x", padx=16, pady=12)
         can_cm = licensing.has("custom_modes")
-        ultra_header("Modes sur mesure", can_cm)
+        ultra_header("Styles sur mesure", can_cm)
         tk.Label(win, text="Quand l'app ou l'onglet actif contient un de ces "
                  "mots, votre prompt reformule à votre façon.",
                  bg=SET_BG, fg=SET_MUT,
@@ -558,7 +558,7 @@ class Pill(threading.Thread):
 
         cmb = tk.Frame(win, bg=SET_BG)
         cmb.pack(fill="x", padx=16)
-        b_cm_add = tk.Button(cmb, text="+ Créer le mode", command=cm_add,
+        b_cm_add = tk.Button(cmb, text="+ Créer le Style", command=cm_add,
                              bg=SET_ACCENT, fg=SET_WHITE, relief="flat",
                              padx=12, pady=4)
         b_cm_add.pack(side="left")
@@ -583,8 +583,8 @@ class Pill(threading.Thread):
             stt = dict(core.CFG.get("stt", {}))
             stt["cloud_enabled"] = bool(cloud.get())
             core.save_config({"stt": stt})
-        tk.Checkbutton(eng, text="Moteur Cloud (Groq + IA, plus rapide) — sinon "
-                       "100 % local", variable=cloud, command=toggle_engine,
+        tk.Checkbutton(eng, text="Turbo (plus rapide, via le réseau) — sinon "
+                       "Intelligence privée", variable=cloud, command=toggle_engine,
                        bg=SET_BG, fg=SET_FG, selectcolor=SET_INSET,
                        activebackground=SET_BG, activeforeground=SET_FG,
                        relief="flat").pack(anchor="w")
@@ -985,7 +985,7 @@ def _mode_label(mode_id):
     """Libellé d'un mode, y compris sur mesure (« custom:<id> » → son nom)."""
     cm = _custom_of(mode_id)
     if cm:
-        return cm.get("name") or "Mode perso"
+        return cm.get("name") or "Style perso"
     if isinstance(mode_id, str) and mode_id.startswith(CUSTOM_PREFIX):
         return modes_registry.label_of("voice_to_text")  # custom verrouillé/supprimé
     return modes_registry.label_of(mode_id)
@@ -1097,7 +1097,7 @@ def _rebind_ptt():
 # ============================================================ barre des tâches
 def _set_mode(mode_id):
     if not licensing.mode_allowed(mode_id):       # mode réservé aux paliers payants
-        pill.show("error", "Mode réservé à Pro", "Débloquez les 7 modes")
+        pill.show("error", "Style réservé à Pro", "Débloquez tous les Styles")
         pill.hide(2.0)
         return
     STATE["mode"] = mode_id
@@ -1117,7 +1117,7 @@ def _toggle_cloud():
     stt = dict(core.CFG.get("stt", {}))
     to_cloud = not stt.get("cloud_enabled")
     if to_cloud and not licensing.has("cloud_stt"):   # cloud réservé aux payants
-        pill.show("error", "Cloud réservé à Pro", "Transcription cloud + toutes langues")
+        pill.show("error", "Turbo réservé à Pro", "La vitesse maximale, via le réseau")
         pill.hide(2.2)
         return
     stt["cloud_enabled"] = to_cloud
@@ -1213,10 +1213,10 @@ def _build_tray():
                   for ev in power_profiles.evaluate(power_profiles.detect_hardware())]
 
     menu = Menu(
-        MenuItem("Mode", Menu(*[mode_item(m) for m in modes_registry.all_modes()])),
+        MenuItem("Style", Menu(*[mode_item(m) for m in modes_registry.all_modes()])),
         MenuItem("Profil de puissance", Menu(*prof_items)),
         MenuItem("Langue", Menu(*[lang_item(c, lbl) for c, lbl in core.LANGUAGES])),
-        MenuItem("Moteur Cloud (Groq + IA)", lambda _i, _it: _toggle_cloud(),
+        MenuItem("Turbo (plus rapide, via le réseau)", lambda _i, _it: _toggle_cloud(),
                  checked=lambda _it: bool(core.CFG.get("stt", {}).get("cloud_enabled"))),
         Menu.SEPARATOR,
         MenuItem(lambda _it: _license_tray_label(),
