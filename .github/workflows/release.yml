@@ -6,8 +6,10 @@
 # Déclenchement :
 #   - push d'un tag « v* » (ex. git tag v3.0 && git push origin v3.0) : build
 #     + Release publique avec Nova-Setup.exe attaché ;
-#   - « Run workflow » (bouton manuel dans l'onglet Actions) : build seul, l'exe
-#     est déposé en artifact téléchargeable (utile pour tester sans publier).
+#   - « Run workflow » avec un nom de tag (ex. v3.0) : build + création du tag
+#     ET de la Release publique — équivalent au push de tag, sans accès git ;
+#   - « Run workflow » sans tag : build seul, l'exe est déposé en artifact
+#     téléchargeable (utile pour tester sans publier).
 
 name: Release installateur Nova
 
@@ -15,6 +17,11 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag de release à créer (ex. v3.0) — vide = artifact seul"
+        required: false
+        default: ""
 
 permissions:
   contents: write   # nécessaire pour créer la Release
@@ -65,8 +72,17 @@ jobs:
           files: dist/Nova-Setup.exe
           fail_on_unmatched_files: true
 
-      - name: Déposer en artifact (déclenchement manuel)
-        if: github.event_name == 'workflow_dispatch'
+      - name: Publier dans la Release (déclenchement manuel avec tag)
+        if: github.event_name == 'workflow_dispatch' && inputs.tag != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag }}
+          target_commitish: ${{ github.sha }}
+          files: dist/Nova-Setup.exe
+          fail_on_unmatched_files: true
+
+      - name: Déposer en artifact (déclenchement manuel sans tag)
+        if: github.event_name == 'workflow_dispatch' && inputs.tag == ''
         uses: actions/upload-artifact@v4
         with:
           name: Nova-Setup

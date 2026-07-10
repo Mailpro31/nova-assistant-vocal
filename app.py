@@ -1265,5 +1265,24 @@ def main():
     os._exit(0)
 
 
+def _preload_models():
+    """Lancé par l'installateur (« Nova.exe --preload-models ») : applique le
+    profil de puissance adapté à la machine puis télécharge le modèle de
+    l'Intelligence privée — la première dictée fonctionne ainsi immédiatement,
+    même hors ligne. Ne lève jamais (l'installation n'échoue pas pour autant :
+    le modèle se téléchargera au premier lancement)."""
+    try:
+        power_profiles.select_and_apply(core.CFG.get("profile", "normal"),
+                                        core.save_config)
+        core.get_model()                       # télécharge et valide le modèle
+        core.log_err("preload", f"Intelligence privée prête "
+                                f"({core.CFG.get('whisper_model')})")
+    except Exception as e:
+        core.log_err("preload", e)
+
+
 if __name__ == "__main__":
+    if "--preload-models" in sys.argv:
+        _preload_models()
+        sys.exit(0)
     main()
