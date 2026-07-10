@@ -26,6 +26,7 @@ import keyboard
 import core
 import auto_mode
 import integrations
+import licensing
 import modes_registry
 import onboarding
 import power_profiles
@@ -318,6 +319,49 @@ class Pill(threading.Thread):
             self._settings_win = None
             win.destroy()
         win.protocol("WM_DELETE_WINDOW", on_close)
+
+        # — Licence & version —
+        tk.Label(win, text="Licence", bg="#15161A", fg="#ECEFF7",
+                 font=("Segoe UI", 15, "bold")).pack(anchor="w", padx=16, pady=(14, 4))
+        lic_state = tk.Label(win, text="", bg="#15161A", fg="#8A8F9C",
+                             font=("Segoe UI", 9), justify="left")
+        lic_state.pack(anchor="w", padx=16)
+
+        def _lic_refresh():
+            st = licensing.status()
+            if not st["active"]:
+                lic_state.config(text="Version complète (licences non activées).",
+                                 fg="#8A8F9C")
+            elif st["tier"] == licensing.FREE:
+                q = licensing.quota_status()
+                lic_state.config(fg="#8A8F9C",
+                                 text=f"Version : Gratuit — {q['used']}/{q['limit']} "
+                                      "caractères transcrits cette semaine.")
+            else:
+                exp = ("licence perpétuelle" if not st["expiry"] else
+                       "expire le " + time.strftime("%d/%m/%Y",
+                                                     time.localtime(st["expiry"])))
+                lic_state.config(fg="#8FE7B0",
+                                 text=f"Version : {st['tier'].capitalize()} — {exp}.")
+
+        lic_row = tk.Frame(win, bg="#15161A")
+        lic_row.pack(fill="x", padx=16, pady=8)
+        e_lic = tk.Entry(lic_row, width=34, bg="#26272E", fg="#ECEFF7",
+                         insertbackground="#ECEFF7", relief="flat")
+        e_lic.pack(side="left", ipady=4)
+        e_lic.insert(0, core.CFG.get("license_key", ""))
+
+        def _activate():
+            res = licensing.activate(e_lic.get().strip())
+            if res.get("ok"):
+                _lic_refresh()
+            else:
+                lic_state.config(text=res.get("error", "Clé invalide."), fg="#E7A08F")
+
+        tk.Button(lic_row, text="Activer", command=_activate, bg="#2A3B55",
+                  fg="#DCE6F7", relief="flat", padx=12, pady=4).pack(side="left", padx=8)
+        _lic_refresh()
+        tk.Frame(win, bg="#26272E", height=1).pack(fill="x", padx=16, pady=(8, 2))
 
         pad = {"padx": 16, "pady": 6}
         tk.Label(win, text="Custom Variables", bg="#15161A", fg="#ECEFF7",
@@ -634,6 +678,16 @@ class DockApi:
     def save_custom_vars(self, items):
         return core.save_custom_variables(items or [])
 
+    def license_status(self):
+        """Palier + quota courant, pour l'écran de licence du dock."""
+        st = licensing.status()
+        st["quota"] = licensing.quota_status()
+        return st
+
+    def activate_license(self, key):
+        """Active une clé saisie dans le dock. → status enrichi de `ok`."""
+        return licensing.activate((key or "").strip())
+
     def save_personal(self, info):
         core.save_personal(info or {})
         return core.personal_info()
@@ -649,7 +703,7 @@ def _make_ui():
     """Choisit l'UI selon `CFG["dock_ui"]` : "web" = dock organique (webview),
     tout le reste (défaut) = pilule tkinter éprouvée. Repli sur la pilule si le
     dock web ne peut pas être instancié — jamais de démarrage cassé."""
-    if core.CFG.get("dock_ui") == "web":
+    if core.CFG.get("dock_ui") == "web" and licensing.has("web_dock"):
         try:
             import webview  # noqa: F401 — vérifie la dispo AVANT de renoncer à la pilule
             return WebDock()
@@ -673,6 +727,8 @@ def _resolve_prompt(mode_id):
     au moment du collage (jamais avant)."""
     if mode_id == "auto":
         mode_id = auto_mode.current_mode()
+    if not licensing.mode_allowed(mode_id):       # mode Pro sur palier Free
+        mode_id = "voice_to_text"
     return modes_registry.prompt_of(mode_id), mode_id
 
 
@@ -682,6 +738,15 @@ def _ptt_session():
     si l'IA échoue : le curseur n'est jamais vide (garde-fou Phase 5b)."""
     try:
         pill.show("listening", "")
+        # Palier Free : quota hebdomadaire de transcription (payant = illimité ;
+        # dormant = illimité → aucun effet tant que les licences ne sont pas
+        # activées par l'éditeur).
+        if not licensing.can_transcribe():
+            q = licensing.quota_status()
+            pill.show("error", "Quota gratuit atteint",
+                      f"{q['used']}/{q['limit']} car. cette semaine — passez à Pro")
+            pill.hide(2.6)
+            return
         t_release = None
         audio = core.record_audio(on_level=pill.level, stop=_ptt_stop,
                                   end_silence=999)
@@ -697,7 +762,9 @@ def _ptt_session():
             pill.hide(1.6)
             return
         pill.show("thinking", f"« {text[:60]} »")
-        text = core.fill_personal(text)               # Custom Variables, 100 % local
+        licensing.record_transcription(text)          # comptabilise le quota Free
+        if licensing.has("custom_variables"):
+            text = core.fill_personal(text)           # Custom Variables (Pro), 100 % local
         # gestion mémoire séquentielle : on libère le STT avant le LLM sur les
         # petites configs, pour ne jamais tenir les deux gros modèles en RAM
         if core.CFG.get("seq_memory"):
@@ -769,6 +836,10 @@ def _rebind_ptt():
 
 # ============================================================ barre des tâches
 def _set_mode(mode_id):
+    if not licensing.mode_allowed(mode_id):       # mode réservé aux paliers payants
+        pill.show("error", "Mode réservé à Pro", "Débloquez les 7 modes")
+        pill.hide(2.0)
+        return
     STATE["mode"] = mode_id
     core.save_config({"mode": mode_id})
     pill.show("repos", "")
@@ -785,6 +856,10 @@ def _toggle_cloud():
     par défaut, cloud proposé jamais imposé)."""
     stt = dict(core.CFG.get("stt", {}))
     to_cloud = not stt.get("cloud_enabled")
+    if to_cloud and not licensing.has("cloud_stt"):   # cloud réservé aux payants
+        pill.show("error", "Cloud réservé à Pro", "Transcription cloud + toutes langues")
+        pill.hide(2.2)
+        return
     stt["cloud_enabled"] = to_cloud
     core.save_config({"stt": stt, "provider": "auto" if to_cloud else "ollama"})
 
@@ -794,9 +869,15 @@ def _set_profile(profile_id, silent=False):
     pas (repli sur le plus lourd sûr). Câble STT + LLM local sans exposer les
     noms de modèles. `silent` (dock web, qui reflète déjà le choix) saute la
     bulle. Retourne l'id réellement appliqué (repli éventuel)."""
+    forced = profile_id != "normal" and not licensing.has("power_profiles")
+    if forced:
+        profile_id = "normal"                        # profils avancés réservés à Pro
     safe = power_profiles.select_and_apply(profile_id, core.save_config)
     STATE["profile"] = safe
-    if not silent:
+    if not silent and forced:
+        pill.show("error", "Profils avancés → Pro", "Élevé / Ultra débloqués en Pro")
+        pill.hide(2.2)
+    elif not silent:
         pill.show("ok", f"Profil : {power_profiles.get_profile(safe)['label']}")
         pill.hide(1.4)
     return safe
@@ -812,6 +893,17 @@ def _request_quit(icon=None):
     except Exception:
         pass
     pill.destroy()
+
+
+def _license_tray_label():
+    """Libellé dynamique du palier dans le menu (ouvre les Réglages au clic)."""
+    st = licensing.status()
+    if not st["active"]:
+        return "Version : complète"
+    if st["tier"] == licensing.FREE:
+        q = licensing.quota_status()
+        return f"Gratuit — {q['remaining']} car. restants… (Activer une licence)"
+    return f"Version : {st['tier'].capitalize()}"
 
 
 def _check_update():
@@ -861,6 +953,8 @@ def _build_tray():
         MenuItem("Moteur Cloud (Groq + IA)", lambda _i, _it: _toggle_cloud(),
                  checked=lambda _it: bool(core.CFG.get("stt", {}).get("cloud_enabled"))),
         Menu.SEPARATOR,
+        MenuItem(lambda _it: _license_tray_label(),
+                 lambda _i, _it: pill.open_settings()),
         MenuItem("Réglages…", lambda _i, _it: pill.open_settings()),
         MenuItem("Vérifier les mises à jour", lambda _i, _it: _check_update()),
         MenuItem("Quitter", lambda icon, _it: _request_quit(icon)),
