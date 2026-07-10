@@ -20,7 +20,6 @@ import queue
 import sys
 import threading
 import time
-import uuid
 
 import keyboard
 
@@ -73,6 +72,13 @@ def _ph(entry, text):
     entry.bind("<FocusIn>", on_in)
     entry.bind("<FocusOut>", on_out)
     return lambda: "" if entry.get() == text else entry.get()
+
+
+def _lock(unlocked, *widgets):
+    """Grise les widgets d'une section de réglages sous son palier."""
+    if not unlocked:
+        for w in widgets:
+            w.config(state="disabled")
 class Pill(threading.Thread):
     """Pilule flottante façon Speechly : fond sombre, coins arrondis, 5 états
     (repos / écoute / traitement / succès / erreur). Thread tkinter dédié ;
@@ -439,11 +445,15 @@ class Pill(threading.Thread):
                   pady=4).pack(side="left", padx=8)
 
         # — Personnalisation (palier Ultra) —
+        def ultra_header(title, unlocked):
+            tk.Label(win, text=title + ("" if unlocked else "   🔒 Ultra"),
+                     bg="#15161A", fg="#ECEFF7", font=("Segoe UI", 15, "bold")
+                     ).pack(anchor="w", padx=16, pady=(0, 4))
+
         tk.Frame(win, bg="#2A2C33", height=1).pack(fill="x", padx=16, pady=12)
-        can_perso = licensing.has("orb_customization")
-        tk.Label(win, text="Personnalisation" + ("" if can_perso else "   🔒 Ultra"),
-                 bg="#15161A", fg="#ECEFF7",
-                 font=("Segoe UI", 15, "bold")).pack(anchor="w", padx=16, pady=(0, 4))
+        can_orb = licensing.has("orb_customization")
+        can_name = licensing.has("custom_naming")
+        ultra_header("Personnalisation", can_orb or can_name)
         pcol = tk.Frame(win, bg="#15161A")
         pcol.pack(fill="x", padx=16, pady=4)
         tk.Label(pcol, text="Couleur de l'orbe (#rrggbb) :", bg="#15161A",
@@ -462,25 +472,23 @@ class Pill(threading.Thread):
         e_name.insert(0, core.CFG.get("custom_name", ""))
 
         def save_perso():
-            if licensing.has("orb_customization"):
+            if can_orb:
                 core.save_config({"orb_color": e_color.get().strip()})
-            if licensing.has("custom_naming"):
+            if can_name:
                 core.save_config({"custom_name": e_name.get().strip()[:40]})
         b_perso = tk.Button(win, text="Enregistrer la personnalisation",
                             command=save_perso, bg="#2A3B55", fg="#DCE6F7",
                             relief="flat", padx=12, pady=4)
         b_perso.pack(anchor="w", padx=16, pady=(4, 0))
-        if not can_perso:                       # verrouillé sous Ultra
-            for wdg in (e_color, e_name, b_perso):
-                wdg.config(state="disabled")
+        _lock(can_orb, e_color)                 # verrou par fonctionnalité :
+        _lock(can_name, e_name)                 # couleur et nom peuvent différer
+        _lock(can_orb or can_name, b_perso)
 
         # — Modes sur mesure (palier Ultra) : selon l'app / l'onglet actif,
         #   appliquer SON prompt à la reformulation —
         tk.Frame(win, bg="#2A2C33", height=1).pack(fill="x", padx=16, pady=12)
         can_cm = licensing.has("custom_modes")
-        tk.Label(win, text="Modes sur mesure" + ("" if can_cm else "   🔒 Ultra"),
-                 bg="#15161A", fg="#ECEFF7",
-                 font=("Segoe UI", 15, "bold")).pack(anchor="w", padx=16)
+        ultra_header("Modes sur mesure", can_cm)
         tk.Label(win, text="Quand l'app ou l'onglet actif contient un de ces "
                  "mots, votre prompt reformule à votre façon.",
                  bg="#15161A", fg="#8A8F9C",
@@ -513,18 +521,14 @@ class Pill(threading.Thread):
                                f"{', '.join(cm.get('match') or [])}")
 
         def cm_add():
-            name = g_cm_name().strip()
-            match = [t.strip() for t in g_cm_match().split(",") if t.strip()]
-            prompt = t_cm_prompt.get("1.0", "end").strip()
-            if not (name and match and prompt):
-                return
             items = list(core.CFG.get("custom_modes") or [])
-            items.append({"id": uuid.uuid4().hex[:8], "name": name,
-                          "match": match, "prompt": prompt})
-            core.save_config({"custom_modes": items})
-            e_cm_name.delete(0, "end")
-            e_cm_match.delete(0, "end")
-            t_cm_prompt.delete("1.0", "end")
+            items.append({"name": g_cm_name(),
+                          "match": g_cm_match().split(","),
+                          "prompt": t_cm_prompt.get("1.0", "end")})
+            if len(core.save_custom_modes(items)) == len(items):  # ajout valide
+                e_cm_name.delete(0, "end")
+                e_cm_match.delete(0, "end")
+                t_cm_prompt.delete("1.0", "end")
             cm_refresh()
 
         def cm_del():
@@ -533,7 +537,7 @@ class Pill(threading.Thread):
                 return
             items = list(core.CFG.get("custom_modes") or [])
             del items[sel[0]]
-            core.save_config({"custom_modes": items})
+            core.save_custom_modes(items)
             cm_refresh()
 
         cmb = tk.Frame(win, bg="#15161A")
@@ -547,9 +551,7 @@ class Pill(threading.Thread):
                              padx=12, pady=4)
         b_cm_del.pack(side="left", padx=8)
         cm_refresh()
-        if not can_cm:                          # verrouillé sous Ultra
-            for wdg in (e_cm_name, e_cm_match, t_cm_prompt, b_cm_add, b_cm_del):
-                wdg.config(state="disabled")
+        _lock(can_cm, e_cm_name, e_cm_match, t_cm_prompt, b_cm_add, b_cm_del)
 
         # moteur + touche push-to-talk
         sep = tk.Frame(win, bg="#2A2C33", height=1)
@@ -787,25 +789,14 @@ class DockApi:
             "custom_modes": core.CFG.get("custom_modes") or [],
         }
 
+    # NB : ces méthodes de licence/perso sont le pont prévu pour l'écran de
+    # réglages du DOCK web (dock.html) — pas encore câblées côté JS (l'UI qui
+    # ships aujourd'hui est la fenêtre tkinter). À brancher avec cet écran.
     def save_custom_modes(self, items):
         """Modes sur mesure (palier Ultra) : [{id?, name, match, prompt}]."""
         if not licensing.has("custom_modes"):
             return {"ok": False}
-        clean = []
-        for cm in items or []:
-            try:
-                name = str(cm.get("name") or "").strip()
-                match = [str(t).strip() for t in (cm.get("match") or [])
-                         if str(t).strip()]
-                prompt = str(cm.get("prompt") or "").strip()
-                if name and match and prompt:
-                    clean.append({"id": str(cm.get("id") or uuid.uuid4().hex[:8]),
-                                  "name": name[:40], "match": match,
-                                  "prompt": prompt})
-            except Exception:
-                continue
-        core.save_config({"custom_modes": clean})
-        return {"ok": True, "custom_modes": clean}
+        return {"ok": True, "custom_modes": core.save_custom_modes(items or [])}
 
     def set_orb_color(self, hex_):
         """Couleur d'orbe personnalisée (palier Ultra). '' = défaut."""
@@ -900,22 +891,34 @@ def _resolve_prompt(mode_id):
     au moment du collage (jamais avant)."""
     if mode_id == "auto":
         mode_id = auto_mode.current_mode()
-    if mode_id.startswith("custom:"):             # mode sur mesure (Ultra)
-        cm = auto_mode.custom_mode(mode_id[7:])
-        if cm:
-            return cm["prompt"], mode_id
-        mode_id = "voice_to_text"                 # mode perso supprimé entre-temps
-    if not licensing.mode_allowed(mode_id):       # mode Pro sur palier Free
-        mode_id = "voice_to_text"
+    cm = _custom_of(mode_id)
+    if cm:
+        return cm["prompt"], mode_id
+    if mode_id.startswith(CUSTOM_PREFIX) or not licensing.mode_allowed(mode_id):
+        mode_id = "voice_to_text"     # custom verrouillé/supprimé, ou mode Pro en Free
     return modes_registry.prompt_of(mode_id), mode_id
+
+
+CUSTOM_PREFIX = "custom:"
+
+
+def _custom_of(mode_id):
+    """Fiche du mode sur mesure si `mode_id` est « custom:<id> » ET débloqué
+    (palier Ultra) ET toujours présent — sinon None. Seul point qui décode le
+    préfixe et applique le verrou : les consommateurs (_resolve_prompt,
+    _mode_label) ne font que l'appeler."""
+    if mode_id.startswith(CUSTOM_PREFIX) and licensing.has("custom_modes"):
+        return auto_mode.custom_mode(mode_id[len(CUSTOM_PREFIX):])
+    return None
 
 
 def _mode_label(mode_id):
     """Libellé d'un mode, y compris sur mesure (« custom:<id> » → son nom)."""
-    if mode_id.startswith("custom:"):
-        cm = auto_mode.custom_mode(mode_id[7:])
-        if cm:
-            return cm.get("name") or "Mode perso"
+    cm = _custom_of(mode_id)
+    if cm:
+        return cm.get("name") or "Mode perso"
+    if mode_id.startswith(CUSTOM_PREFIX):         # custom verrouillé/supprimé
+        return modes_registry.label_of("voice_to_text")
     return modes_registry.label_of(mode_id)
 
 

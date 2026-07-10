@@ -114,16 +114,19 @@ def _license_from_config():
         return ""
 
 
+def _status(tier, active):
+    return {"tier": tier, "email": "", "expiry": 0, "seats": 1, "active": active}
+
+
 def status():
     """État courant : {tier, email, expiry, seats, active}. Défensif."""
     if not enabled():
-        return {"tier": ULTRA, "email": "", "expiry": 0, "seats": 1,
-                "active": False}
+        return _status(ULTRA, False)         # dormant → accès complet
     info = verify_key(_license_from_config())
     if info:
         info["active"] = True
         return info
-    return {"tier": FREE, "email": "", "expiry": 0, "seats": 1, "active": True}
+    return _status(FREE, True)               # actif, sans licence valide
 
 
 def current_tier():
