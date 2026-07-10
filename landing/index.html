@@ -22,13 +22,16 @@
   .light{
     --bg:#F5F5F7; --card:#FFFFFF; --inset:#ECECEE;
     --line:rgba(0,0,0,.08); --txt:#1D1D1F; --mut:#6E6E73;
+    --ok:#248A3D;   /* vert succès lisible sur carte blanche */
   }
   [id]{scroll-margin-top:76px}
   *{margin:0;padding:0;box-sizing:border-box}
   html{scroll-behavior:smooth}
   body{background:var(--bg);color:var(--txt);font-family:var(--font);
-    -webkit-font-smoothing:antialiased;overflow-x:hidden}
-  html,body{overflow-x:clip}  /* les halos débordent sans créer de défilement */
+    -webkit-font-smoothing:antialiased}
+  /* les halos débordent d'une section à l'autre : clip (sans conteneur de
+     défilement) là où c'est supporté, hidden en repli pour les vieux moteurs */
+  html,body{overflow-x:hidden;overflow-x:clip}
   a{color:inherit;text-decoration:none}
   ::selection{background:rgba(10,132,255,.35)}
   .btn{display:inline-flex;align-items:center;gap:8px;background:var(--blue);color:#fff;
@@ -75,7 +78,7 @@
 
   /* ------------------------------------------------------------ hero ----- */
   /* les halos ne sont jamais rognés : ils débordent d'une section à l'autre
-     (le fondu continu de la page) — overflow-x:hidden du body suffit */
+     (le fondu continu de la page) — le clip horizontal est géré sur html/body */
   .hero{position:relative;min-height:100svh;display:flex;flex-direction:column;
     align-items:center;justify-content:center;text-align:center;
     padding:96px 6vw 60px}
@@ -180,7 +183,7 @@
   /* ---------- le film : fondu dans la page, halo dégradé, zéro bordure --- */
   .film{position:relative;padding:110px 6vw 90px;text-align:center}
   .film::before{content:"";position:absolute;left:50%;top:52%;transform:translate(-50%,-50%);
-    width:min(1100px,96vw);height:80%;pointer-events:none;filter:blur(70px);
+    z-index:-1;width:min(1100px,96vw);height:80%;pointer-events:none;filter:blur(70px);
     background:radial-gradient(50% 50% at 42% 45%,rgba(174,190,236,.30),transparent 70%),
       radial-gradient(45% 55% at 62% 58%,rgba(199,185,234,.22),transparent 72%)}
   .vwrap{position:relative;width:min(880px,92vw);margin:34px auto 0;border-radius:22px;
@@ -204,7 +207,7 @@
   /* ---------- vitrine : l'app recréée (pilule, dock, bulle) ------------------ */
   .vitrine{position:relative;padding:120px 6vw 40px;text-align:center}
   .vitrine::before{content:"";position:absolute;left:50%;top:60%;transform:translate(-50%,-50%);
-    width:min(1000px,95vw);height:72%;pointer-events:none;filter:blur(80px);
+    z-index:-1;width:min(1000px,95vw);height:72%;pointer-events:none;filter:blur(80px);
     background:radial-gradient(50% 55% at 38% 48%,rgba(174,190,236,.17),transparent 70%),
       radial-gradient(45% 50% at 66% 52%,rgba(174,226,204,.11),transparent 72%)}
   .vitrine h2{font-size:clamp(30px,5vw,52px);font-weight:700;letter-spacing:-1.4px;line-height:1.08}
@@ -241,20 +244,20 @@
     padding:10px 20px;border-radius:999px;font-size:13px;color:#ECEFF7;
     background:rgba(20,23,32,.85);border:1px solid rgba(174,226,204,.5);
     box-shadow:0 14px 36px rgba(0,0,0,.45)}
-  .badgemock{left:5%;top:150px;--tilt:-2.2deg;animation-delay:-3.2s;
+  .badgemock{left:6%;top:64px;--tilt:-2.2deg;animation-delay:-3.2s;
     padding:9px 16px;border-radius:999px;font-size:10.5px;letter-spacing:1.4px;
     font-weight:700;color:var(--ultra);background:rgba(201,182,240,.12);
     border:1px solid rgba(201,182,240,.3)}
   .stymock{left:2%;bottom:0;--tilt:1.8deg;animation-delay:-5.4s;width:190px;
-    background:#232327;border:1px solid rgba(255,255,255,.09);border-radius:13px;
+    background:#2C2C30;border:1px solid rgba(255,255,255,.07);border-radius:13px;
     box-shadow:0 22px 54px rgba(0,0,0,.5);text-align:left;overflow:hidden}
   .stymock .stitle{padding:9px 14px 7px;font-size:10px;letter-spacing:1.6px;
-    text-transform:uppercase;color:#8A8A92;font-weight:600}
+    text-transform:uppercase;color:#98989F;font-weight:600}
   .stymock .srow{display:flex;align-items:center;justify-content:space-between;
-    padding:6.5px 14px;font-size:12px;color:#D9D9DE;
+    padding:6.5px 14px;font-size:12px;color:#F2F2F4;
     border-top:1px solid rgba(255,255,255,.055)}
   .stymock .srow svg{width:13px;height:13px;stroke:var(--blue);fill:none;
-    stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+    stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   .stymock .srow .ulock{font-size:8.5px;letter-spacing:1.2px;font-weight:700;
     color:var(--ultra);background:rgba(201,182,240,.12);
     border:1px solid rgba(201,182,240,.3);border-radius:999px;padding:2px 7px}
@@ -283,19 +286,38 @@
     color:var(--blue);background:rgba(10,132,255,.10);border:1px solid rgba(10,132,255,.25);
     white-space:nowrap}
   .frame .fsty::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--blue)}
+  @media(max-width:380px){.frame .fsty{display:none}}  /* barre sur une ligne, corps jamais tronqué */
   .frame .fbody{padding:20px 24px;font-size:14.5px;line-height:1.65;text-align:left;color:var(--txt)}
   .frame .fbody .to{color:var(--mut);font-size:12.5px;margin-bottom:10px}
-  .chatmsg{background:var(--blue);color:#fff;border-radius:16px 16px 4px 16px;
-    padding:11px 15px;max-width:78%;margin-left:auto;font-size:14.5px}
   /* pilules de Styles : montrent le mode actif pendant la démo */
   .tabs{display:flex;gap:8px;margin-top:28px;flex-wrap:wrap;justify-content:center}
   .tabs span{padding:8px 16px;border-radius:999px;font-size:12.5px;font-weight:600;
-    color:var(--mut);border:1px solid var(--line);
+    color:var(--mut);border:1px solid var(--line);cursor:pointer;
     transition:background .35s var(--ease),color .35s,border-color .35s}
+  .tabs span:hover{color:var(--txt)}
   .tabs span.on{background:var(--blue);border-color:transparent;color:#fff;
     box-shadow:0 8px 26px rgba(10,132,255,.35)}
   .autonote{margin-top:20px;font-size:13px;color:var(--mut);text-align:center;max-width:460px}
   .autonote b{color:var(--txt);font-weight:600}
+  /* viewports courts (portable zoomé, téléphone paysage) : tout tient à l'écran
+     — déclaré APRÈS les règles de base pour l'emporter à spécificité égale */
+  @media(max-height:760px){
+    .tones .stick{padding:40px 6vw}
+    .tones h2{font-size:clamp(22px,4vw,38px)}
+    .tones .said{margin-top:10px;font-size:13.5px}
+    .frames{margin-top:22px;height:220px}
+    .tabs{margin-top:14px}
+    .autonote{margin-top:12px;font-size:12px}
+  }
+  @media(max-height:620px){
+    .tones .stick{padding:16px 6vw}
+    .tones h2{font-size:20px}
+    .tones .said{display:none}
+    .frames{margin-top:12px;height:168px}
+    .frame .fbody{padding:12px 18px;font-size:12.5px}
+    .tabs{margin-top:10px}
+    .autonote{margin-top:8px}
+  }
   .cb{display:inline-block;width:13px;height:13px;border:1.5px solid var(--mut);
     border-radius:4px;margin-right:9px;vertical-align:-2px;opacity:.7}
   .pbox{background:var(--inset);border-radius:9px;padding:12px 14px;font-size:13.5px;
@@ -311,7 +333,7 @@
   /* -------------------------------------------------------- tarifs ------- */
   .pricing{position:relative;padding:60px 6vw 130px;max-width:1080px;margin:0 auto;text-align:center}
   .pricing::before{content:"";position:absolute;left:50%;top:58%;transform:translate(-50%,-50%);
-    width:min(1100px,96vw);height:70%;pointer-events:none;filter:blur(90px);
+    z-index:-1;width:min(1100px,96vw);height:70%;pointer-events:none;filter:blur(90px);
     background:radial-gradient(45% 55% at 50% 44%,rgba(10,132,255,.10),transparent 70%),
       radial-gradient(42% 50% at 28% 62%,rgba(174,190,236,.12),transparent 72%),
       radial-gradient(40% 48% at 74% 60%,rgba(199,185,234,.10),transparent 72%)}
@@ -336,7 +358,7 @@
   .plan li{padding:7px 0;font-size:13.5px;color:var(--mut);line-height:1.45}
   .plan li b{color:var(--txt);font-weight:600}
   .plan .btn{width:100%;justify-content:center;padding:12px;font-size:14px}
-  .plan .trial{margin-top:10px;font-size:11.5px;color:var(--ok);font-weight:500}
+  .plan .trial{margin-top:10px;min-height:15px;font-size:11.5px;color:var(--ok);font-weight:500}
   .plansNote{margin-top:24px;color:var(--mut);font-size:12.5px}
   .plansNote a{color:var(--blue)}
 
@@ -506,7 +528,7 @@
         <div class="fbody" data-t="f4_body"><div class="pbox">Rédige un message court et cordial proposant de décaler la réunion à demain 14 h, et demande une confirmation.</div></div>
       </div>
     </div>
-    <div class="tabs" aria-hidden="true"><span data-i="0" data-t="chip_1">E-mail</span><span data-i="1" data-t="chip_2">Prise de notes</span><span data-i="2" data-t="chip_3">To-do list</span><span data-i="3" data-t="chip_4">Prompt IA</span></div>
+    <div class="tabs"><span data-i="0" data-t="chip_1">E-mail</span><span data-i="1" data-t="chip_2">Prise de notes</span><span data-i="2" data-t="chip_3">To-do list</span><span data-i="3" data-t="chip_4">Prompt IA</span></div>
     <p class="autonote rv" data-t="autonote">Et en <b>Automatique</b>, Nova détecte l'application
       et choisit le bon Style toute seule.</p>
   </div>
@@ -533,6 +555,7 @@
         <li data-t="free_3">2 500 caractères / semaine</li>
       </ul>
       <a class="btn ghost" href="https://github.com/Mailpro31/nova-assistant-vocal/releases/latest/download/Nova-Setup.exe" data-t="free_btn">Télécharger</a>
+      <p class="trial" aria-hidden="true"></p>
     </div>
     <div class="plan star rv">
       <span class="badge" data-t="badge_pop">Le plus populaire</span>
@@ -554,7 +577,7 @@
         <li data-t="ultra_3">Personnalisation complète — orbe, nom, Turbo</li>
       </ul>
       <a class="btn" id="buyUltra" href="https://buy.stripe.com/test_8x23cu58u7yO5Sn1d4efC01" data-t="ultra_btn">Essayer Ultra gratuitement</a>
-      <p class="trial" data-t="trial_note2">7 jours offerts, sans engagement</p>
+      <p class="trial" data-t="trial_note">7 jours offerts, sans engagement</p>
     </div>
   </div>
   <p class="plansNote rv" data-t="plans_note">Annulable à tout moment ·
@@ -692,7 +715,8 @@ requestAnimationFrame(drawWave);
 const keycap = $("keycap"), garble = $("garble"), result = $("result"),
       bubble = $("bubble"), pill = $("statepill"), stateTxt = $("stateTxt"),
       hint = $("hint"), hero = document.querySelector(".hero");
-let holding = false, wordTimer = null, wi = 0, typeTimer = null, resetTimer = null;
+let holding = false, wordTimer = null, wi = 0, typeTimer = null, resetTimer = null,
+    typingActive = false;
 
 function startHold(e) {
   if (holding) return;
@@ -732,10 +756,12 @@ function endHold() {
     result.classList.add("on");
     const C = I18N[LANG]._clean;
     let i = 0;
+    typingActive = true;
     typeTimer = setInterval(() => {
       bubble.innerHTML = C.slice(0, ++i) + '<span class="caret"></span>';
       if (i >= C.length) {
         clearInterval(typeTimer);
+        typingActive = false;
         bubble.textContent = C;
         sndDone();
         pill.classList.remove("on");
@@ -788,15 +814,23 @@ function setFrame(i) {
   tabs.forEach((tb, k) => tb.classList.toggle("on", k === i));
 }
 if (!RM) {
-  tones.style.height = "320svh";
+  tones.style.height = (frames.length * 80) + "svh";   // 80svh de défilement par cadre
   const onScroll = () => {
     const r = tones.getBoundingClientRect();
     if (r.top > innerHeight || r.bottom < 0) return;
     const p = Math.min(0.999, Math.max(0, -r.top / (r.height - innerHeight)));
-    setFrame(Math.floor(p * 4));
+    setFrame(Math.floor(p * frames.length));
   };
   addEventListener("scroll", onScroll, { passive: true });
   onScroll();
+  // clic sur une pilule de Style : on défile jusqu'au cadre correspondant
+  tabs.forEach((tb, k) => {
+    tb.onclick = () => {
+      const target = tones.offsetTop +
+        ((k + 0.4) / frames.length) * (tones.offsetHeight - innerHeight);
+      scrollTo({ top: target, behavior: "smooth" });
+    };
+  });
 } else { frames.forEach((f) => f.classList.add("on")); }
 if (cur === -1) setFrame(0);
 
@@ -849,7 +883,7 @@ const I18N = {
     pro_btn: "Essayer Pro gratuitement", price_ultra: "19,99 €<small> / mois</small>",
     ultra_1: "<b>Tout Pro</b>, en qualité maximale", ultra_2: "Styles sur mesure, par application",
     ultra_3: "Personnalisation complète — orbe, nom, Turbo", ultra_btn: "Essayer Ultra gratuitement",
-    trial_note: "7 jours offerts, sans engagement", trial_note2: "7 jours offerts, sans engagement",
+    trial_note: "7 jours offerts, sans engagement",
     plans_note: 'Annulable à tout moment · équipes : <a href="mailto:mailprosasha2@gmail.com">écrivez-nous</a>',
     final_h2: "Votre voix tape plus vite<br>que vos doigts.",
     final_btn: "Télécharger Nova gratuitement",
@@ -902,7 +936,7 @@ const I18N = {
     pro_btn: "Try Pro for free", price_ultra: "€19.99<small> / month</small>",
     ultra_1: "<b>Everything in Pro</b>, at maximum quality", ultra_2: "Custom Styles, per application",
     ultra_3: "Full personalization — orb, name, Turbo", ultra_btn: "Try Ultra for free",
-    trial_note: "7 days free, cancel anytime", trial_note2: "7 days free, cancel anytime",
+    trial_note: "7 days free, cancel anytime",
     plans_note: 'Cancel anytime · teams: <a href="mailto:mailprosasha2@gmail.com">write to us</a>',
     final_h2: "Your voice types faster<br>than your fingers.",
     final_btn: "Download Nova for free",
@@ -919,9 +953,16 @@ function applyLang(l) {
   document.querySelector('meta[name="description"]').setAttribute("content", d._desc);
   document.querySelector('meta[property="og:title"]').setAttribute("content", d._title);
   document.querySelector('meta[property="og:description"]').setAttribute("content", d._desc);
-  for (const [k, v] of Object.entries(d)) {
-    if (k[0] === "_") continue;
-    document.querySelectorAll('[data-t="' + k + '"]').forEach((el) => { el.innerHTML = v; });
+  // une seule passe sur le DOM plutôt qu'un querySelectorAll par clé
+  document.querySelectorAll("[data-t]").forEach((el) => {
+    const v = d[el.dataset.t];
+    if (v != null) el.innerHTML = v;
+  });
+  // ne pas écraser l'état de la démo en cours : indice, pilule et bulle
+  if (pill.classList.contains("on")) stateTxt.textContent = holding ? d._listen : d._write;
+  if (result.classList.contains("on") && !typingActive) {
+    bubble.textContent = d._clean;
+    hint.innerHTML = d._hint_done;
   }
   const h1 = document.querySelector("h1");
   h1.setAttribute("aria-label", d._h1a + " " + d._h1b);
