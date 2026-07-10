@@ -156,12 +156,16 @@ def custom_mode(cid):
     sans prompt. Défensif — utilisé par app._resolve_prompt au collage."""
     try:
         import core
-        for cm in core.CFG.get("custom_modes") or []:
+        modes = core.CFG.get("custom_modes") or []
+    except Exception:
+        return None
+    for cm in modes:
+        try:                            # une entrée mal formée n'en masque pas d'autres
             if str(cm.get("id")) == str(cid) \
                     and str(cm.get("prompt") or "").strip():
                 return cm
-    except Exception:
-        pass
+        except Exception:
+            continue
     return None
 
 

@@ -233,7 +233,7 @@ class Pill(threading.Thread):
 
         if st == "repos":
             c.create_oval(20, cy - 5, 30, cy + 5, fill="#3A3D46", outline="")
-            label = modes_registry.label_of(STATE["mode"])
+            label = _mode_label(STATE["mode"])   # gère les modes sur mesure (custom:)
             c.create_text(44, cy, anchor="w", fill="#6E7280", font=self.font,
                           text=f"{label} — prêt")
             key = (core.CFG.get("ptt_key") or "").upper()
@@ -561,6 +561,9 @@ class Pill(threading.Thread):
         cloud = tk.BooleanVar(value=bool(core.CFG.get("stt", {}).get("cloud_enabled")))
 
         def toggle_engine():
+            if cloud.get() and not licensing.has("cloud_stt"):
+                cloud.set(False)                # cloud réservé à Pro
+                return
             stt = dict(core.CFG.get("stt", {}))
             stt["cloud_enabled"] = bool(cloud.get())
             core.save_config({"stt": stt})
@@ -814,7 +817,7 @@ class DockApi:
 
     def set_mode(self, mode_id):
         _set_mode(mode_id)
-        return mode_id
+        return STATE["mode"]              # reflète l'état réel (refus si verrouillé)
 
     def panel(self, name, open_):
         """Le dock signale quel panneau nommé est ouvert (modes, settings…) ;
@@ -889,6 +892,8 @@ _ptt_handles = []
 def _resolve_prompt(mode_id):
     """Mode concret → son system_prompt. « auto » est résolu selon l'app active
     au moment du collage (jamais avant)."""
+    if not mode_id:                               # config « mode »: null / vide
+        mode_id = modes_registry.DEFAULT_MODE_ID
     if mode_id == "auto":
         mode_id = auto_mode.current_mode()
     cm = _custom_of(mode_id)
@@ -907,7 +912,8 @@ def _custom_of(mode_id):
     (palier Ultra) ET toujours présent — sinon None. Seul point qui décode le
     préfixe et applique le verrou : les consommateurs (_resolve_prompt,
     _mode_label) ne font que l'appeler."""
-    if mode_id.startswith(CUSTOM_PREFIX) and licensing.has("custom_modes"):
+    if isinstance(mode_id, str) and mode_id.startswith(CUSTOM_PREFIX) \
+            and licensing.has("custom_modes"):
         return auto_mode.custom_mode(mode_id[len(CUSTOM_PREFIX):])
     return None
 
@@ -917,8 +923,8 @@ def _mode_label(mode_id):
     cm = _custom_of(mode_id)
     if cm:
         return cm.get("name") or "Mode perso"
-    if mode_id.startswith(CUSTOM_PREFIX):         # custom verrouillé/supprimé
-        return modes_registry.label_of("voice_to_text")
+    if isinstance(mode_id, str) and mode_id.startswith(CUSTOM_PREFIX):
+        return modes_registry.label_of("voice_to_text")  # custom verrouillé/supprimé
     return modes_registry.label_of(mode_id)
 
 
@@ -953,8 +959,9 @@ def _ptt_session():
             return
         pill.show("thinking", f"« {text[:60]} »")
         licensing.record_transcription(text)          # comptabilise le quota Free
-        if licensing.has("custom_variables"):
-            text = core.fill_personal(text)           # Custom Variables (Pro), 100 % local
+        # champs de profil toujours substitués (fonction de base) ; les Custom
+        # Variables ne s'appliquent qu'au palier Pro
+        text = core.fill_personal(text, custom_vars=licensing.has("custom_variables"))
         # gestion mémoire séquentielle : on libère le STT avant le LLM sur les
         # petites configs, pour ne jamais tenir les deux gros modèles en RAM
         if core.CFG.get("seq_memory"):
@@ -1087,7 +1094,7 @@ def _request_quit(icon=None):
 
 def _app_display_name():
     """Nom affiché : personnalisé si palier Ultra + nom défini, sinon « Nova »."""
-    name = core.CFG.get("custom_name", "").strip()
+    name = (core.CFG.get("custom_name") or "").strip()
     return name if (name and licensing.has("custom_naming")) else "Nova"
 
 

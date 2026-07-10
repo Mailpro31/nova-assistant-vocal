@@ -280,7 +280,7 @@ const ORB=(function(){
   const ACC={repos:[0.56,0.64,0.85],listening:[0.42,0.70,1.0],thinking:[0.76,0.70,0.93],ok:[0.58,0.87,0.71],error:[0.90,0.62,0.42]};
   const MODE={repos:0,listening:1,thinking:2,ok:3,error:0};
   let state='repos',micTgt=0,level=0,sPos=0,sVel=0,pulse=0,tgtA=ACC.repos,curA=ACC.repos.slice(),accentOverride=null;
-  if(!gl){cv.style.cssText+='background:radial-gradient(38% 34% at 40% 32%,#fff,#aab3c6 78%,#7c8496);border-radius:50%';return{setState(s){state=s;},level(){}}; }
+  if(!gl){cv.style.cssText+='background:radial-gradient(38% 34% at 40% 32%,#fff,#aab3c6 78%,#7c8496);border-radius:50%';return{setState(s){state=s;},level(){},setAccent(){}}; }
   const F=`precision highp float;uniform vec2 uRes;uniform float uT,uVol,uSwell,uPulse;uniform int uMode;uniform vec3 uAcc;
   float hs(vec3 p){p=fract(p*0.3183099+.1);p*=17.;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}
   float nz(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.-2.*f);

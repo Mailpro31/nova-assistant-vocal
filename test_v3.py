@@ -33,6 +33,9 @@ def _stub_winext():
 _stub_winext()
 
 import core                     # noqa: E402
+core._save = lambda *a, **k: None   # les tests ne DOIVENT jamais écrire le vrai
+#                                     config.json de l'utilisateur (save_config OK
+#                                     en mémoire, mais aucune persistance disque)
 import modes_registry           # noqa: E402
 import auto_mode                # noqa: E402
 import power_profiles           # noqa: E402
@@ -171,6 +174,22 @@ def test_auto_resolve():
     check("save_custom_modes : id auto attribué", bool(_cm[0]["id"]), True)
     check("save_custom_modes : id fourni conservé + str→[str]",
           (_cm[1]["id"], _cm[1]["match"]), ("keep", ["notion"]))
+    # clean_tokens défensif : un scalaire (config éditée à la main) → [] sans lever
+    check("clean_tokens : entier → [] (pas de crash)", _core.clean_tokens(3), [])
+    check("clean_tokens : dict → []", _core.clean_tokens({"a": 1}), [])
+    check("clean_tokens : chaîne nue → [chaîne]", _core.clean_tokens(" x "), ["x"])
+    # dédoublonnage sur l'id
+    _dup = _core.save_custom_modes([
+        {"id": "d", "name": "A", "match": ["a"], "prompt": "p"},
+        {"id": "d", "name": "B", "match": ["b"], "prompt": "q"},
+    ])
+    check("save_custom_modes : ids dédoublonnés",
+          len({m["id"] for m in _dup}), 2)
+    # custom_mode robuste : une entrée mal formée n'en masque pas d'autres
+    _core.CFG["custom_modes"] = ["oops", {"id": "ok", "name": "OK",
+                                          "match": ["x"], "prompt": "P"}]
+    check("custom_mode : entrée invalide en tête n'empêche pas de trouver la suivante",
+          (auto_mode.custom_mode("ok") or {}).get("prompt"), "P")
     _core.CFG.pop("custom_modes", None)
     if _saved_cm is None:
         _core.CFG.pop("custom_modes", None)
@@ -198,6 +217,11 @@ def test_custom_vars():
           core.fill_personal("une ribambelle"), "une ribambelle")
     check("multi-mot", core.fill_personal("demande à mon boss"),
           "demande à Monsieur Dupont")
+    # custom_vars=False (palier Free) : Custom Variables NON appliquées, mais la
+    # substitution reste sans effet ici (pas de profil) → texte inchangé
+    check("custom_vars=False → IBAN non substitué (palier Free)",
+          core.fill_personal("voici mon IBAN", custom_vars=False),
+          "voici mon IBAN")
     check("valeur avec backslash non interprétée",
           _sub_backslash(), r"chemin C:\Users\x")
     # dédoublonnage + nettoyage
@@ -362,6 +386,8 @@ def test_licensing():
     check("free : mode email autorisé", L.mode_allowed("email", L.FREE), True)
     check("free : mode todo bloqué", L.mode_allowed("todo", L.FREE), False)
     check("pro : tous les modes", L.mode_allowed("todo", L.PRO), True)
+    check("free : « auto » (mode par défaut) autorisé",
+          L.mode_allowed("auto", L.FREE), True)
     # dormant (pas de clé publique dans le dépôt) → accès complet + illimité
     check("dormant → licences désactivées", L.enabled(), False)
     check("dormant → has True partout", L.has("custom_modes"), True)
