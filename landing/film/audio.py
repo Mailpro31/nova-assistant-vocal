@@ -35,7 +35,6 @@ def env(n, attack, release, hold=0.0, curve=2.0):
     """Enveloppe douce (attaque lente, longue chute) — jamais de clic dur."""
     a = max(1, int(attack * SR))
     h = int(hold * SR)
-    r = max(1, int(release * SR))
     e = np.ones(n)
     a = min(a, n)
     e[:a] = np.linspace(0, 1, a) ** 1.4
@@ -121,12 +120,10 @@ def thunk(gain=1.0):
 def whoosh(dur=0.75, gain=1.0):
     """Whoosh Turbo : bruit à travers un passe-bande montant + glissando."""
     n = int(dur * SR)
-    t = np.arange(n) / SR
     noise = np.random.RandomState(99).randn(n)
     # bandpass mobile approché : moduler l'amplitude d'un filtrage passe-bas variable
     k = 30
     lp = np.convolve(noise, np.ones(k) / k, mode="same")
-    sweep = np.sin(2 * np.pi * (np.linspace(0.4, 1.0, n)) * 0.5)  # forme d'accent
     rise = np.linspace(0, 1, n) ** 0.6
     gliss = np.sin(2 * np.pi * np.cumsum(200 + 900 * rise) / SR) * 0.25
     s = (lp * (0.5 + 0.5 * rise) + gliss)
