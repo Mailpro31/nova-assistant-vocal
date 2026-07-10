@@ -178,6 +178,22 @@ def test_auto_resolve():
     check("clean_tokens : entier → [] (pas de crash)", _core.clean_tokens(3), [])
     check("clean_tokens : dict → []", _core.clean_tokens({"a": 1}), [])
     check("clean_tokens : chaîne nue → [chaîne]", _core.clean_tokens(" x "), ["x"])
+    # « Meilleure IA » : meilleur modèle local selon la RAM (fonction pure)
+    check("best_local_llm : 16 Go → qwen2.5:7b",
+          power_profiles.best_local_llm(16), "qwen2.5:7b")
+    check("best_local_llm : 32 Go → qwen2.5:14b",
+          power_profiles.best_local_llm(32), "qwen2.5:14b")
+    check("best_local_llm : 8 Go → qwen2.5:3b",
+          power_profiles.best_local_llm(8), "qwen2.5:3b")
+    # _reform_model : sans best_ai → modèle configuré ; avec → premium
+    _core.CFG["best_ai"] = False
+    _sv = _core.CFG.get("providers", {}).get("anthropic", {}).get("model", "")
+    check("_reform_model : best_ai off → modèle configuré",
+          _core._reform_model("anthropic"), _sv)
+    _core.CFG["best_ai"] = True   # dormant → licensing.has renvoie True
+    check("_reform_model : best_ai on → Claude Opus (cloud premium)",
+          _core._reform_model("anthropic"), "claude-opus-4-8")
+    _core.CFG.pop("best_ai", None)
     # dédoublonnage sur l'id
     _dup = _core.save_custom_modes([
         {"id": "d", "name": "A", "match": ["a"], "prompt": "p"},
@@ -388,6 +404,8 @@ def test_licensing():
     check("pro : tous les modes", L.mode_allowed("todo", L.PRO), True)
     check("free : « auto » (mode par défaut) autorisé",
           L.mode_allowed("auto", L.FREE), True)
+    check("free : best_models bloqué", L.has("best_models", L.FREE), False)
+    check("ultra : best_models débloqué", L.has("best_models", L.ULTRA), True)
     # dormant (pas de clé publique dans le dépôt) → accès complet + illimité
     check("dormant → licences désactivées", L.enabled(), False)
     check("dormant → has True partout", L.has("custom_modes"), True)

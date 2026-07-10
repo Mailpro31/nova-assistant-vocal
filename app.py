@@ -573,6 +573,24 @@ class Pill(threading.Thread):
                        activebackground="#15161A", activeforeground="#ECEFF7",
                        relief="flat").pack(anchor="w")
 
+        # « Meilleure IA » (palier Ultra) : meilleur modèle local (selon la RAM)
+        # ou cloud (Claude Opus) pour la reformulation
+        can_best = licensing.has("best_models")
+        best_ai = tk.BooleanVar(value=bool(core.CFG.get("best_ai")))
+
+        def toggle_best():
+            if best_ai.get() and not can_best:
+                best_ai.set(False)
+                return
+            core.save_config({"best_ai": bool(best_ai.get())})
+        cb_best = tk.Checkbutton(
+            eng, text="Meilleure IA — qualité maximale" + ("" if can_best else "   🔒 Ultra"),
+            variable=best_ai, command=toggle_best, bg="#15161A", fg="#ECEFF7",
+            selectcolor="#26272E", activebackground="#15161A",
+            activeforeground="#ECEFF7", relief="flat")
+        cb_best.pack(anchor="w")
+        _lock(can_best, cb_best)
+
         # profil de puissance : les profils trop lourds sont grisés (jamais de
         # plantage RAM). L'utilisateur ne voit aucun nom de modèle.
         prof = tk.Frame(win, bg="#15161A")
@@ -786,11 +804,20 @@ class DockApi:
             "tier": licensing.status()["tier"],
             "perso": {"orb": licensing.has("orb_customization"),
                       "name": licensing.has("custom_naming"),
-                      "modes": licensing.has("custom_modes")},
+                      "modes": licensing.has("custom_modes"),
+                      "best_ai": licensing.has("best_models")},
             "orb_color": core.CFG.get("orb_color", ""),
             "custom_name": core.CFG.get("custom_name", ""),
             "custom_modes": core.CFG.get("custom_modes") or [],
+            "best_ai": bool(core.CFG.get("best_ai")),
         }
+
+    def set_best_ai(self, on):
+        """« Meilleure IA » (palier Ultra) : meilleur modèle local/cloud."""
+        if not licensing.has("best_models"):
+            return {"ok": False}
+        core.save_config({"best_ai": bool(on)})
+        return {"ok": True, "best_ai": bool(core.CFG.get("best_ai"))}
 
     # NB : ces méthodes de licence/perso sont le pont prévu pour l'écran de
     # réglages du DOCK web (dock.html) — pas encore câblées côté JS (l'UI qui
