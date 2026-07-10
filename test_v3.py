@@ -132,6 +132,11 @@ def test_auto_resolve():
           auto_mode.current_mode(), "voice_to_text")
     # _user_rules ne garde que des mode_id CONCRETS du registre : une faute de
     # frappe ou « auto » dans config.json est écartée (retour /code-review)
+    # (dormance simulée : ces règles perso sont gatées Pro/Ultra et le dépôt
+    # embarque désormais la vraie clé publique → licences actives par défaut)
+    import licensing as _lic
+    _pub_cm = _lic.PUBLIC_KEY_B64
+    _lic.PUBLIC_KEY_B64 = ""
     import core as _core
     _saved = _core.CFG.get("auto_rules")
     _core.CFG["auto_rules"] = {"emial": ["x"], "auto": ["y"], "email": ["moncrm"]}
@@ -217,6 +222,7 @@ def test_auto_resolve():
         _core.CFG.pop("auto_rules", None)
     else:
         _core.CFG["auto_rules"] = _saved
+    _lic.PUBLIC_KEY_B64 = _pub_cm          # fin de la dormance simulée
 
 
 # --------------------------------------------------- Custom Variables --------
@@ -408,11 +414,20 @@ def test_licensing():
           L.mode_allowed("auto", L.FREE), True)
     check("free : best_models bloqué", L.has("best_models", L.FREE), False)
     check("ultra : best_models débloqué", L.has("best_models", L.ULTRA), True)
-    # dormant (pas de clé publique dans le dépôt) → accès complet + illimité
-    check("dormant → licences désactivées", L.enabled(), False)
-    check("dormant → has True partout", L.has("custom_modes"), True)
-    check("dormant → transcription illimitée", L.quota_status()["limit"], None)
-    check("dormant → can_transcribe", L.can_transcribe(), True)
+    # mode dormant (clé publique vide, simulée) → accès complet + illimité
+    _pub = L.PUBLIC_KEY_B64
+    L.PUBLIC_KEY_B64 = ""
+    try:
+        check("dormant → licences désactivées", L.enabled(), False)
+        check("dormant → has True partout", L.has("custom_modes"), True)
+        check("dormant → transcription illimitée",
+              L.quota_status()["limit"], None)
+        check("dormant → can_transcribe", L.can_transcribe(), True)
+    finally:
+        L.PUBLIC_KEY_B64 = _pub
+    # clé publique réelle présente → le système est ACTIF dans les builds
+    check("licences actives (clé publique en place)",
+          L.enabled(), bool(L._HAVE_CRYPTO))
     # quota Free simulé sur un tier explicite (via record) — vérifie le calcul
     _saved = core.CFG.get("usage")
     core.CFG["usage"] = {"week": L._week_key(), "chars": L.FREE_WEEKLY_CHARS}
@@ -436,9 +451,11 @@ def test_licensing():
             _pub = _b64.urlsafe_b64encode(_priv.public_key().public_bytes(
                 _ser.Encoding.Raw, _ser.PublicFormat.Raw)).decode().rstrip("=")
 
-            def _mk(tier, exp=0, seats=1):
-                p = json.dumps({"t": tier, "e": "a@b.com", "x": exp, "s": seats}
-                               ).encode("utf-8")
+            def _mk(tier, exp=0, seats=1, machine=None):
+                p = {"t": tier, "e": "a@b.com", "x": exp, "s": seats}
+                if machine is not None:
+                    p["m"] = machine
+                p = json.dumps(p).encode("utf-8")
                 b = lambda x: _b64.urlsafe_b64encode(x).decode().rstrip("=")  # noqa: E731
                 return "NOVA1.%s.%s" % (b(p), b(_priv.sign(p)))
         except BaseException as _e:     # entropie OS bloquée (bac à sable)
@@ -459,6 +476,14 @@ def test_licensing():
                   L.verify_key(_mk("pro"),
                                _b64.urlsafe_b64encode(b"\x00" * 32).decode()),
                   None)
+            # liaison machine : jeton d'une AUTRE machine refusé, la sienne OK
+            import winext as _wx
+            check("jeton lié à une autre machine → None",
+                  L.verify_key(_mk("pro", machine="f" * 32), _pub), None)
+            check("jeton lié à CETTE machine → accepté",
+                  (L.verify_key(_mk("pro",
+                                    machine=_wx.machine_fingerprint()), _pub)
+                   or {}).get("tier"), "pro")
 
 
 if __name__ == "__main__":

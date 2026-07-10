@@ -27,10 +27,18 @@ import base64
 import json
 import time
 
-# Clé publique Ed25519 de l'éditeur (base64url, 32 octets bruts). VIDE =
-# licences désactivées (accès complet). Générer via :
-#     python tools/mint_license.py genkey
-PUBLIC_KEY_B64 = ""
+# Clé publique Ed25519 de l'éditeur (base64, 32 octets bruts). VIDE =
+# licences désactivées (accès complet). La clé privée correspondante vit
+# UNIQUEMENT dans le coffre du serveur d'activation (Supabase, projet
+# nova-licences) — jamais dans ce dépôt.
+PUBLIC_KEY_B64 = "Q+U/LqaeFgLSDkvqiAXRcHQ8DSwqU9NcrHiPt8A6EJE="
+
+# Serveur d'activation : transforme une clé d'achat « NOVA-XXXXX-XXXXX-XXXXX »
+# (reçue après paiement) en jeton signé lié à CETTE machine. L'app reste
+# 100 % hors ligne ensuite (vérification locale, 7 j de grâce inclus côté
+# serveur dans l'expiration du jeton).
+ACTIVATION_URL = ("https://cvpucqsxgjczkdskohte.supabase.co"
+                  "/functions/v1/license/activate")
 
 FREE, PRO, ULTRA, BUSINESS = "free", "pro", "ultra", "business"
 # Niveau de fonctionnalités : Business = niveau Pro (mêmes fonctions), mais
@@ -102,10 +110,22 @@ def verify_key(key, pub_b64=None):
         exp = int(data.get("x", 0) or 0)
         if exp and time.time() > exp:
             return None                 # expirée
+        if data.get("m") and data["m"] != _machine_fingerprint():
+            return None                 # jeton lié à une AUTRE machine
         return {"tier": data["t"], "email": data.get("e", ""),
                 "expiry": exp, "seats": int(data.get("s", 1) or 1)}
     except Exception:
         return None
+
+
+def _machine_fingerprint():
+    """Empreinte de CE poste (via winext). Défensif : '' si indisponible —
+    un jeton lié à une machine sera alors refusé, jamais accepté à tort."""
+    try:
+        import winext
+        return winext.machine_fingerprint()
+    except Exception:
+        return ""
 
 
 def _license_from_config():
@@ -200,16 +220,69 @@ def record_transcription(text):
 
 
 def activate(key):
-    """Vérifie puis PERSISTE la clé en config (`license_key`). → status()
-    enrichi de `ok`. N'écrit rien si la clé est invalide."""
+    """Active une licence puis la PERSISTE en config. Deux formes acceptées :
+    clé d'achat « NOVA-XXXXX-XXXXX-XXXXX » (reçue après paiement → échange
+    contre un jeton lié à cette machine auprès du serveur) ou jeton « NOVA1.… »
+    direct (usage interne / hors ligne). → status() enrichi de `ok`."""
+    key = (key or "").strip()
+    if key.upper().startswith("NOVA-"):
+        return _activate_online(key.upper())
     info = verify_key(key)
     if not info:
         return {"ok": False, "error": "Clé invalide ou expirée."}
+    return _persist(key)
+
+
+def _persist(token, purchase_key=None):
     try:
         import core
-        core.save_config({"license_key": key.strip()})
+        cfg = {"license_key": token}
+        if purchase_key:
+            cfg["license_purchase_key"] = purchase_key
+        core.save_config(cfg)
     except Exception:
         return {"ok": False, "error": "Impossible d'enregistrer la licence."}
     st = status()
     st["ok"] = True
     return st
+
+
+def _activate_online(purchase_key):
+    """Échange la clé d'achat contre un jeton signé lié à CETTE machine
+    (2 postes max par licence, un poste inactif 30 j libère sa place)."""
+    try:
+        import requests
+        r = requests.post(ACTIVATION_URL, timeout=10, json={
+            "key": purchase_key,
+            "machine": _machine_fingerprint(),
+        })
+        data = r.json()
+    except Exception:
+        return {"ok": False, "error": "Serveur d'activation injoignable — "
+                                      "vérifiez votre connexion internet."}
+    if not data.get("ok"):
+        return {"ok": False,
+                "error": data.get("error", "Activation refusée.")}
+    token = data.get("token", "")
+    if not verify_key(token):
+        return {"ok": False, "error": "Réponse du serveur invalide."}
+    return _persist(token, purchase_key)
+
+
+def refresh_if_needed():
+    """Renouvelle silencieusement le jeton d'abonnement quand il approche de
+    l'expiration (< 10 j) — appelé au démarrage, best-effort : hors ligne, le
+    jeton courant garde sa période de grâce. Ne lève jamais."""
+    try:
+        if not enabled():
+            return
+        import core
+        purchase_key = core.CFG.get("license_purchase_key") or ""
+        if not purchase_key:
+            return                      # licence hors ligne : rien à renouveler
+        info = verify_key(core.CFG.get("license_key") or "")
+        if info and info["expiry"] and info["expiry"] - time.time() > 10 * 86400:
+            return                      # encore loin de l'expiration
+        _activate_online(purchase_key)
+    except Exception:
+        pass
