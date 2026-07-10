@@ -313,9 +313,12 @@ const ORBCHOICES=[['','Nova (défaut)','#AEBEEC'],['#E8A0C0','Rose pastel','#E8A
 function panePerso(p){
   const ok=!!(S.perso&&S.perso.orb);
   // couleur posée ailleurs (ex. champ libre tkinter) : option « Personnalisée »
-  // ajoutée plutôt qu'écrasée en silence par le premier choix de la liste
-  const cur=S.orb_color||'';
-  const choices=ORBCHOICES.some(o=>o[0]===cur)?ORBCHOICES:ORBCHOICES.concat([[cur,'Personnalisée',cur]]);
+  // ajoutée plutôt qu'écrasée en silence — comparaison insensible à la casse,
+  // le champ libre peut donner « #e8a0c0 » pour le préréglage « #E8A0C0 »
+  const raw=S.orb_color||'';
+  const preset=ORBCHOICES.find(o=>o[0].toUpperCase()===raw.toUpperCase());
+  const cur=preset?preset[0]:raw;
+  const choices=preset?ORBCHOICES:ORBCHOICES.concat([[raw,'Personnalisée',raw]]);
   const sel='<span class="dotc" id="orbDot"></span><select class="fieldc" id="orbSel">'+
     choices.map(([v,n])=>'<option value="'+esc(v)+'"'+(cur===v?' selected':'')+'>'+n+'</option>').join('')+'</select>';
   p.innerHTML='<h1>Personnalisation'+(ok?'':' <span class="badge-lock">NÉCESSITE NOVA ULTRA</span>')+'</h1>'
@@ -461,9 +464,14 @@ const ORB=(function(){
   function fit(){const r=cv.getBoundingClientRect();cv.width=Math.max(1,r.width*DPR);cv.height=Math.max(1,r.height*DPR);gl.viewport(0,0,cv.width,cv.height);}
   fit();addEventListener('resize',fit);
   const SETEL=document.getElementById('settings');
+  let covered=false;
   (function f(now){const t=(now-t0)/1000;
     // réglages ouverts : #settings couvre tout le dock → on saute le rendu GL
-    if(SETEL.classList.contains('on')){requestAnimationFrame(f);return;}
+    if(SETEL.classList.contains('on')){covered=true;requestAnimationFrame(f);return;}
+    // au retour, on repart d'un état transitoire posé : une pulsation « succès »
+    // ou un niveau micro reçus pendant les réglages ne sont pas rejoués en retard
+    if(covered){covered=false;pulse=0;micTgt=0;level=0;sVel=0;sPos=0;
+      for(let i=0;i<3;i++)curA[i]=tgtA[i];}
     // le micro ne pilote le volume QU'EN écoute ; sinon l'anim est intrinsèque (repos/traitement/succès)
     const target=(state==='listening')?micTgt:0;
     level+=(target-level)*(target>level?0.30:0.10);
