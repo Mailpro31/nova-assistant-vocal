@@ -115,31 +115,61 @@ def resolve(title, proc="", extra_rules=None):
     return DEFAULT_ID
 
 
+def _clean_tokens(toks):
+    """Repères utilisateur → liste de chaînes non vides (str nu accepté)."""
+    if isinstance(toks, str):
+        toks = [toks]
+    return [str(t) for t in (toks or []) if str(t).strip()]
+
+
 def _user_rules():
-    """Règles depuis config.json (`auto_rules`), ou None. Forme attendue :
-    { "email": ["moncrm", "facturation"], "notes": ["mon wiki"] }. Les mode_id
-    inconnus ou « auto » (faute de frappe, id invalide) sont ignorés : seul un
-    mode CONCRET du registre peut être renvoyé par resolve()."""
+    """Règles depuis config.json, ou None. Deux sources, par priorité :
+
+    1. `custom_modes` (palier Ultra) — modes SUR MESURE créés par l'utilisateur
+       ({id, name, match: [repères], prompt}) : quand un repère matche l'app ou
+       l'onglet actif, resolve() renvoie « custom:<id> » et le prompt du mode
+       est appliqué à la reformulation (résolu dans app._resolve_prompt).
+    2. `auto_rules` (palier Ultra) — routage perso vers les modes INTÉGRÉS
+       ({ "email": ["moncrm"] }). Les mode_id inconnus ou « auto » sont ignorés.
+    """
     try:
         import core
         import modes_registry
         import licensing
-        if not licensing.has("custom_auto_rules"):
-            return None                 # règles perso : palier Ultra
-        valid = set(modes_registry.mode_ids()) - {"auto"}
-        raw = core.CFG.get("auto_rules") or {}
         rules = []
-        for mode_id, toks in raw.items():
-            if mode_id not in valid:
-                continue
-            if isinstance(toks, str):
-                toks = [toks]
-            toks = [str(t) for t in (toks or []) if str(t).strip()]
-            if toks:
-                rules.append((mode_id, toks))
+        if licensing.has("custom_modes"):
+            for cm in core.CFG.get("custom_modes") or []:
+                try:
+                    toks = _clean_tokens(cm.get("match"))
+                    if toks and str(cm.get("prompt") or "").strip() \
+                            and str(cm.get("id") or "").strip():
+                        rules.append((f"custom:{cm['id']}", toks))
+                except Exception:
+                    continue            # entrée mal formée → ignorée
+        if licensing.has("custom_auto_rules"):
+            valid = set(modes_registry.mode_ids()) - {"auto"}
+            for mode_id, toks in (core.CFG.get("auto_rules") or {}).items():
+                if mode_id in valid:
+                    toks = _clean_tokens(toks)
+                    if toks:
+                        rules.append((mode_id, toks))
         return rules or None
     except Exception:
         return None
+
+
+def custom_mode(cid):
+    """Mode sur mesure par id (config `custom_modes`), ou None si absent ou
+    sans prompt. Défensif — utilisé par app._resolve_prompt au collage."""
+    try:
+        import core
+        for cm in core.CFG.get("custom_modes") or []:
+            if str(cm.get("id")) == str(cid) \
+                    and str(cm.get("prompt") or "").strip():
+                return cm
+    except Exception:
+        pass
+    return None
 
 
 def current_mode():
