@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Nova — film (source de rendu)</title>
+<style>
+  html,body{margin:0;padding:0;background:#0d0e12;overflow:hidden}
+  /* La police est chargée côté système (Playwright : Liberation Sans / DejaVu).
+     Pile premium en tête pour les postes qui l'ont. */
+  canvas{display:block}
+</style>
+</head>
+<body>
+<canvas id="c" width="1280" height="720"></canvas>
+<script>
+"use strict";
+/* ------------------------------------------------------------------ *
+ * Nova — « le film ». Source de rendu déterministe.
+ * Tout est dessiné analytiquement depuis le temps t : appeler seek(t)
+ * produit EXACTEMENT la même image, ce qui permet une capture frame par
+ * frame propre (render.py). Aucune animation CSS, aucun rAF pour la
+ * capture — le temps est piloté de l'extérieur.
+ * ------------------------------------------------------------------ */
+const C = document.getElementById("c");
+const X = C.getContext("2d");
+const W = 1280, H = 720;
+
+/* ---- palette (identité Nova) ---- */
+const BG0 = "#0b0c10", BG1 = "#15161d", BG2 = "#1b1c25";
+const PERI = [174,190,236], LAV = [199,185,234], MINT = [174,226,204];
+const BLUE = "#0A84FF", INK = "#F3F3F6", MUT = "#9A9AA6", DIM = "#6E6E7A";
+const FONT = '"Inter","Helvetica Neue","Liberation Sans","DejaVu Sans",Arial,sans-serif';
+
+/* ---- utilitaires ---- */
+const clamp = (v,a,b)=>v<a?a:v>b?b:v;
+const lerp = (a,b,t)=>a+(b-a)*t;
+const mix = (c1,c2,t)=>[lerp(c1[0],c2[0],t),lerp(c1[1],c2[1],t),lerp(c1[2],c2[2],t)];
+const rgba = (c,a)=>`rgba(${c[0]|0},${c[1]|0},${c[2]|0},${a})`;
+const eOut = t=>1-Math.pow(1-t,3);
+const eIn  = t=>t*t*t;
+const eInOut = t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+const eBack = t=>{const c=1.70158,s=c+1;return 1+s*Math.pow(t-1,3)+c*Math.pow(t-1,2);};
+/* fenêtre 0→1→0 sur un segment [a,b] avec fondus doux d'entrée/sortie */
+function seg(t,a,b,fin=.35,fout=.35){
+  if(t<a||t>b) return 0;
+  const d=b-a, u=(t-a)/d;
+  const fi=fin/d, fo=fout/d;
+  let v=1;
+  if(u<fi) v=eOut(u/fi);
+  if(u>1-fo) v=Math.min(v,eOut((1-u)/fo));
+  return v;
+}
+const loc = (t,a,b)=>clamp((t-a)/(b-a),0,1);   // progression locale 0→1
+
+/* PRNG déterministe (mulberry32) */
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let x=Math.imul(seed^seed>>>15,1|seed);x=x+Math.imul(x^x>>>7,61|x)^x;return((x^x>>>14)>>>0)/4294967296;};}
+
+/* particules de l'orbe (positions analytiques → seek sans état) */
+const NP = 150, R0 = rng(7);
+const PT = Array.from({length:NP},()=>({
+  a: R0()*Math.PI*2, r: .55+R0()*1.9, ph: R0()*Math.PI*2,
+  sp: .6+R0()*1.1, sz: .6+R0()*1.8, tw: R0()
+}));
+
+/* ---- localisation ---- */
+const L = {
+  fr:{
+    tag1:"Parlez.", tag2:"C'est déjà écrit.",
+    mail_to:"À : Claire", mail_h:"Nouveau message",
+    raw:["euh…","on décale la réunion","à demain","quatorze heures","faut prévenir Claire","et l'invitation"],
+    clean:["Bonjour Claire,","Pouvons-nous décaler la réunion à demain 14 h ?","Merci de mettre à jour l'invitation."],
+    listen:"Nova écoute", styles_k:"Un Style. Le bon.",
+    chips:["E-mail","Prompt IA","To-do","Notes","Messages"],
+    outs:[
+      ["Bonjour Claire,","Pouvons-nous décaler la réunion","à demain 14 h ?"],
+      ["Rédige un message bref et cordial à Claire :","réunion décalée à demain 14 h,","demande de mettre à jour l'invitation."],
+      ["– Prévenir Claire du report","– Décaler la réunion à 14 h","– Mettre à jour l'invitation"],
+      ["— Réunion décalée à demain 14 h","— Prévenir Claire","— Mettre à jour l'invitation"],
+      ["Salut Claire, on décale la réunion","à demain 14 h.","Pense à mettre à jour l'invit"]
+    ],
+    priv_k:"Intelligence privée",
+    priv1:"Votre voix ne quitte", priv2:"jamais votre PC.",
+    turbo_k:"Turbo", turbo1:"La meilleure IA,", turbo2:"en un éclair.",
+    every1:"Partout où", every2:"vous écrivez.", every_apps:["E-mail","Messagerie","Document"],
+    end_tag:"Parlez. Nova écrit.", end_sub:"Dictée intelligente pour Windows",
+    end_cta:"Essayez gratuitement"
+  },
+  en:{
+    tag1:"Speak.", tag2:"It's already written.",
+    mail_to:"To: Claire", mail_h:"New message",
+    raw:["uh…","let's push the meeting","to tomorrow","two p.m.","gotta tell Claire","and the invite"],
+    clean:["Hi Claire,","Can we push the meeting to tomorrow at 2 PM?","Please update the invite."],
+    listen:"Nova is listening", styles_k:"One Style. The right one.",
+    chips:["Email","AI Prompt","To-do","Notes","Messages"],
+    outs:[
+      ["Hi Claire,","Can we push the meeting","to tomorrow at 2 PM?"],
+      ["Write a short, warm note to Claire:","the meeting moves to tomorrow 2 PM,","ask her to update the invite."],
+      ["– Tell Claire about the change","– Move the meeting to 2 PM","– Update the invite"],
+      ["— Meeting moved to tomorrow 2 PM","— Tell Claire","— Update the invite"],
+      ["Hey Claire, we're pushing the meeting","to tomorrow at 2 PM.","Don't forget to update the invite"]
+    ],
+    priv_k:"Private intelligence",
+    priv1:"Your voice never", priv2:"leaves your PC.",
+    turbo_k:"Turbo", turbo1:"The best AI,", turbo2:"in a flash.",
+    every1:"Everywhere", every2:"you write.", every_apps:["Email","Chat","Document"],
+    end_tag:"Speak. Nova writes.", end_sub:"Intelligent dictation for Windows",
+    end_cta:"Try it free"
+  }
+};
+let T = L.fr;
+window.setLang = l => { T = L[l] || L.fr; document.documentElement.lang = l; };
+
+/* ---- timeline (secondes) ---- */
+const S = {
+  mat:[0,2.6], tag:[2.6,4.9], loop:[4.9,9.5], sty:[9.5,14.3],
+  priv:[14.3,17.5], turbo:[17.5,20.3], every:[20.3,23.3], end:[23.3,26.6]
+};
+window.DUR = 26.6;
+
+/* ================= helpers de dessin ================= */
+function setFont(px,weight=600,spacing=-.5){
+  X.font = `${weight} ${px}px ${FONT}`;
+  X.textAlign="center"; X.textBaseline="alphabetic";
+  try{ X.letterSpacing = spacing+"px"; }catch(e){}
+}
+function bg(t){
+  const g = X.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,BG0); g.addColorStop(.5,BG1); g.addColorStop(1,BG2);
+  X.fillStyle=g; X.fillRect(0,0,W,H);
+  // halos pastel lents
+  const halo=(cx,cy,rad,col,al)=>{
+    const rg=X.createRadialGradient(cx,cy,0,cx,cy,rad);
+    rg.addColorStop(0,rgba(col,al)); rg.addColorStop(1,rgba(col,0));
+    X.fillStyle=rg; X.fillRect(0,0,W,H);
+  };
+  const dr=t*0.13;
+  halo(W*(.30+.02*Math.sin(dr)),H*(.32+.02*Math.cos(dr*.9)),520,PERI,.16);
+  halo(W*(.72+.02*Math.cos(dr*1.1)),H*(.66+.02*Math.sin(dr)),560,LAV,.13);
+  halo(W*.52,H*.5,700,MINT,.05);
+  // vignette
+  const vg=X.createRadialGradient(W/2,H/2,H*.35,W/2,H/2,H*.85);
+  vg.addColorStop(0,"rgba(0,0,0,0)"); vg.addColorStop(1,"rgba(0,0,0,.55)");
+  X.fillStyle=vg; X.fillRect(0,0,W,H);
+}
+/* orbe « bille de verre » */
+function orb(cx,cy,r,t,glow=1,hue=0){
+  X.save();
+  const col = hue<0?mix(PERI,LAV,-hue):mix(PERI,MINT,hue);
+  // halo externe
+  let rg=X.createRadialGradient(cx,cy,r*.2,cx,cy,r*2.6);
+  rg.addColorStop(0,rgba(col,.42*glow)); rg.addColorStop(1,rgba(col,0));
+  X.fillStyle=rg; X.beginPath(); X.arc(cx,cy,r*2.6,0,7); X.fill();
+  // corps
+  const bx=cx-r*.32, by=cy-r*.36;
+  rg=X.createRadialGradient(bx,by,r*.1,cx,cy,r*1.06);
+  rg.addColorStop(0,"rgba(255,255,255,.96)");
+  rg.addColorStop(.18,rgba(mix(col,[255,255,255],.5),.95));
+  rg.addColorStop(.6,rgba(col,.9));
+  rg.addColorStop(1,rgba(mix(col,[20,22,34],.6),.95));
+  X.fillStyle=rg; X.beginPath(); X.arc(cx,cy,r,0,7); X.fill();
+  // caustique interne mouvante
+  const ca=t*1.1;
+  const ix=cx+Math.cos(ca)*r*.28, iy=cy+Math.sin(ca*1.3)*r*.24;
+  rg=X.createRadialGradient(ix,iy,0,ix,iy,r*.8);
+  rg.addColorStop(0,rgba(mix(col,[255,255,255],.7),.5));
+  rg.addColorStop(1,rgba(col,0));
+  X.fillStyle=rg; X.beginPath(); X.arc(cx,cy,r,0,7); X.fill();
+  // rim light
+  X.lineWidth=Math.max(1,r*.03);
+  X.strokeStyle=rgba(mix(col,[255,255,255],.6),.5);
+  X.beginPath(); X.arc(cx,cy,r*.985,0,7); X.stroke();
+  // spéculaire
+  const sx=cx-r*.34, sy=cy-r*.42;
+  rg=X.createRadialGradient(sx,sy,0,sx,sy,r*.5);
+  rg.addColorStop(0,"rgba(255,255,255,.95)"); rg.addColorStop(1,"rgba(255,255,255,0)");
+  X.fillStyle=rg; X.beginPath(); X.ellipse(sx,sy,r*.34,r*.22,-.5,0,7); X.fill();
+  X.restore();
+}
+/* nuage de particules qui converge vers l'orbe (p=0 dispersé → 1 sur l'orbe) */
+function particles(cx,cy,r,t,p,alpha=1){
+  X.save();
+  for(const q of PT){
+    const conv = eOut(clamp(p,0,1));
+    const rad = lerp(q.r*r*2.7, r*(.9+.14*Math.sin(t*q.sp+q.ph)), conv);
+    const ang = q.a + t*.25*q.sp + (1-conv)*q.ph;
+    const x = cx+Math.cos(ang)*rad, y=cy+Math.sin(ang)*rad;
+    const tw = .45+.55*Math.abs(Math.sin(t*2*q.sp+q.tw*6));
+    const col = mix(PERI,LAV,q.tw);
+    X.fillStyle=rgba(col,tw*alpha*lerp(.9,.5,conv));
+    X.beginPath(); X.arc(x,y,q.sz*lerp(1.1,.7,conv),0,7); X.fill();
+  }
+  X.restore();
+}
+/* barre de forme d'onde vivante */
+function wave(cx,cy,w,t,amp,alpha){
+  X.save();
+  const n=42, gap=w/n;
+  for(let i=0;i<n;i++){
+    const x=cx-w/2+gap*i+gap/2;
+    const env=Math.sin(i/n*Math.PI);
+    const h=amp*env*(.35+.65*Math.abs(Math.sin(t*6+i*.55)+.5*Math.sin(t*3.3+i)));
+    const col=mix(PERI,MINT,i/n);
+    X.fillStyle=rgba(col,alpha);
+    rr(x-gap*.28,cy-h/2,gap*.56,h,gap*.28); X.fill();
+  }
+  X.restore();
+}
+/* rounded rect path */
+function rr(x,y,w,h,r){
+  r=Math.min(r,w/2,h/2);
+  X.beginPath();
+  if(X.roundRect){ X.roundRect(x,y,w,h,r); }
+  else{
+    X.moveTo(x+r,y); X.arcTo(x+w,y,x+w,y+h,r); X.arcTo(x+w,y+h,x,y+h,r);
+    X.arcTo(x,y+h,x,y,r); X.arcTo(x,y,x+w,y,r); X.closePath();
+  }
+}
+function card(x,y,w,h,r,a=1,fill="rgba(28,29,37,.92)"){
+  X.save(); X.globalAlpha=a;
+  X.shadowColor="rgba(0,0,0,.5)"; X.shadowBlur=40; X.shadowOffsetY=24;
+  X.fillStyle=fill; rr(x,y,w,h,r); X.fill();
+  X.shadowColor="transparent";
+  X.lineWidth=1; X.strokeStyle="rgba(255,255,255,.08)"; rr(x+.5,y+.5,w-1,h-1,r); X.stroke();
+  X.restore();
+}
+function text(str,x,y,px,weight,col,spacing=-.5,align="center",alpha=1){
+  X.save(); X.globalAlpha=alpha; setFont(px,weight,spacing);
+  X.textAlign=align; X.fillStyle=col; X.fillText(str,x,y); X.restore();
+}
+/* révèle un texte lettre par lettre (p 0→1), renvoie la sous-chaîne + curseur */
+function typed(str,p){
+  const n=Math.round(str.length*clamp(p,0,1));
+  return str.slice(0,n);
+}
+
+/* ================= scènes ================= */
+function scMaterialize(t){
+  const a=seg(t,S.mat[0],S.mat[1],.01,.45); if(!a)return;
+  const p=loc(t,S.mat[0],2.0);
+  const cx=W/2, cy=H*.44, r=lerp(58,86,eOut(p));
+  particles(cx,cy,r, t, p, a);
+  const oa=eOut(clamp((t-.7)/1.2,0,1));
+  X.save(); X.globalAlpha=oa*a; orb(cx,cy,r,t,1,-.2); X.restore();
+  const wa=seg(t,1.5,S.mat[1],.4,.4);
+  text("Nova",cx,cy+r+92,58,700,INK,-1.5,"center",wa*a);
+}
+function scTag(t){
+  const a=seg(t,S.tag[0],S.tag[1],.4,.4); if(!a)return;
+  const cx=W/2;
+  orb(cx,H*.30,34,t,1,-.15);
+  const p1=loc(t,S.tag[0]+.15,S.tag[0]+1.0);
+  const p2=loc(t,S.tag[0]+.75,S.tag[0]+1.7);
+  text(typed(T.tag1,p1),cx,H*.52,74,700,INK,-2,"center",a);
+  text(typed(T.tag2,p2),cx,H*.52+80,74,700,rgba(mix(PERI,LAV,.4),1),-2,"center",a*loc(t,S.tag[0]+.7,S.tag[0]+1.1));
+}
+function scLoop(t){
+  const a=seg(t,S.loop[0],S.loop[1],.4,.4); if(!a)return;
+  const cw=720, ch=340, cx=(W-cw)/2, cy=(H-ch)/2-6;
+  X.save(); X.globalAlpha=a;
+  card(cx,cy,cw,ch,20,1);
+  // barre de titre
+  text(T.mail_h,cx+28,cy+40,15,600,MUT,0,"left");
+  [0,1,2].forEach(i=>{X.fillStyle=["#FF5F57","#FEBC2E","#28C840"][i];X.beginPath();X.arc(cx+cw-30-i*22,cy+30,6,0,7);X.fill();});
+  X.strokeStyle="rgba(255,255,255,.07)";X.lineWidth=1;
+  X.beginPath();X.moveTo(cx,cy+58);X.lineTo(cx+cw,cy+58);X.stroke();
+  text(T.mail_to,cx+28,cy+90,15,500,DIM,0,"left");
+  X.beginPath();X.moveTo(cx,cy+110);X.lineTo(cx+cw,cy+110);X.stroke();
+
+  const bx=cx+28, by=cy+150;
+  // phase 1 : dictée brute (tokens gris) 0.3→2.2 ; phase 2 : snap ; phase 3 : propre
+  const local=t-S.loop[0];
+  const snap=2.35;
+  if(local<snap){
+    // écoute : pilule + waveform
+    const lp=clamp(local/2.1,0,1);
+    // tokens qui s'accumulent
+    let line=bx, ly=by+6; X.textAlign="left"; setFont(21,500,-.3);
+    const shown=Math.floor(lp*T.raw.length+ .0001);
+    X.fillStyle=rgba([150,150,165],1);
+    let acc="";
+    for(let i=0;i<=shown && i<T.raw.length;i++){
+      const tok=T.raw[i]+(i<T.raw.length-1?" ":"");
+      acc+=tok;
+    }
+    // wrap simple
+    wrapText(acc,bx,by+6,cw-56,30,21,500,rgba([148,148,165],1),"left");
+    // curseur
+    const cwd=X.measureText("").width;
+    // pilule d'écoute en bas
+    pill(cx+cw/2, cy+ch-4, T.listen, t, a);
+  } else {
+    // snap → texte propre
+    const sp=eOut(clamp((local-snap)/.9,0,1));
+    X.globalAlpha=a;
+    // flash de reformulation
+    if(local<snap+.5){
+      const fa=1-clamp((local-snap)/.5,0,1);
+      X.fillStyle=rgba(mix(PERI,MINT,.4),fa*.22); rr(cx+14,cy+124,cw-28,ch-150,14); X.fill();
+    }
+    for(let i=0;i<T.clean.length;i++){
+      const rp=clamp((sp*1.15)-(i*.14),0,1);
+      const yy=by+6+i*40;
+      X.save();X.globalAlpha=a*rp;
+      wrapText(T.clean[i],bx,yy,cw-56,30,i===0?23:21,i===0?600:500,i===0?INK:rgba([214,214,222],1),"left");
+      X.restore();
+    }
+    // coche « collé »
+    if(sp>.7){
+      const ck=eBack(clamp((sp-.7)/.3,0,1));
+      const gx=cx+cw-70, gy=cy+ch-44;
+      X.save();X.globalAlpha=a;
+      X.fillStyle=rgba(MINT,.16);X.beginPath();X.arc(gx,gy,16*ck,0,7);X.fill();
+      X.strokeStyle="#30D158";X.lineWidth=2.6;X.lineCap="round";
+      X.beginPath();X.moveTo(gx-6*ck,gy);X.lineTo(gx-1*ck,gy+5*ck);X.lineTo(gx+7*ck,gy-6*ck);X.stroke();
+      X.restore();
+    }
+  }
+  X.restore();
+}
+function pill(cx,cy,label,t,a){
+  X.save();X.globalAlpha=a;
+  const w=210,h=46,x=cx-w/2,y=cy-h/2;
+  X.fillStyle="rgba(20,21,28,.96)"; X.shadowColor="rgba(0,0,0,.45)";X.shadowBlur=26;X.shadowOffsetY=10;
+  rr(x,y,w,h,23);X.fill();X.shadowColor="transparent";
+  X.strokeStyle="rgba(255,255,255,.1)";X.lineWidth=1;rr(x+.5,y+.5,w-1,h-1,23);X.stroke();
+  orb(x+30,cy,14,t,1,.1);
+  wave(x+128,cy,120,t,26,.95);
+  X.restore();
+}
+/* dessine du texte multi-ligne en coupant sur la largeur maxw */
+function wrapText(str,x,y,maxw,lh,px,weight,col,align){
+  X.save(); setFont(px,weight,-.3); X.textAlign=align||"left"; X.fillStyle=col;
+  const words=str.split(" "); let line="", yy=y;
+  for(const w of words){
+    const test=line?line+" "+w:w;
+    if(X.measureText(test).width>maxw && line){ X.fillText(line,x,yy); line=w; yy+=lh; }
+    else line=test;
+  }
+  if(line)X.fillText(line,x,yy);
+  X.restore();
+  return yy;
+}
+function scStyles(t){
+  const a=seg(t,S.sty[0],S.sty[1],.35,.4); if(!a)return;
+  const cx=W/2;
+  text(T.styles_k,cx,S.sty[0]?H*.16:H*.16,15,600,MUT,2.5,"center",a*.9);
+  // barre de chips
+  const n=T.chips.length, gap=14;
+  setFont(16,600,-.2);
+  const ws=T.chips.map(s=>X.measureText(s).width+40);
+  const totw=ws.reduce((p,c)=>p+c,0)+gap*(n-1);
+  let sx=cx-totw/2;
+  const local=t-S.sty[0]; const dur=(S.sty[1]-S.sty[0]);
+  const active=clamp(Math.floor(local/ (dur/n)),0,n-1);
+  const chipY=H*.24;
+  const xs=[];
+  for(let i=0;i<n;i++){ xs.push(sx+ws[i]/2); sx+=ws[i]+gap; }
+  sx=cx-totw/2;
+  for(let i=0;i<n;i++){
+    const on=i===active;
+    X.save();X.globalAlpha=a;
+    X.fillStyle=on?BLUE:"rgba(255,255,255,.06)";
+    rr(sx,chipY-18,ws[i],36,18);X.fill();
+    text(T.chips[i],sx+ws[i]/2,chipY+5,16,600,on?"#fff":MUT,-.2,"center");
+    X.restore();
+    sx+=ws[i]+gap;
+  }
+  // carte de sortie qui change à chaque Style
+  const cw=680,ch=250,rx=(W-cw)/2,ry=H*.36;
+  card(rx,ry,cw,ch,18,a);
+  // progression d'apparition dans le Style courant
+  const segStart=active*(dur/n), segp=clamp((local-segStart)/ (dur/n),0,1);
+  const lines=T.outs[active];
+  // en-tête discret = nom du style
+  text(T.chips[active].toUpperCase(),rx+28,ry+38,12,700,rgba(mix(PERI,LAV,.3),1),2,"left",a);
+  X.strokeStyle="rgba(255,255,255,.07)";X.lineWidth=1;X.beginPath();X.moveTo(rx,ry+56);X.lineTo(rx+cw,ry+56);X.stroke();
+  for(let i=0;i<lines.length;i++){
+    const lp=eOut(clamp(segp*1.5-i*.18,0,1));
+    const yy=ry+94+i*42;
+    X.save();X.globalAlpha=a*lp;
+    // léger slide-in
+    wrapText(lines[i],rx+28+ (1-lp)*10, yy, cw-56, 32, 20, 500, rgba([222,222,230],1),"left");
+    X.restore();
+  }
+}
+function scPriv(t){
+  const a=seg(t,S.priv[0],S.priv[1],.4,.4); if(!a)return;
+  const cx=W/2, cy=H*.40;
+  orb(cx,cy,72,t,1,-.25);
+  // anneau-verrou qui se referme
+  const local=t-S.priv[0];
+  const close=eOut(clamp(local/1.2,0,1));
+  X.save();X.globalAlpha=a;
+  X.lineWidth=6;X.lineCap="round";
+  X.strokeStyle=rgba(LAV,.9);
+  const start=-Math.PI/2, end=start+Math.PI*2*close;
+  X.beginPath();X.arc(cx,cy,104,start,end);X.stroke();
+  // anse du cadenas
+  const ha=eBack(clamp((local-.5)/.6,0,1));
+  X.strokeStyle=rgba(mix(LAV,[255,255,255],.4),a);
+  X.lineWidth=7;
+  X.beginPath();X.arc(cx,cy-116-lerp(20,0,ha),20,Math.PI,0);X.stroke();
+  X.restore();
+  text(T.priv_k,cx,cy+150,15,600,rgba(LAV,1),2.5,"center",a);
+  text(T.priv1,cx,cy+192,40,700,INK,-1.2,"center",a*loc(t,S.priv[0]+.4,S.priv[0]+1));
+  text(T.priv2,cx,cy+192+46,40,700,INK,-1.2,"center",a*loc(t,S.priv[0]+.6,S.priv[0]+1.2));
+}
+function scTurbo(t){
+  const a=seg(t,S.turbo[0],S.turbo[1],.35,.4); if(!a)return;
+  const local=t-S.turbo[0];
+  const cy=H*.40;
+  // lignes de vitesse
+  X.save();X.globalAlpha=a;
+  const R=rng(21);
+  for(let i=0;i<26;i++){
+    const yy=cy-140+R()*280;
+    const speed=(local*900)% (W+400);
+    const len=120+R()*220;
+    const x=((i*180+speed)% (W+500))-250;
+    const col=mix(PERI,MINT,R());
+    const g=X.createLinearGradient(x,0,x+len,0);
+    g.addColorStop(0,rgba(col,0));g.addColorStop(1,rgba(col,.5*a));
+    X.strokeStyle=g;X.lineWidth=2;X.beginPath();X.moveTo(x,yy);X.lineTo(x+len,yy);X.stroke();
+  }
+  X.restore();
+  const cx=lerp(W*.36,W*.6,eInOut(clamp(local/1.4,0,1)));
+  orb(cx,cy,58,t*2.4,1.3,.1);
+  text(T.turbo_k,W/2,cy+150,17,700,BLUE,3,"center",a);
+  text(T.turbo1,W/2,cy+194,40,700,INK,-1.2,"center",a*loc(t,S.turbo[0]+.3,S.turbo[0]+.9));
+  text(T.turbo2,W/2,cy+194+46,40,700,INK,-1.2,"center",a*loc(t,S.turbo[0]+.5,S.turbo[0]+1.1));
+}
+function scEvery(t){
+  const a=seg(t,S.every[0],S.every[1],.4,.4); if(!a)return;
+  const local=t-S.every[0];
+  const cardw=300,cardh=150,gap=34;
+  const totw=cardw*3+gap*2, sx=(W-totw)/2, cy=H*.30;
+  const snips = T.every_apps;
+  const outLines = T.outs; // réutilise
+  for(let i=0;i<3;i++){
+    const x=sx+i*(cardw+gap);
+    const ap=eOut(clamp(local*1.4-i*.28,0,1));
+    X.save();X.globalAlpha=a*ap;
+    card(x,cy+(1-ap)*16,cardw,cardh,16,1);
+    text(snips[i],x+22,cy+34,13,700,rgba(mix(PERI,LAV,.3),1),1.5,"left");
+    X.strokeStyle="rgba(255,255,255,.07)";X.lineWidth=1;X.beginPath();X.moveTo(x,cy+48);X.lineTo(x+cardw,cy+48);X.stroke();
+    const line = [T.clean[1], T.outs[4][0]+" "+T.outs[4][1], T.outs[3][0]][i];
+    const tp=clamp(local*1.5-i*.28-.2,0,1);
+    wrapText(typed(line,tp),x+22,cy+78,cardw-44,26,17,500,rgba([214,214,222],1),"left");
+    // petit curseur
+    X.restore();
+  }
+  text(T.every1,W/2,cy+cardh+96,42,700,INK,-1.4,"center",a*loc(t,S.every[0]+.3,S.every[0]+.9));
+  text(T.every2,W/2,cy+cardh+96+48,42,700,rgba(mix(PERI,MINT,.4),1),-1.4,"center",a*loc(t,S.every[0]+.5,S.every[0]+1.1));
+}
+function scEnd(t){
+  const a=seg(t,S.end[0],S.end[1],.5,.5); if(!a)return;
+  const local=t-S.end[0];
+  const cx=W/2, cy=H*.38;
+  // particules qui se rassemblent puis orbe
+  particles(cx,cy,74,t, clamp(local/1.1,0,1), a);
+  orb(cx,cy,74,t,1,-.1);
+  text("Nova",cx,cy+150,64,700,INK,-2,"center",a*loc(t,S.end[0]+.3,S.end[0]+.9));
+  text(T.end_tag,cx,cy+196,24,600,rgba(mix(PERI,LAV,.4),1),-.5,"center",a*loc(t,S.end[0]+.55,S.end[0]+1.1));
+  text(T.end_sub,cx,cy+232,15,500,MUT,.2,"center",a*loc(t,S.end[0]+.7,S.end[0]+1.3));
+  // bouton CTA
+  const bp=eBack(clamp((local-1.0)/.6,0,1));
+  if(bp>0){
+    setFont(16,600,-.2); const bw=X.measureText(T.end_cta).width+56, bh=48;
+    const bx=cx-bw/2, by=cy+262;
+    X.save();X.globalAlpha=a;X.transform(1,0,0,1,0,0);
+    X.translate(cx,by+bh/2);X.scale(bp,bp);X.translate(-cx,-(by+bh/2));
+    X.fillStyle=BLUE;X.shadowColor="rgba(10,132,255,.5)";X.shadowBlur=30;X.shadowOffsetY=8;
+    rr(bx,by,bw,bh,24);X.fill();X.shadowColor="transparent";
+    text(T.end_cta,cx,by+31,16,600,"#fff",-.2,"center");
+    X.restore();
+  }
+}
+
+/* ================= rendu d'une image ================= */
+function frame(t){
+  t=clamp(t,0,window.DUR);
+  bg(t);
+  scMaterialize(t); scTag(t); scLoop(t); scStyles(t);
+  scPriv(t); scTurbo(t); scEvery(t); scEnd(t);
+  // grain léger + fondu au noir aux extrémités
+  const fade = Math.min(seg(t,0,window.DUR,.5,.7)===0?0:1, 1);
+  const edge = 1-Math.min(loc(t,0,.5), loc(window.DUR-.7,0,.7)===0?1:clamp((window.DUR-t)/.7,0,1));
+  if(t<.5){ X.fillStyle=`rgba(0,0,0,${1-eOut(t/.5)})`; X.fillRect(0,0,W,H); }
+  if(t>window.DUR-.7){ X.fillStyle=`rgba(0,0,0,${eIn(clamp((t-(window.DUR-.7))/.7,0,1))})`; X.fillRect(0,0,W,H); }
+}
+window.seek = t => frame(t);
+window.frame = frame;
+
+/* aperçu autonome (hors capture) : lecture en boucle */
+let _raf=null, _t0=null;
+function play(ts){
+  if(_t0===null)_t0=ts;
+  const t=((ts-_t0)/1000)%window.DUR;
+  frame(t);
+  _raf=requestAnimationFrame(play);
+}
+if(!location.search.includes("capture")){ _raf=requestAnimationFrame(play); }
+else { frame(0); }
+window.__ready=true;
+</script>
+</body>
+</html>
