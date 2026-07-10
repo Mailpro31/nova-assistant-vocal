@@ -61,6 +61,9 @@
   @keyframes drift{from{transform:translate(0,0) scale(1)}to{transform:translate(50px,-36px) scale(1.1)}}
 
   .orbWrap{position:relative;width:150px;height:150px;margin-bottom:8px;will-change:transform}
+  .js .orbWrap.roam{position:fixed;left:0;top:0;margin:0;z-index:5;pointer-events:none}
+  .orbSpace{display:none;width:150px;height:150px;margin-bottom:8px}
+  .js .orbWrap.roam + .orbSpace{display:block}
   .orb{position:absolute;inset:0;border-radius:50%;
     background:radial-gradient(circle at 34% 30%,#fff 0%,#DFE7FA 16%,var(--peri) 44%,var(--peri-d) 70%,#7E92D6 100%);
     box-shadow:0 0 70px rgba(174,190,236,.5),inset -9px -14px 34px rgba(80,100,180,.35),
@@ -214,7 +217,7 @@
   .js .rv{opacity:0;transform:translateY(28px);
     transition:opacity .8s var(--ease),transform .8s var(--ease)}
   .js .rv.on{opacity:1;transform:none}
-  .off .aura,.off .orb{animation-play-state:paused}
+  .off .aura{animation-play-state:paused}
 
   /* sans JavaScript : tout visible, démo interactive retirée, cadres empilés */
   html:not(.js) .try{display:none}
@@ -252,6 +255,7 @@
     <span class="halo"></span>
     <div class="orb"></div>
   </div>
+  <div class="orbSpace" id="orbSpace" aria-hidden="true"></div>
 
   <h1 aria-label="Parlez. Nova écrit."><span id="line1">Parlez.</span><br>
     <span class="grad" id="line2">Nova écrit.</span></h1>
@@ -290,7 +294,7 @@
 
 <section class="tones" id="tons">
   <div class="stick">
-    <h2 class="rv">Une voix.<br>Le bon ton, partout.</h2>
+    <h2 class="rv">Une voix.<br>Tous vos Styles.</h2>
     <p class="said rv">« on décale la réunion à demain quatorze heures »</p>
     <div class="frames" id="frames">
       <div class="frame" data-i="0">
@@ -315,9 +319,10 @@
 
 <section class="privacy">
   <span class="aura a"></span>
-  <h2 class="rv">Tout peut rester<br>sur votre machine. <em>Tout.</em></h2>
-  <p class="rv">La voix, le texte, vos informations. Le mode 100 % local fonctionne
-    sans internet — le cloud n'est qu'une option, jamais une condition.</p>
+  <h2 class="rv">Tout reste chez vous.<br><em>Par conception.</em></h2>
+  <p class="rv">L'Intelligence privée de Nova écoute, écrit et met en forme
+    directement sur votre appareil — sans internet, sans compte.
+    Le reste n'est qu'une option.</p>
 </section>
 
 <section class="pricing" id="tarifs">
@@ -328,8 +333,8 @@
       <h3>Gratuit</h3>
       <div class="price">0 €</div>
       <ul>
-        <li><b>Dictée locale</b>, toutes les langues</li>
-        <li>3 tons d'écriture</li>
+        <li><b>Intelligence privée</b>, toutes les langues</li>
+        <li>3 Styles d'écriture</li>
         <li>2 500 caractères / semaine</li>
       </ul>
       <a class="btn ghost" href="https://github.com/Mailpro31/nova-assistant-vocal/releases/latest">Télécharger</a>
@@ -339,9 +344,8 @@
       <h3>Pro</h3>
       <div class="price">12 €<small> / mois</small></div>
       <ul>
-        <li><b>Illimité</b>, tous les tons</li>
-        <li>Moteur cloud ultra-rapide</li>
-        <li>S'adapte à chaque application</li>
+        <li><b>Dictée illimitée</b></li>
+        <li>Tous les Styles, dans chaque application</li>
       </ul>
       <a class="btn" id="buyPro" href="https://buy.stripe.com/test_dRmeVccAWf1g4Oj1d4efC00">S'abonner à Pro</a>
     </div>
@@ -349,14 +353,14 @@
       <h3>Ultra</h3>
       <div class="price">24 €<small> / mois</small></div>
       <ul>
-        <li><b>Tout Pro</b> + qualité maximale</li>
-        <li>Vos propres tons, par application</li>
-        <li>Personnalisation complète</li>
+        <li><b>Tout Pro</b>, en qualité maximale</li>
+        <li>Styles sur mesure, par application</li>
+        <li>Personnalisation complète — orbe, nom, Turbo</li>
       </ul>
       <a class="btn" id="buyUltra" href="https://buy.stripe.com/test_8x23cu58u7yO5Sn1d4efC01">S'abonner à Ultra</a>
     </div>
   </div>
-  <p class="plansNote rv">2 appareils par licence · annulable à tout moment ·
+  <p class="plansNote rv">Annulable à tout moment ·
     équipes : <a href="mailto:mailprosasha2@gmail.com">écrivez-nous</a></p>
 </section>
 
@@ -411,13 +415,53 @@ new IntersectionObserver((es) => {
   }
 }).observe(document.querySelector(".hero"));
 
-/* ---------- orbe : parallaxe curseur ---------- */
+/* ---------- l'orbe voyage sur la page (+ parallaxe curseur) ---------- */
 const orbWrap = $("orbWrap");
+let mx = 0, my = 0;
 if (!RM) addEventListener("pointermove", (e) => {
-  if (!heroVisible) return;
-  const dx = (e.clientX / innerWidth - 0.5), dy = (e.clientY / innerHeight - 0.5);
-  orbWrap.style.transform = `translate(${dx * 22}px, ${dy * 14}px)`;
+  mx = (e.clientX / innerWidth - 0.5) * 22;
+  my = (e.clientY / innerHeight - 0.5) * 14;
 }, { passive: true });
+function startRoam() {
+  orbWrap.classList.add("roam");
+  const spacer = $("orbSpace");
+  const secs = [".hero", ".tones", ".privacy", ".pricing", ".final"]
+    .map((q) => document.querySelector(q));
+  // étapes du voyage : [x en vw, y en vh, échelle] — le point héros est mesuré
+  const WAY = [[0.5, 0.3, 1], [0.15, 0.34, 0.5], [0.82, 0.4, 0.72],
+               [0.9, 0.16, 0.38], [0.5, 0.22, 0.62]];
+  let tops = [];
+  function measure() {
+    tops = secs.map((el) => el.getBoundingClientRect().top + scrollY);
+    const r = spacer.getBoundingClientRect();
+    WAY[0] = [(r.left + r.width / 2) / innerWidth,
+              (r.top + scrollY - tops[0] + 75) / innerHeight, 1];
+    const m = innerWidth < 700 ? 0.68 : 1;      // orbe plus discrète sur mobile
+    for (let i = 1; i < WAY.length; i++) WAY[i][2] = Math.min(WAY[i][2], WAY[i][2] * m + 0.12);
+  }
+  measure();
+  addEventListener("resize", measure);
+  setTimeout(measure, 600);                      // après la mise en page finale
+  let cx = null, cy = 0, cs = 1;
+  (function roam() {
+    requestAnimationFrame(roam);
+    const vw = innerWidth, vh = innerHeight;
+    const A = tops.map((tp) => Math.max(0, tp - vh * 0.35));
+    let k = 0;
+    while (k < A.length - 2 && scrollY >= A[k + 1]) k++;
+    let t = (scrollY - A[k]) / Math.max(1, A[k + 1] - A[k]);
+    t = Math.min(1, Math.max(0, t));
+    t = t * t * (3 - 2 * t);                     // adoucissement
+    const a = WAY[k], b = WAY[Math.min(k + 1, WAY.length - 1)];
+    const tx = (a[0] + (b[0] - a[0]) * t) * vw - 75 + mx;
+    const ty = (a[1] + (b[1] - a[1]) * t) * vh - 75 + my;
+    const ts = a[2] + (b[2] - a[2]) * t;
+    if (cx === null) { cx = tx; cy = ty; cs = ts; }
+    cx += (tx - cx) * 0.09; cy += (ty - cy) * 0.09; cs += (ts - cs) * 0.09;
+    orbWrap.style.transform = `translate3d(${cx}px, ${cy}px, 0) scale(${cs})`;
+  })();
+}
+if (!RM) startRoam();
 
 /* ---------- onde vocale (canvas, 30 fps, coupée hors écran) ---------- */
 const cv = $("wave"), ctx = cv.getContext("2d");
