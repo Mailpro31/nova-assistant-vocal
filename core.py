@@ -1153,19 +1153,54 @@ def test_provider(provider):
     return {"ok": ok, "ms": ms, "detail": detail}
 
 
+# « Meilleure IA » (palier Ultra) : modèle premium par fournisseur cloud. Pour
+# le local, cf. power_profiles.best_local_llm (meilleur modèle que la RAM tient).
+# Les fournisseurs non listés gardent le modèle choisi par l'utilisateur.
+BEST_CLOUD_LLM = {
+    "anthropic": "claude-opus-4-8",           # modèle Claude phare
+    "groq":      "llama-3.3-70b-versatile",   # meilleur modèle Groq (déjà le STT)
+}
+
+
+def _best_ai_on():
+    """La « Meilleure IA » est-elle activée ET débloquée (palier Ultra) ?"""
+    if not CFG.get("best_ai"):
+        return False
+    try:
+        import licensing
+        return licensing.has("best_models")
+    except Exception:
+        return False
+
+
+def _reform_model(provider):
+    """Modèle de reformulation pour ce fournisseur. « Meilleure IA » active →
+    modèle premium (meilleur local selon la RAM, meilleur cloud selon le
+    fournisseur) ; sinon le modèle configuré par l'utilisateur."""
+    cfg_model = CFG["providers"].get(provider, {}).get("model", "")
+    if not _best_ai_on():
+        return cfg_model
+    if provider == "ollama":
+        try:
+            import power_profiles
+            return power_profiles.best_local_llm()
+        except Exception:
+            return cfg_model
+    return BEST_CLOUD_LLM.get(provider, cfg_model)
+
+
 def _complete_one(provider, system, user, timeout):
-    prov = CFG["providers"]
     if provider == "anthropic":
         from anthropic import Anthropic
         client = Anthropic(api_key=get_api_key("anthropic") or None)
         msg = client.messages.create(
-            model=prov["anthropic"]["model"] or "claude-haiku-4-5",
+            model=_reform_model("anthropic") or "claude-haiku-4-5",
             max_tokens=400, system=system,
             messages=[{"role": "user", "content": user}])
         return next((b.text for b in msg.content if b.type == "text"), "").strip() or None
     import requests
     if provider == "ollama":
-        model = prov["ollama"]["model"] or ((ollama_models() or [""])[0])
+        model = _reform_model("ollama") or ((ollama_models() or [""])[0])
         if not model:
             return None
         r = requests.post(ollama_url() + "/api/chat", timeout=timeout, json={
@@ -1180,7 +1215,7 @@ def _complete_one(provider, system, user, timeout):
             return None
         r = requests.post(OPENAI_COMPAT[provider], timeout=timeout,
                           headers={"Authorization": f"Bearer {api_key}"},
-                          json={"model": prov[provider]["model"],
+                          json={"model": _reform_model(provider),
                                 "messages": [{"role": "system", "content": system},
                                              {"role": "user", "content": user}]})
         r.raise_for_status()

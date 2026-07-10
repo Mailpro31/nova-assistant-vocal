@@ -31,6 +31,23 @@ PROFILES = [
 _BY_ID = {p["id"]: p for p in PROFILES}
 DEFAULT_ID = "normal"          # le plus léger : sûr sur toute machine ciblée
 
+
+def best_local_llm(ram_gb=None):
+    """« Meilleure IA » locale (palier Ultra) : le meilleur modèle Ollama que la
+    RAM peut tenir sans faire ramer la machine. 16 Go → qwen2.5:7b (idéal,
+    ~5 Go) ; 24 Go+ → qwen2.5:14b ; en dessous → qwen2.5:3b. Réutilise la table
+    PROFILES (source unique du mapping)."""
+    if ram_gb is None:
+        try:
+            ram_gb = detect_hardware()["ram_total_gb"]
+        except Exception:
+            ram_gb = 8.0
+    best = PROFILES[0]["llm"]
+    for p in PROFILES:                     # PROFILES trié par min_ram_gb croissant
+        if ram_gb + _RAM_MARGIN_GB >= p["min_ram_gb"] and p["llm"]:
+            best = p["llm"]
+    return best
+
 # marge de sécurité : on ne débloque un profil que si la RAM totale dépasse son
 # minimum d'au moins cette marge (évite le cas « pile à la limite » qui swappe)
 _RAM_MARGIN_GB = 0.5
