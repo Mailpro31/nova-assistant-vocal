@@ -325,7 +325,7 @@
         <li><svg viewBox="0 0 24 24"><use href="#i-chk"/></svg>Moteur cloud ultra-rapide</li>
         <li><svg viewBox="0 0 24 24"><use href="#i-chk"/></svg>Custom Variables & dock « bille de verre »</li>
       </ul>
-      <a class="btn" id="buyPro" href="mailto:mailprosasha2@gmail.com?subject=Nova%20Pro">S'abonner à Pro</a>
+      <a class="btn" id="buyPro" href="https://buy.stripe.com/test_dRmeVccAWf1g4Oj1d4efC00">S'abonner à Pro</a>
     </div>
     <div class="plan rv">
       <h3>Ultra</h3>
@@ -337,7 +337,7 @@
         <li><svg viewBox="0 0 24 24"><use href="#i-chk"/></svg>Personnalisation (orbe, nom de l'app)</li>
         <li><svg viewBox="0 0 24 24"><use href="#i-chk"/></svg>Nouveautés en avant-première</li>
       </ul>
-      <a class="btn" id="buyUltra" href="mailto:mailprosasha2@gmail.com?subject=Nova%20Ultra">S'abonner à Ultra</a>
+      <a class="btn" id="buyUltra" href="https://buy.stripe.com/test_8x23cu58u7yO5Sn1d4efC01">S'abonner à Ultra</a>
     </div>
   </div>
   <p class="plans-note rv">Chaque licence couvre <b>2 appareils</b> (fixe + portable) et se gère depuis l'application.<br>
@@ -406,7 +406,7 @@
 // Liens d'abonnement Stripe (Payment Links) — à brancher quand la boutique
 // est ouverte ; tant que la valeur est vide, le CTA retombe sur le mailto
 // d'achat écrit en dur dans le HTML (fonctionnel même sans JavaScript).
-const STRIPE_LINKS = { pro: "", ultra: "" };
+const STRIPE_LINKS = { pro: "https://buy.stripe.com/test_dRmeVccAWf1g4Oj1d4efC00", ultra: "https://buy.stripe.com/test_8x23cu58u7yO5Sn1d4efC01" };
 for (const [tier, url] of Object.entries(STRIPE_LINKS)) {
   const el = document.getElementById(tier === "pro" ? "buyPro" : "buyUltra");
   if (el && url) el.href = url;
