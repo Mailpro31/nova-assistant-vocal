@@ -95,6 +95,13 @@
     box-shadow:0 1px 2px rgba(0,0,0,.4),inset 0 .5px 0 rgba(255,255,255,.25)}
   .btn:active{filter:brightness(.88)}
   .btn.sec{background:#3a3a3f;box-shadow:0 1px 2px rgba(0,0,0,.3),inset 0 0 0 .5px rgba(255,255,255,.09)}
+  .cmask{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.45);display:flex;
+    align-items:center;justify-content:center;backdrop-filter:blur(2px)}
+  .cbox{width:380px;background:#2c2c30;border-radius:13px;padding:20px 22px;
+    border:.5px solid rgba(255,255,255,.075);box-shadow:0 22px 60px rgba(0,0,0,.55)}
+  .cbox b{font-size:15px;color:#f2f2f4;display:block;margin-bottom:8px}
+  .cbox p{font-size:12.5px;color:#98989f;line-height:1.5;margin:0 0 16px}
+  .cbtns{display:flex;justify-content:flex-end;gap:8px}
   .sw{width:38px;height:22px;border-radius:999px;background:#3a3a3f;position:relative;flex:none;cursor:pointer;
     box-shadow:inset 0 1px 3px rgba(0,0,0,.4);transition:background .25s}
   .sw::after{content:"";position:absolute;top:1.5px;left:1.5px;width:19px;height:19px;border-radius:50%;
@@ -241,6 +248,18 @@ function buildPane(){
   ({general:paneGeneral,abo:paneAbo,perso:panePerso,cmodes:paneCModes,
     lang:paneLang,infos:paneInfos}[CAT]||paneGeneral)(document.getElementById('pane'));
 }
+// confirmation façon macOS (promesse) — utilisée avant les actions à impact
+function askConfirm(title,body,ok,cancel){return new Promise(res=>{
+  const m=document.createElement('div');m.className='cmask';
+  m.innerHTML='<div class="cbox"><b>'+title+'</b><p>'+body+'</p><div class="cbtns">'+
+    '<button class="btn sec" id="cNo">'+cancel+'</button>'+
+    '<button class="btn" id="cYes">'+ok+'</button></div></div>';
+  document.body.appendChild(m);
+  const done=v=>{m.remove();res(v);};
+  m.querySelector('#cNo').onclick=()=>done(false);
+  m.querySelector('#cYes').onclick=()=>done(true);
+  m.onclick=e=>{if(e.target===m)done(false);};
+});}
 
 function paneGeneral(p){
   const hw=S.hardware||{};
@@ -265,7 +284,13 @@ function paneGeneral(p){
       (hw.has_gpu?' · '+esc(hw.gpu_name):' · sans accélération graphique')+'. Les profils trop lourds pour cette machine sont verrouillés.')
    +G('Mises à jour',R('Nova','Vérifier la disponibilité d\'une nouvelle version',
       '<button class="btn sec" id="updBtn">Rechercher…</button>'),'');
-  document.getElementById('swCloud').onclick=()=>{if(!canTurbo)return;   // verrou Ultra
+  document.getElementById('swCloud').onclick=async()=>{if(!canTurbo)return; // verrou Ultra
+    if(!S.cloud_enabled){                       // activation = choix éclairé
+      const ok=await askConfirm('Activer Turbo ?',
+        'Vos dictées seront traitées en ligne, à la vitesse maximale — elles ne restent alors plus exclusivement sur votre appareil. Sans connexion, Nova repasse automatiquement en Intelligence privée.',
+        'Activer Turbo','Rester en privé');
+      if(!ok)return;
+    }
     api('toggle_cloud').then(on=>{S.cloud_enabled=!!on;
     document.getElementById('swCloud').className='sw'+(on?' on':'');});};
   document.getElementById('swAuto').onclick=()=>{const want=!document.getElementById('swAuto').classList.contains('on');
