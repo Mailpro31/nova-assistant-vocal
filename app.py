@@ -402,6 +402,16 @@ class Pill(threading.Thread):
         tk.Button(lic_row, text="Activer", command=_activate, bg=SET_ACCENT,
                   fg=SET_WHITE, relief="flat", padx=12, pady=4).pack(side="left", padx=8)
         _lic_refresh()
+        # stat de valeur hebdo (rétention) — même info que le dock (« Votre semaine »)
+        try:
+            wk = storage.week_stats()
+            mins = round(wk.get("chars", 0) / 5 / 40)
+            tk.Label(win, text=f"Cette semaine : {wk.get('count', 0)} dictées · "
+                     f"≈ {mins} min de frappe évitées",
+                     bg=SET_BG, fg=SET_MUT,
+                     font=("Segoe UI", 9)).pack(anchor="w", padx=16)
+        except Exception:
+            pass
         tk.Frame(win, bg=SET_INSET, height=1).pack(fill="x", padx=16, pady=(8, 2))
 
         pad = {"padx": 16, "pady": 6}
@@ -913,6 +923,16 @@ class DockApi:
         """Palier + quota courant, pour l'écran de licence du dock."""
         st = licensing.status()
         st["quota"] = licensing.quota_status()
+        return st
+
+    def week_stats(self):
+        """Stat de valeur de la semaine (rétention) : dictées + minutes de
+        frappe évitées (~5 caractères/mot, ~40 mots/min au clavier)."""
+        try:
+            st = storage.week_stats()
+        except Exception:
+            st = {"count": 0, "chars": 0}
+        st["minutes"] = round(st.get("chars", 0) / 5 / 40)
         return st
 
     def activate_license(self, key):

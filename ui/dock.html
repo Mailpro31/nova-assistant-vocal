@@ -303,7 +303,14 @@ function paneAbo(p){
    +G('Formules',plans,'')
    +G('Clé de licence',key+'<div class="err" id="licErr" style="display:none"></div>',
       'Reçue par e-mail après l\'achat. Aucune connexion requise.')
-   +G('Utilisation',use,unlim?'':'Le compteur se réinitialise chaque lundi.');
+   +G('Utilisation',use,unlim?'':'Le compteur se réinitialise chaque lundi.')
+   +G('Votre semaine','<div class="row"><div class="l"><b>Temps de frappe évité</b>'+
+      '<small id="wkSub">Calcul…</small></div><div class="r"><span class="val" id="wkVal" style="color:#30d158;font-weight:600">—</span></div></div>',
+      'Estimation : parler est environ trois fois plus rapide que taper.');
+  api('week_stats').then(w=>{if(!w)return;
+    const v=document.getElementById('wkVal'),s=document.getElementById('wkSub');
+    if(v)v.textContent='≈ '+(w.minutes||0)+' min';
+    if(s)s.textContent=(w.count||0)+' dictées · '+(w.chars||0)+' caractères';});
   const go=document.getElementById('goUltra');if(go)go.onclick=()=>{const k=document.getElementById('licKey');if(k)k.focus();};
   const lg=document.getElementById('licGo');if(lg)lg.onclick=()=>{
     const k=(document.getElementById('licKey').value||'').trim();if(!k)return;
