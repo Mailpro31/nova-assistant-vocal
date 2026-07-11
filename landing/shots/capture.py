@@ -15,8 +15,8 @@ S.modes=[{id:'auto',label:'Automatique'},{id:'voice_to_text',label:'Normal'},
 S.mode='auto';S.tier='ultra';S.cloud_enabled=true;S.autostart=true;S.ptt_key='f9';
 S.profile='high';
 S.profiles=[{id:'normal',label:'Normal'},{id:'high',label:'Élevé',warning:''},
- {id:'ultra',label:'Ultra',locked:true,reason:'Nécessite 16 Go de RAM'}];
-S.hardware={ram_total_gb:16,has_gpu:true,gpu_name:'GeForce RTX 3060'};
+ {id:'ultra',label:'Ultra',locked:true,reason:'Nécessite plus de mémoire'}];
+S.hardware={ram_total_gb:16,has_gpu:true,gpu_name:'accélération graphique NVIDIA'};
 S.lic={tier:'ultra',active:true,email:'vous@exemple.fr',quota:{limit:null}};
 S.perso={orb:true,modes:true};
 S.custom_modes=[
