@@ -1224,11 +1224,24 @@ function setFrame(i) {
 }
 if (!RM) {
   tones.style.height = (frames.length * 80) + "svh";   // 80svh de défilement par cadre
+  // la scène est un tout : dès qu'elle approche, titre + pilule + note se
+  // révèlent ENSEMBLE (sinon une photo prise pendant le fondu semble trouée)
+  let composed = false;
+  const compose = () => { if (composed) return; composed = true;
+    tones.querySelectorAll(".rv").forEach((el) => el.classList.add("on")); };
+  // aimantation douce : si on s'arrête alors que la scène n'est qu'à moitié
+  // entrée (titre à mi-écran, carton coupé), on la centre — jamais en remontant
+  let snapT = null, lastY = 0, goingDown = true;
   const onScroll = () => {
+    goingDown = scrollY >= lastY; lastY = scrollY;
     const r = tones.getBoundingClientRect();
     if (r.top > innerHeight || r.bottom < 0) return;
+    if (r.top < innerHeight * 0.9) compose();
     const p = Math.min(0.999, Math.max(0, -r.top / (r.height - innerHeight)));
     setFrame(Math.floor(p * frames.length));
+    clearTimeout(snapT);
+    if (goingDown && r.top > innerHeight * 0.04 && r.top < innerHeight * 0.55)
+      snapT = setTimeout(() => scrollTo({ top: tones.offsetTop, behavior: "smooth" }), 320);
   };
   addEventListener("scroll", onScroll, { passive: true });
   onScroll();

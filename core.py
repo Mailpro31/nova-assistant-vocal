@@ -46,6 +46,8 @@ DEFAULT_CONFIG = {
     "auto_update": True,      # mise à jour silencieuse au lancement (updater.py)
     "dock_ui": "web",         # interface : "web" = dock/fenêtres du site (défaut),
                               # "pill" = pilule tkinter (repli sans WebView2)
+    "mode_hotkeys": {},       # raccourci clavier par Style : {mode_id: "ctrl+alt+e"}
+    "menu_hotkey": "",        # raccourci qui ouvre le menu des Styles ("" = aucun)
     "hotkey": "ctrl+alt+space",
     "note_hotkey": "ctrl+alt+n",
     "dictation_hotkey": "ctrl+alt+d",
