@@ -6,6 +6,10 @@
 // avec la clé serveur (server_secrets.groq_api_key) — la clé du fournisseur
 // ne quitte JAMAIS le serveur.
 import { createClient } from "jsr:@supabase/supabase-js@2";
+// vérification Ed25519 en pur JS (@noble) : indépendante des variations
+// WebCrypto d'un runtime à l'autre — testée de bout en bout (jeton réel
+// → 200 + texte Groq ; signature altérée → 401)
+import * as ed from "npm:@noble/ed25519@2";
 
 const supa = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -29,7 +33,9 @@ const json = (code: number, body: unknown) =>
     headers: { "Content-Type": "application/json; charset=utf-8", ...CORS },
   });
 
-let pubKey: CryptoKey | null = null;
+const PUB_BYTES = Uint8Array.from(atob(PUBLIC_KEY_B64), (c) => c.charCodeAt(0));
+
+
 async function verifyToken(tok: string): Promise<Record<string, unknown> | null> {
   const m = /^NOVA1\.([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)$/.exec(tok || "");
   if (!m) return null;
@@ -40,16 +46,12 @@ async function verifyToken(tok: string): Promise<Record<string, unknown> | null>
       (c) => c.charCodeAt(0),
     );
   const payload = un64(m[1]), sig = un64(m[2]);
-  if (!pubKey) {
-    pubKey = await crypto.subtle.importKey(
-      "raw",
-      Uint8Array.from(atob(PUBLIC_KEY_B64), (c) => c.charCodeAt(0)),
-      { name: "Ed25519" },
-      false,
-      ["verify"],
-    );
+  let okSig = false;
+  try {
+    okSig = await ed.verifyAsync(sig, payload, PUB_BYTES);
+  } catch {
+    okSig = false;
   }
-  const okSig = await crypto.subtle.verify("Ed25519", pubKey, sig, payload);
   if (!okSig) return null;
   try { return JSON.parse(new TextDecoder().decode(payload)); } catch { return null; }
 }
