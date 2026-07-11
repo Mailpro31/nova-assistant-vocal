@@ -52,7 +52,7 @@ FREE_WEEKLY_CHARS = 2500
 FEATURES = {
     # toutes les langues sont offertes en Gratuit (choix produit) — non gaté
     "cloud_stt":         ULTRA,   # Turbo (transcription cloud Groq) — Ultra only
-    "all_modes":         PRO,     # les 7 modes (Free en a 3)
+    "all_modes":         PRO,     # les 7 modes (Free : cf. FREE_MODES)
     "custom_variables":  PRO,     # Custom Variables
     "power_profiles":    PRO,     # profils Élevé / Ultra (Free : Normal)
     "web_dock":          FREE,    # dock web « bille de verre » = l'interface
@@ -67,10 +67,12 @@ FEATURES = {
     "priority_updates":  ULTRA,   # nouveautés en avant-première
 }
 
-# Modes de reformulation offerts en Free. « auto » est inclus : c'est le mode
-# PAR DÉFAUT — il se résout ensuite vers un mode concret, downgradé sur
+# Modes de reformulation offerts en Free (décision produit : les Styles
+# vitrines — E-mail, To-do list, Prompt IA — sont essayables gratuitement ;
+# Messages et Prise de notes restent côté Pro). « auto » est inclus : c'est le
+# mode PAR DÉFAUT — il se résout ensuite vers un mode concret, downgradé sur
 # voice_to_text si l'app détectée est réservée à un palier payant.
-FREE_MODES = ("auto", "voice_to_text", "email", "messages")
+FREE_MODES = ("auto", "voice_to_text", "email", "todo", "prompt_engineer")
 
 try:
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
