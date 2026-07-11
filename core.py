@@ -1367,8 +1367,11 @@ def translate_if_needed(text):
 
 _PERSONAL_PATTERNS = [
     ("email",     re.compile(r"mon (?:adresse )?(?:e[- ]?mail|mail|courriel)", re.I)),
-    ("adresse",   re.compile(r"mon adresse(?: postale)?", re.I)),
-    ("telephone", re.compile(r"mon num[ée]ro(?: de t[ée]l[ée]phone)?|mon t[ée]l[ée]phone", re.I)),
+    # « mon adresse » mais PAS « mon adresse e-mail » (traité par le motif e-mail)
+    ("adresse",   re.compile(r"mon adresse(?: postale)?(?!\s+(?:e[- ]?mail|mail|courriel))", re.I)),
+    # « mon téléphone » / « mon numéro de téléphone » / « mon numéro » nu — mais
+    # jamais « mon numéro de dossier/client/compte… » (numéro suivi d'un autre « de »)
+    ("telephone", re.compile(r"mon t[ée]l[ée]phone|mon num[ée]ro de t[ée]l[ée]phone|mon num[ée]ro(?!\s+de\s+\w)", re.I)),
     ("prenom",    re.compile(r"mon pr[ée]nom", re.I)),
     ("nom",       re.compile(r"mon nom de famille", re.I)),
 ]
@@ -1397,9 +1400,14 @@ def custom_variables():
     stockées dans la config (100 % local, JAMAIS envoyées à une IA).
     Retourne [(trigger, value)] nettoyé."""
     out = []
-    for v in CFG.get("custom_vars", []) or []:
-        trig = (v.get("trigger") or "").strip()
-        val = (v.get("value") or "").strip()
+    raw = CFG.get("custom_vars", []) or []
+    if not isinstance(raw, list):            # config éditée à la main → ignorée
+        return out
+    for v in raw:
+        if not isinstance(v, dict):          # entrée malformée : sautée, pas fatale
+            continue
+        trig = str(v.get("trigger") or "").strip()   # str() : tolère nombres/None
+        val = str(v.get("value") or "").strip()
         if trig and val:
             out.append((trig, val))
     return out
@@ -1611,8 +1619,12 @@ def stt_prompt():
     (que Whisper déforme souvent) ; puis quelques villes pour la navigation.
     Mesuré (bench_stt.py) : +1 à +2 intentions et WER en nette baisse sur le
     chemin commande, pour une latence quasi inchangée."""
-    perso = list(active_vocabulary())
+    perso = []
     try:
+        # tout l'accès stockage sous garde : stt_prompt est appelé par le
+        # dernier recours local (transcribe) — une panne DB ne doit jamais
+        # tuer la dictée, juste renvoyer une amorce sans vocabulaire perso
+        perso = list(active_vocabulary())
         perso += [a["name"] for a in get_automations()][:12]
         pid = CFG.get("active_profile", "")
         p = storage.get_profile(pid) if pid else None
@@ -1645,7 +1657,8 @@ def transcribe_routed(audio, fast=False):
     Un échec cloud retombe TOUJOURS sur le local. fast = commandes courtes.
     Retourne (texte, moteur)."""
     import integrations
-    if (CFG.get("stt", {}).get("cloud_enabled") and _cloud_licensed()
+    stt_cfg = CFG.get("stt") or {}            # tolère "stt": null (config éditée)
+    if (stt_cfg.get("cloud_enabled") and _cloud_licensed()
             and integrations.is_online()):
         try:
             # clé personnelle présente (dev/avancé) → Groq en direct ;
@@ -1655,7 +1668,7 @@ def transcribe_routed(audio, fast=False):
                          else integrations.turbo_transcribe)
             text = _cloud_fn(
                 audio, language=_stt_language(),
-                model=CFG["stt"].get("cloud_model", "whisper-large-v3-turbo"),
+                model=stt_cfg.get("cloud_model", "whisper-large-v3-turbo"),
                 prompt=stt_prompt())
             if text and text.strip():
                 return text, "cloud"
