@@ -277,7 +277,7 @@ class Pill(threading.Thread):
             c.create_arc(20, cy - 10, 42, cy + 10, start=0, extent=110,
                          style="arc", outline=BLUE, width=2)
             c.create_text(60, cy, anchor="w", fill="#C9CEDC", font=self.font,
-                          text=self._text or "Reformulation…", width=self.W - 84)
+                          text=self._text or "Un instant…", width=self.W - 84)
 
         elif st == "ok":
             c.create_oval(14, cy - 17, 48, cy + 17, fill="#1E3A2A", outline="")
@@ -402,10 +402,20 @@ class Pill(threading.Thread):
         tk.Button(lic_row, text="Activer", command=_activate, bg=SET_ACCENT,
                   fg=SET_WHITE, relief="flat", padx=12, pady=4).pack(side="left", padx=8)
         _lic_refresh()
+        # stat de valeur hebdo (rétention) — même info que le dock (« Votre semaine »)
+        try:
+            wk = storage.week_stats()
+            mins = round(wk.get("chars", 0) / 5 / 40)
+            tk.Label(win, text=f"Cette semaine : {wk.get('count', 0)} dictées · "
+                     f"≈ {mins} min de frappe évitées",
+                     bg=SET_BG, fg=SET_MUT,
+                     font=("Segoe UI", 9)).pack(anchor="w", padx=16)
+        except Exception:
+            pass
         tk.Frame(win, bg=SET_INSET, height=1).pack(fill="x", padx=16, pady=(8, 2))
 
         pad = {"padx": 16, "pady": 6}
-        tk.Label(win, text="Custom Variables", bg=SET_BG, fg=SET_FG,
+        tk.Label(win, text="Raccourcis vocaux", bg=SET_BG, fg=SET_FG,
                  font=("Segoe UI", 15, "bold")).pack(anchor="w", **pad)
         tk.Label(win, text="Quand je dis…  →  le texte collé à la place "
                  "(100 % privé, jamais envoyé à une IA)",
@@ -462,7 +472,7 @@ class Pill(threading.Thread):
 
         # — Personnalisation (palier Ultra) —
         def ultra_header(title, unlocked):
-            tk.Label(win, text=title + ("" if unlocked else "   — Nécessite Nova Ultra"),
+            tk.Label(win, text=title + ("" if unlocked else "   — NÉCESSITE NOVA ULTRA"),
                      bg=SET_BG, fg=SET_FG, font=("Segoe UI", 15, "bold")
                      ).pack(anchor="w", padx=16, pady=(0, 4))
 
@@ -472,7 +482,7 @@ class Pill(threading.Thread):
         ultra_header("Personnalisation", can_orb or can_name)
         pcol = tk.Frame(win, bg=SET_BG)
         pcol.pack(fill="x", padx=16, pady=4)
-        tk.Label(pcol, text="Couleur de l'orbe (#rrggbb) :", bg=SET_BG,
+        tk.Label(pcol, text="Couleur de l'orbe :", bg=SET_BG,
                  fg=SET_MUT).pack(side="left")
         e_color = tk.Entry(pcol, width=10, bg=SET_INSET, fg=SET_FG,
                            insertbackground=SET_FG, relief="flat")
@@ -506,7 +516,7 @@ class Pill(threading.Thread):
         can_cm = licensing.has("custom_modes")
         ultra_header("Styles sur mesure", can_cm)
         tk.Label(win, text="Quand l'app ou l'onglet actif contient un de ces "
-                 "mots, votre prompt reformule à votre façon.",
+                 "mots, votre consigne reformule à votre façon.",
                  bg=SET_BG, fg=SET_MUT,
                  font=("Segoe UI", 9)).pack(anchor="w", padx=16)
 
@@ -628,8 +638,9 @@ class Pill(threading.Thread):
         hw = power_profiles.detect_hardware()
         tk.Label(prof, text="Profil de puissance :", bg=SET_BG,
                  fg=SET_FG).pack(anchor="w")
-        tk.Label(prof, text=f"Machine détectée : {hw['ram_total_gb']} Go RAM"
-                 + (f" · {hw['gpu_name']}" if hw["has_gpu"] else " · pas de GPU"),
+        tk.Label(prof, text=f"Machine détectée : {hw['ram_total_gb']} Go de mémoire"
+                 + (f" · {hw['gpu_name']}" if hw["has_gpu"]
+                    else " · sans accélération graphique"),
                  bg=SET_BG, fg=SET_MUT, font=("Segoe UI", 8)).pack(anchor="w")
         prof_var = tk.StringVar(value=STATE.get("profile", "normal"))
 
@@ -649,7 +660,7 @@ class Pill(threading.Thread):
 
         kb = tk.Frame(win, bg=SET_BG)
         kb.pack(fill="x", padx=16, pady=8)
-        tk.Label(kb, text="Touche push-to-talk :", bg=SET_BG,
+        tk.Label(kb, text="Touche de dictée :", bg=SET_BG,
                  fg=SET_FG).pack(side="left")
         e_key = tk.Entry(kb, width=10, bg=SET_INSET, fg=SET_FG,
                          insertbackground=SET_FG, relief="flat")
@@ -914,6 +925,16 @@ class DockApi:
         st["quota"] = licensing.quota_status()
         return st
 
+    def week_stats(self):
+        """Stat de valeur de la semaine (rétention) : dictées + minutes de
+        frappe évitées (~5 caractères/mot, ~40 mots/min au clavier)."""
+        try:
+            st = storage.week_stats()
+        except Exception:
+            st = {"count": 0, "chars": 0}
+        st["minutes"] = round(st.get("chars", 0) / 5 / 40)
+        return st
+
     def activate_license(self, key):
         """Active une clé saisie dans le dock. → status enrichi de `ok`."""
         return licensing.activate((key or "").strip())
@@ -1014,7 +1035,7 @@ def _ptt_session():
             pill.show("error", "Je n'ai rien entendu")
             pill.hide(1.6)
             return
-        pill.show("thinking", "Transcription…")
+        pill.show("thinking", "Un instant…")
         text, engine = core.transcribe_routed(audio)
         if not text:
             pill.show("error", "Je n'ai pas compris")
@@ -1042,11 +1063,14 @@ def _ptt_session():
         pasted = winext.paste_into_active_app(out)
         dt = time.time() - t_release
         if pasted:
+            # l'identifiant moteur (`cloud`, `local`…) reste technique : seul
+            # l'affichage est rebrandé (lexique produit : Turbo / Intelligence privée)
+            eng_label = "Turbo" if engine == "cloud" else "Intelligence privée"
             pill.show("ok", _mode_label(concrete),
-                      f"{engine} · {dt:.1f}s")
+                      f"{eng_label} · {dt:.1f}s")
             pill.hide(1.6)
         else:
-            pill.show("error", "Collage impossible (presse-papiers)")
+            pill.show("error", "Impossible d'insérer le texte")
             pill.hide(2.0)
         try:
             storage.add_history(concrete, text, out, out, engine, True,

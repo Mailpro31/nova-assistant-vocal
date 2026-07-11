@@ -63,7 +63,7 @@ def test_registry():
     check("auto sans prompt figé", modes_registry.prompt_of("auto"), None)
     check("email a un prompt", bool(modes_registry.prompt_of("email")), True)
     check("hotkey 3 → email", modes_registry.by_hotkey("3")["id"], "email")
-    check("label todo", modes_registry.label_of("todo"), "To-do lister")
+    check("label todo", modes_registry.label_of("todo"), "To-do list")
     check("id inconnu → défaut auto", modes_registry.get_mode("xxx")["id"], "auto")
     # invariant : chaque hotkey 1..7 est unique et mappe un mode
     keys = [m["hotkey"] for m in modes_registry.all_modes()]

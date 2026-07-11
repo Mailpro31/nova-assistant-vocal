@@ -46,7 +46,8 @@ _RAM_MARGIN_GB = 0.5
 
 _LOCK_MSG = "Nécessite plus de mémoire"
 _HEAVY_MSG = "Plus performant, mais plus demandeur en mémoire et processeur."
-_GPU_MSG = "Optimal avec un GPU ; fonctionnera plus lentement sans."
+_GPU_MSG = ("Optimal avec une carte graphique récente ; "
+            "fonctionnera plus lentement sans.")
 
 
 # ------------------------------------------------- détection matérielle ------
@@ -86,7 +87,9 @@ def _detect_gpu():
     try:
         import ctranslate2
         if ctranslate2.get_cuda_device_count() > 0:
-            return "GPU NVIDIA (CUDA)", 0.0
+            # libellé affiché tel quel dans les Réglages (dock + tkinter) :
+            # lexique produit, pas de jargon GPU/CUDA
+            return "accélération graphique NVIDIA", 0.0
     except Exception:
         pass
     return "", 0.0

@@ -96,6 +96,20 @@ def add_history(mode, raw, final="", result="", engine="", ok=True, profile_id="
         _db().commit()
 
 
+def week_stats():
+    """Dictées réussies et caractères produits depuis lundi 00:00 (heure
+    locale) — la stat de valeur affichée dans les Réglages (rétention :
+    rappeler chaque semaine ce que Nova a écrit pour vous)."""
+    now = time.localtime()
+    monday = time.mktime((now.tm_year, now.tm_mon, now.tm_mday - now.tm_wday,
+                          0, 0, 0, 0, 0, -1)) * 1000
+    row = _db().execute(
+        "SELECT COUNT(*), COALESCE(SUM(LENGTH(COALESCE(NULLIF(final_text, ''),"
+        " raw_transcript))), 0) FROM history WHERE ok = 1 AND created_at >= ?",
+        (int(monday),)).fetchone()
+    return {"count": row[0], "chars": row[1]}
+
+
 def list_history(search="", limit=60):
     q = "SELECT mode, raw_transcript, final_text, action_result, engine_used, ok, created_at FROM history"
     args = []

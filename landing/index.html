@@ -399,7 +399,12 @@
   .kicker{font-size:12px;letter-spacing:2.5px;text-transform:uppercase;color:var(--blue);
     font-weight:600;margin-bottom:14px}
   .pricing h2{font-size:clamp(30px,5vw,52px);font-weight:700;letter-spacing:-1.4px}
-  .plans{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:56px;align-items:stretch}
+  .billing{display:inline-flex;gap:4px;margin-top:28px;padding:4px;border-radius:999px;
+    background:var(--card);border:1px solid var(--line)}
+  .billing .bseg{border:0;background:transparent;color:var(--mut);font:600 13px/1 var(--font,inherit);
+    padding:9px 18px;border-radius:999px;cursor:pointer;transition:background .18s,color .18s}
+  .billing .bseg.on{background:var(--blue);color:#fff}
+  .plans{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:40px;align-items:stretch}
   @media(max-width:900px){.plans{grid-template-columns:1fr;max-width:400px;margin-inline:auto}}
   .plan{background:var(--card);border:1px solid var(--line);border-radius:16px;
     padding:32px 28px;display:flex;flex-direction:column;position:relative;
@@ -496,7 +501,7 @@
     <span class="statepill" id="statepill"><span class="bars"><i></i><i></i><i></i><i></i><i></i></span>
       <span id="stateTxt">Nova écoute…</span></span>
     <button class="keycap" id="keycap" aria-label="Maintenir pour essayer la dictée">
-      <small>PUSH</small>F9</button>
+      <small data-t="key_hold">MAINTENIR</small>F9</button>
     <p class="hint" id="hint" data-t="hint_idle"><b>Maintenez la touche</b> — comme dans Nova.</p>
   </div>
 
@@ -628,6 +633,10 @@
 <section class="pricing" id="tarifs">
   <p class="kicker rv" data-t="price_kicker">Tarifs</p>
   <h2 class="rv" data-t="price_h2">Simple, comme le reste.</h2>
+  <div class="billing rv" id="billing" hidden>
+    <button class="bseg" id="billM" data-t="bill_m">Mensuel</button>
+    <button class="bseg on" id="billY" data-t="bill_y">Annuel · 2 mois offerts</button>
+  </div>
   <div class="plans">
     <div class="plan rv">
       <h3 data-t="plan_free">Gratuit</h3>
@@ -646,6 +655,7 @@
       <div class="price" data-t="price_pro">9,99 €<small> / mois</small></div>
       <ul>
         <li data-t="pro_1"><b>Dictée illimitée</b></li>
+        <li data-t="pro_turbo"><b>Turbo</b> — la vitesse maximale, en ligne</li>
         <li data-t="pro_2">Tous les Styles, dans chaque application</li>
       </ul>
       <a class="btn" id="buyPro" href="https://buy.stripe.com/8x23cu58u7yO5Sn1d4efC01" data-t="pro_btn">Essayer Pro gratuitement</a>
@@ -657,7 +667,7 @@
       <ul>
         <li data-t="ultra_1"><b>Tout Pro</b>, en qualité maximale</li>
         <li data-t="ultra_2">Styles sur mesure, par application</li>
-        <li data-t="ultra_3">Personnalisation complète — orbe, nom, Turbo</li>
+        <li data-t="ultra_3">Personnalisation complète — orbe, nom, couleurs</li>
       </ul>
       <a class="btn" id="buyUltra" href="https://buy.stripe.com/28EcN444q06mfsX090efC02" data-t="ultra_btn">Obtenir Ultra</a>
       <p class="trial" aria-hidden="true"></p>
@@ -935,6 +945,7 @@ const I18N = {
     _track: "<span><b>Français</b></span><span>English</span><span>Español</span><span>Deutsch</span><span>Italiano</span><span>Português</span><span>Nederlands</span><span>Polski</span><span>Русский</span><span>العربية</span><span>Türkçe</span><span>हिन्दी</span><span>中文</span><span>日本語</span><span>한국어</span>",
     nav_film: "Le film", nav_demo: "La démo", nav_pricing: "Tarifs", nav_get: "Obtenir Nova",
     hint_idle: "<b>Maintenez la touche</b> — comme dans Nova.",
+    key_hold: "MAINTENIR",
     hero_dl: "Télécharger gratuitement", hero_pricing: "Voir les tarifs",
     hero_note: "Windows 10/11 · sans carte bancaire · vos données restent chez vous",
     film_kicker: "Le film", film_note: "Quarante secondes. Pas une de trop.",
@@ -968,10 +979,13 @@ const I18N = {
     free_1: "<b>Intelligence privée</b>, toutes les langues",
     free_2: "3 Styles d'écriture", free_3: "2 500 caractères / semaine", free_btn: "Télécharger",
     badge_pop: "Le plus populaire", price_pro: "9,99 €<small> / mois</small>",
+    price_pro_y: "99 €<small> / an</small>", price_ultra_y: "199 €<small> / an</small>",
+    bill_m: "Mensuel", bill_y: "Annuel · 2 mois offerts",
     pro_1: "<b>Dictée illimitée</b>", pro_2: "Tous les Styles, dans chaque application",
+    pro_turbo: "<b>Turbo</b> — la vitesse maximale, en ligne",
     pro_btn: "Essayer Pro gratuitement", price_ultra: "19,99 €<small> / mois</small>",
     ultra_1: "<b>Tout Pro</b>, en qualité maximale", ultra_2: "Styles sur mesure, par application",
-    ultra_3: "Personnalisation complète — orbe, nom, Turbo", ultra_btn: "Obtenir Ultra",
+    ultra_3: "Personnalisation complète — orbe, nom, couleurs", ultra_btn: "Obtenir Ultra",
     trial_note: "7 jours offerts, sans engagement",
     plans_note: 'Annulable à tout moment · équipes : <a href="mailto:mailprosasha2@gmail.com">écrivez-nous</a>',
     final_h2: "Votre voix tape plus vite<br>que vos doigts.",
@@ -993,6 +1007,7 @@ const I18N = {
     _track: "<span>Français</span><span><b>English</b></span><span>Español</span><span>Deutsch</span><span>Italiano</span><span>Português</span><span>Nederlands</span><span>Polski</span><span>Русский</span><span>العربية</span><span>Türkçe</span><span>हिन्दी</span><span>中文</span><span>日本語</span><span>한국어</span>",
     nav_film: "The film", nav_demo: "The demo", nav_pricing: "Pricing", nav_get: "Get Nova",
     hint_idle: "<b>Hold the key</b> — just like in Nova.",
+    key_hold: "HOLD",
     hero_dl: "Download for free", hero_pricing: "See pricing",
     hero_note: "Windows 10/11 · no credit card · your data stays on your device",
     film_kicker: "The film", film_note: "Forty seconds. Not one too many.",
@@ -1026,10 +1041,13 @@ const I18N = {
     free_1: "<b>Private Intelligence</b>, every language",
     free_2: "3 writing Styles", free_3: "2,500 characters / week", free_btn: "Download",
     badge_pop: "Most popular", price_pro: "€9.99<small> / month</small>",
+    price_pro_y: "€99<small> / year</small>", price_ultra_y: "€199<small> / year</small>",
+    bill_m: "Monthly", bill_y: "Yearly · 2 months free",
     pro_1: "<b>Unlimited dictation</b>", pro_2: "All Styles, in every application",
+    pro_turbo: "<b>Turbo</b> — top speed, online",
     pro_btn: "Try Pro for free", price_ultra: "€19.99<small> / month</small>",
     ultra_1: "<b>Everything in Pro</b>, at maximum quality", ultra_2: "Custom Styles, per application",
-    ultra_3: "Full personalization — orb, name, Turbo", ultra_btn: "Get Ultra",
+    ultra_3: "Full personalization — orb, name, colors", ultra_btn: "Get Ultra",
     trial_note: "7 days free, cancel anytime",
     plans_note: 'Cancel anytime · teams: <a href="mailto:mailprosasha2@gmail.com">write to us</a>',
     final_h2: "Your voice types faster<br>than your fingers.",
@@ -1039,6 +1057,29 @@ const I18N = {
   }
 };
 let LANG = "fr";
+// ---- facturation mensuelle / annuelle (2 mois offerts) ----
+// Les liens annuels sont renseignés dès que les Payment Links Stripe existent ;
+// tant qu'ils sont vides, la bascule reste masquée et le mensuel s'affiche.
+const PAY = {
+  pro:   { m: "https://buy.stripe.com/8x23cu58u7yO5Sn1d4efC01", y: "" },
+  ultra: { m: "https://buy.stripe.com/28EcN444q06mfsX090efC02", y: "" },
+};
+let BILL = "y";                       // annuel par défaut (MRR + trésorerie)
+function syncBilling() {
+  const d = I18N[LANG], hasY = !!(PAY.pro.y && PAY.ultra.y);
+  const bar = $("billing");
+  if (bar) bar.hidden = !hasY;
+  const b = hasY ? BILL : "m";
+  $("billM").classList.toggle("on", b === "m");
+  $("billY").classList.toggle("on", b === "y");
+  document.querySelector('[data-t="price_pro"]').innerHTML = b === "y" ? d.price_pro_y : d.price_pro;
+  document.querySelector('[data-t="price_ultra"]').innerHTML = b === "y" ? d.price_ultra_y : d.price_ultra;
+  $("buyPro").href = PAY.pro[b] || PAY.pro.m;
+  $("buyUltra").href = PAY.ultra[b] || PAY.ultra.m;
+}
+$("billM").onclick = () => { BILL = "m"; syncBilling(); };
+$("billY").onclick = () => { BILL = "y"; syncBilling(); };
+
 function applyLang(l) {
   LANG = l;
   const d = I18N[l];
@@ -1065,6 +1106,7 @@ function applyLang(l) {
   $("track").innerHTML = d._track + d._track;   // dupliqué : boucle parfaite
   keycap.setAttribute("aria-label", d._key_aria);
   $("langBtn").textContent = l === "fr" ? "EN" : "FR";
+  syncBilling();          // ré-applique prix/liens (la passe data-t remet le mensuel)
   const v = $("filmv");
   if (v && v.getAttribute("src") !== d._video) {
     const playing = !v.paused;
