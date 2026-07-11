@@ -11,7 +11,9 @@
 ; ===========================================================================
 
 #define MyAppName "Nova"
-#define MyAppVersion "3.0"
+; Doit rester égal à core.APP_VERSION (test_v3 le vérifie) — c'est ce que
+; l'updater intégré compare au tag de la release GitHub.
+#define MyAppVersion "3.1.0"
 #define MyAppPublisher "Nova"
 #define MyAppExeName "Nova.exe"
 
@@ -33,6 +35,11 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 ArchitecturesInstallIn64BitMode=x64compatible
+; Mise à jour par-dessus une instance en cours (updater silencieux) : ferme
+; proprement Nova.exe avant de copier, ne le relance pas via RestartManager
+; (c'est l'entrée [Run] « Check: WizardSilent » qui s'en charge).
+CloseApplications=yes
+RestartApplications=no
 
 [Languages]
 Name: "french"; MessagesFile: "compiler:Languages\French.isl"
@@ -67,3 +74,6 @@ Filename: "{app}\{#MyAppExeName}"; Parameters: "--preload-models"; \
   Flags: runhidden waituntilterminated; Tasks: preload
 Filename: "{app}\{#MyAppExeName}"; Description: "Lancer Nova"; \
   Flags: nowait postinstall skipifsilent
+; Mise à jour silencieuse (updater intégré) : Nova a quitté avant l'installation,
+; on le relance automatiquement à la fin — l'utilisateur ne perd pas son app.
+Filename: "{app}\{#MyAppExeName}"; Flags: nowait; Check: WizardSilent
