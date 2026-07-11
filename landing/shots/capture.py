@@ -9,9 +9,9 @@ os.makedirs(OUT, exist_ok=True)
 
 # état réaliste injecté (l'API pywebview est absente en capture)
 STATE = """
-S.modes=[{id:'auto',label:'Automatique'},{id:'voice_to_text',label:'Voice to text'},
- {id:'email',label:'E-mail'},{id:'prompt_engineer',label:'Prompt Engineer'},
- {id:'todo',label:'To-do lister'},{id:'messages',label:'Messages'},{id:'notes',label:'Note taker'}];
+S.modes=[{id:'auto',label:'Automatique'},{id:'voice_to_text',label:'Normal'},
+ {id:'email',label:'E-mail'},{id:'prompt_engineer',label:'Prompt IA'},
+ {id:'todo',label:'To-do list'},{id:'messages',label:'Messages'},{id:'notes',label:'Prise de notes'}];
 S.mode='auto';S.tier='ultra';S.cloud_enabled=true;S.autostart=true;S.ptt_key='f9';
 S.profile='high';
 S.profiles=[{id:'normal',label:'Normal'},{id:'high',label:'Élevé',warning:''},

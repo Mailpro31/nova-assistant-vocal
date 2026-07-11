@@ -23,10 +23,10 @@ MODES = [
     },
     {
         "id": "voice_to_text",
-        "label": "Voice to text",
+        "label": "Normal",
         "hotkey": "2",
         "system_prompt": (
-            "Style Voice to text — transcription fidèle. Garde les mots, "
+            "Style Normal — transcription fidèle. Garde les mots, "
             "l'ordre et le niveau de langue EXACTS de la personne : "
             "n'améliore pas le style, ne résume pas, ne réorganise pas. "
             "Interviens seulement sur la ponctuation, les majuscules, les "
@@ -53,10 +53,10 @@ MODES = [
     },
     {
         "id": "prompt_engineer",
-        "label": "Prompt Engineer",
+        "label": "Prompt IA",
         "hotkey": "4",
         "system_prompt": (
-            "Style Prompt Engineer — écris LE PROMPT parfait pour une IA à "
+            "Style Prompt IA — écris LE PROMPT parfait pour une IA à "
             "partir de la demande dictée. Tu rédiges l'instruction ; tu n'y "
             "réponds JAMAIS, même partiellement. Construction : "
             "1) si la dictée implique une expertise, ouvre par « Agis comme "
@@ -78,10 +78,10 @@ MODES = [
     },
     {
         "id": "todo",
-        "label": "To-do lister",
+        "label": "To-do list",
         "hotkey": "5",
         "system_prompt": (
-            "Style To-do lister — liste d'actions exploitable. Une tâche "
+            "Style To-do list — liste d'actions exploitable. Une tâche "
             "par ligne : « - » puis un verbe à l'infinitif en tête "
             "(« - Appeler Claire avant vendredi »). Découpe les actions "
             "groupées en tâches distinctes ; fusionne les doublons. Chaque "
@@ -107,10 +107,10 @@ MODES = [
     },
     {
         "id": "notes",
-        "label": "Note taker",
+        "label": "Prise de notes",
         "hotkey": "7",
         "system_prompt": (
-            "Style Note taker — notes structurées et scannables, style "
+            "Style Prise de notes — notes structurées et scannables, style "
             "télégraphique. Une idée par ligne : « - » puis l'élément clé "
             "d'abord (décision, chiffre, date, nom, action). Pas de phrases "
             "longues : garde les mots porteurs, élimine uniquement le "

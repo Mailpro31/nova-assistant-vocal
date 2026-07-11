@@ -924,11 +924,11 @@ def _human_err(e):
     code = getattr(e, "status_code", None) \
         or getattr(getattr(e, "response", None), "status_code", None)
     if code in (401, 403):
-        return "Clé API invalide ou non autorisée"
+        return "Clé d'accès invalide ou non autorisée"
     if code == 404:
         return "Modèle introuvable, vérifiez son nom"
     if code == 429:
-        return "Quota atteint (niveau gratuit ?), réessayez plus tard ou changez de modèle"
+        return "Limite d'utilisation atteinte, réessayez dans quelques minutes"
     if code and code >= 500:
         return f"Service en panne côté fournisseur ({code})"
     return str(e)[:120]

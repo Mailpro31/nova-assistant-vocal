@@ -254,10 +254,10 @@ function paneGeneral(p){
       'L\'Intelligence privée fonctionne entièrement hors ligne.')
    +G('Démarrage',R('Lancer au démarrage de Windows','Nova sera prête dès l\'ouverture de session',
       '<div class="sw'+(S.autostart?' on':'')+'" id="swAuto"></div>'),'')
-   +G('Touche push-to-talk',R('Maintenir pour dicter','Cliquez le champ puis appuyez sur une touche',
+   +G('Touche de dictée',R('Maintenir pour dicter','Cliquez le champ puis appuyez sur une touche',
       '<input class="fieldc mono" id="pttIn" style="width:86px;text-align:center" readonly value="'+esc(S.ptt_key)+'">'),'')
-   +G('Profil de puissance',profs,'Machine : '+(hw.ram_total_gb||'?')+' Go RAM'+
-      (hw.has_gpu?' · '+esc(hw.gpu_name):' · pas de GPU')+'. Les profils trop lourds pour cette machine sont verrouillés.')
+   +G('Profil de puissance',profs,'Machine : '+(hw.ram_total_gb||'?')+' Go de mémoire'+
+      (hw.has_gpu?' · '+esc(hw.gpu_name):' · sans accélération graphique')+'. Les profils trop lourds pour cette machine sont verrouillés.')
    +G('Mises à jour',R('Nova','Vérifier la disponibilité d\'une nouvelle version',
       '<button class="btn sec" id="updBtn">Rechercher…</button>'),'');
   document.getElementById('swCloud').onclick=()=>api('toggle_cloud').then(on=>{S.cloud_enabled=!!on;
@@ -278,13 +278,13 @@ function paneAbo(p){
   const q=lic.quota||{};const unlim=(q.limit==null);
   const name='Nova '+(TIERS[tier]||'Gratuit');
   let hero;
-  if(free){hero=R(name,'2 500 caractères par semaine · 3 modes de reformulation',
+  if(free){hero=R(name,'2 500 caractères par semaine · 3 Styles',
     '<button class="btn" id="goUltra">Passer à Ultra…</button>');}
   else{const exp=lic.expiry?new Date(lic.expiry*1000).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}):null;
     hero='<div class="row"><span class="check"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span>'+
       '<div class="l"><b>'+name+'</b><small>'+(lic.email?'Activé pour '+esc(lic.email)+' · ':'')+
       (exp?'valide jusqu\'au '+exp:'licence perpétuelle')+'</small></div></div>';}
-  const PL=[['free','Gratuit','Pour essayer, dictée locale'],['pro','Pro','Usage quotidien complet'],
+  const PL=[['free','Gratuit','Pour essayer, en toute confidentialité'],['pro','Pro','Usage quotidien complet'],
     ['ultra','Ultra','Personnalisation & meilleure IA'],['business','Business','Licences multi-postes']];
   const plans='<div class="plans">'+PL.map(([id,n,d])=>'<div class="plan'+(tier===id?' sel':'')+
     '"><b>'+n+'</b><small>'+d+'</small></div>').join('')+'</div>';
@@ -390,7 +390,7 @@ function paneLang(p){
    +G('Langue',R('Langue de dictée','« Auto » détecte la langue parlée',
       '<select class="fieldc" id="langSel2">'+opts+'</select>'),
       'Toutes les langues sont incluses, quel que soit le palier.')
-   +G('Custom Variables',add+vars,'« Quand je dis X, colle Y » — 100 % privé, jamais envoyé à une IA.');
+   +G('Raccourcis vocaux',add+vars,'« Quand je dis X, colle Y » — 100 % privé, jamais envoyé à une IA.');
   document.getElementById('langSel2').onchange=e=>{S.language=e.target.value;api('set_language',e.target.value);};
   document.getElementById('vAdd').onclick=()=>{const t=document.getElementById('vT').value.trim(),
     v=document.getElementById('vV').value.trim();if(!t||!v)return;
