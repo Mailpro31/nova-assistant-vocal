@@ -98,6 +98,9 @@
   .opt.lock{opacity:.42;cursor:not-allowed}
   .opt .t{font-weight:600;font-size:15px;margin-bottom:4px;letter-spacing:-.01em}
   .opt .h{color:var(--txt3);font-size:11.5px;line-height:1.5;display:flex;align-items:center;gap:6px}
+  .ultrab{display:inline-block;margin-left:8px;font-size:9.5px;font-weight:700;letter-spacing:.4px;
+    color:#C9B6F0;background:rgba(150,120,220,.16);border:1px solid rgba(150,120,220,.32);
+    padding:2px 7px;border-radius:999px;vertical-align:2px}
 
   select{background:rgba(22,25,34,.6);color:var(--txt);border:1px solid var(--edge);border-radius:999px;
     padding:12px 20px;font-size:14px;font-family:inherit;min-width:250px;margin-top:22px;outline:none;
@@ -239,9 +242,12 @@ function profiles(){const box=document.getElementById('profiles');box.innerHTML=
 function langs(){const sel=document.getElementById('lang');sel.innerHTML='';
   S.languages.forEach(l=>{const o=document.createElement('option');o.value=l.code;o.textContent=l.label;
     if(l.code===S.language)o.selected=true;sel.appendChild(o);});}
-function chooseCloud(on){Promise.resolve(api('set_cloud',on)).then(()=>{
-  document.getElementById('optLocal').classList.toggle('sel',!on);
-  document.getElementById('optCloud').classList.toggle('sel',on);});}
+function chooseCloud(on){
+  if(on&&S.turbo_allowed===false)return;     // Turbo verrouillé : carte inerte
+  Promise.resolve(api('set_cloud',on)).then(ok=>{
+    const en=on&&ok!==false;                 // le Python reste l'autorité
+    document.getElementById('optLocal').classList.toggle('sel',!en);
+    document.getElementById('optCloud').classList.toggle('sel',en);});}
 
 // ---- fond organique : petites particules pastel dérivées du thème de l'orbe ----
 function mountParticles(cv){
@@ -341,6 +347,15 @@ function init(){
     if(S.video_url){document.body.classList.remove('no-video');v.src=S.video_url;}
     else{document.getElementById('sound').style.display='none';document.getElementById('playHint').style.display='none';}
     keys();profiles();langs();
+    // sans droit Ultra, Turbo n'est pas un choix : carte grisée + badge, et
+    // l'Intelligence privée est sélectionnée d'office
+    if(S.turbo_allowed===false){
+      const oc=document.getElementById('optCloud');
+      oc.classList.add('lock');
+      oc.querySelector('.t').insertAdjacentHTML('beforeend',
+        '<span class="ultrab">NÉCESSITE NOVA ULTRA</span>');
+      S.cloud_enabled=false;
+    }
     document.getElementById('opt'+(S.cloud_enabled?'Cloud':'Local')).classList.add('sel');
     mountOrb(document.getElementById('orb0'));mountOrb(document.getElementById('orb5'));
     show(0);

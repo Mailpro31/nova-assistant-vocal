@@ -103,6 +103,15 @@ def test_auto_resolve():
         ("Signal processing basics - YouTube", "chrome.exe", "voice_to_text"),
         ("Paramètres", "explorer.exe", "voice_to_text"),
         ("Choses à faire aujourd'hui - Google Docs", "chrome.exe", "voice_to_text"),
+        # --- v3.1.2 : titres d'onglets réels (la plainte : Gmail non détecté)
+        ("Boîte de réception (2 351) - x@gmail.com - Gmail", "chrome.exe", "email"),
+        ("Inbox (12) - me@fastmail.com", "msedge.exe", "email"),
+        ("Mes tâches - Trello", "chrome.exe", "todo"),
+        ("Sans titre - Bloc-notes", "notepad.exe", "notes"),
+        ("réunion clients | Microsoft Teams", "ms-teams.exe", "messages"),
+        # mots courants qui ressemblent à des apps : toujours neutres
+        ("Spots de windsurf en Bretagne - Blog", "chrome.exe", "voice_to_text"),
+        ("CSS cursor property - MDN", "firefox.exe", "voice_to_text"),
     ]
     for title, proc, want in cases:
         check(f"{title or '(vide)'} / {proc or '-'}",
@@ -112,7 +121,7 @@ def test_auto_resolve():
           auto_mode.resolve("MonCRM - Tableau de bord", "chrome.exe",
                             [("email", ["moncrm"])]), "email")
     check("règle perso n'altère pas un titre neutre",
-          auto_mode.resolve("Bloc-notes", "notepad.exe",
+          auto_mode.resolve("Un document - Éditeur", "editor.exe",
                             [("email", ["moncrm"])]), "voice_to_text")
     # _compile_user réellement tolérant : entrées mal formées ignorées, jamais
     # de crash ni de match-tout (retour /code-review)
@@ -375,8 +384,19 @@ def test_onboarding():
     check("set_ptt_key ignore une valeur vide (garde l'ancienne)",
           api.set_ptt_key(""), "f8")
     check("set_language persiste", api.set_language("ja"), "ja")
-    check("set_cloud→True bascule le provider en auto",
-          (api.set_cloud(True), core.CFG.get("provider")), (True, "auto"))
+    # Turbo n'est pas proposé à l'installation sans droit Ultra : refus net,
+    # provider inchangé. Avec le droit (simulé), la bascule fonctionne.
+    import licensing as _lic
+    _prov0 = core.CFG.get("provider")
+    check("set_cloud→True SANS droit Ultra → refusé",
+          (api.set_cloud(True), core.CFG.get("provider")), (False, _prov0))
+    _has0 = _lic.has
+    _lic.has = lambda f: True
+    try:
+        check("set_cloud→True AVEC droit Ultra → provider auto",
+              (api.set_cloud(True), core.CFG.get("provider")), (True, "auto"))
+    finally:
+        _lic.has = _has0
     check("set_cloud→False repasse en local (ollama)",
           (api.set_cloud(False), core.CFG.get("provider")), (False, "ollama"))
     # même garde-fou que le tray : une sélection impossible retombe sur un profil sûr

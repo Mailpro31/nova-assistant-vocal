@@ -51,6 +51,10 @@ class Api:
             "ptt_key": core.CFG.get("ptt_key", "f9"),
             "language": core.CFG.get("language", "fr"),
             "cloud_enabled": bool(core.CFG.get("stt", {}).get("cloud_enabled")),
+            # Turbo n'est PAS proposé à l'installation sans droit Ultra : la
+            # carte est grisée (badge) et se débloquera à l'activation d'une
+            # clé, dans les réglages. No-op en licence dormante (has → True).
+            "turbo_allowed": licensing.has("cloud_stt"),
             "video_url": video_url(),
         }
 
@@ -71,6 +75,8 @@ class Api:
         return code
 
     def set_cloud(self, enabled):
+        if enabled and not licensing.has("cloud_stt"):
+            return False                    # Turbo verrouillé (le JS grise déjà)
         stt = dict(core.CFG.get("stt", {}))
         stt["cloud_enabled"] = bool(enabled)
         core.save_config({"stt": stt, "provider": "auto" if enabled else "ollama"})

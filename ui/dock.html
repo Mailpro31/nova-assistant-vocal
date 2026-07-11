@@ -10,7 +10,10 @@
     --font:-apple-system,"SF Pro Display","SF Pro Text","Segoe UI",Inter,system-ui,sans-serif;
     --ease:cubic-bezier(.22,1,.36,1);--spring:cubic-bezier(.34,1.56,.64,1)}
   *{box-sizing:border-box;margin:0;padding:0}
-  html,body{width:100%;height:100%;overflow:hidden;background:transparent;font-family:var(--font);
+  /* fond OPAQUE : la fenêtre est découpée par une région native aux formes
+     visibles (voir reportShape) — la transparence WebView2 n'est jamais
+     requise, donc jamais de carré blanc. */
+  html,body{width:100%;height:100%;overflow:hidden;background:#101218;font-family:var(--font);
     color:var(--txt);-webkit-font-smoothing:antialiased;user-select:none;cursor:default}
 
   /* ---- le dock flottant (bas-centre) ---- */
@@ -28,11 +31,20 @@
   /* ---- bulle d'état AU-DESSUS du dock (jamais sur l'orbe) ---- */
   #bubble{position:fixed;left:50%;bottom:80px;transform:translateX(-50%) translateY(6px);
     max-width:340px;padding:10px 17px;border-radius:999px;font-size:13px;white-space:nowrap;
+    display:flex;align-items:baseline;
     background:rgba(20,23,32,.82);border:1px solid var(--edge);color:#ECEFF7;
     -webkit-backdrop-filter:blur(20px) saturate(150%);backdrop-filter:blur(20px) saturate(150%);
     box-shadow:0 12px 34px #0009;opacity:0;pointer-events:none;transition:.28s var(--ease)}
   #bubble.on{opacity:1;transform:translateX(-50%) translateY(0)}
-  #bubble .sub{color:var(--txt3);font-size:11px;margin-left:8px}
+  /* un long texte dicté ne déborde JAMAIS : points de suspension */
+  #bubble #bubText{min-width:0;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #bubble .sub{color:var(--txt3);font-size:11px;margin-left:8px;flex:none}
+  /* ancrage en HAUT de l'écran : bulle et menu passent SOUS le dock */
+  body.pos-top #dock{bottom:auto;top:14px}
+  body.pos-top #bubble{bottom:auto;top:80px}
+  body.pos-top #bubble{transform:translateX(-50%) translateY(-6px)}
+  body.pos-top #bubble.on{transform:translateX(-50%) translateY(0)}
+  body.pos-top #modes{bottom:auto;top:80px}
   #bubble.ok{border-color:rgba(174,226,204,.5)} #bubble.error{border-color:rgba(232,190,170,.5)}
 
   /* ---- menu des modes ---- */
@@ -61,9 +73,19 @@
   @keyframes fadein{from{opacity:0}to{opacity:1}}
   #side{width:212px;flex:none;background:#28282c;border-right:1px solid rgba(0,0,0,.35);
     padding:12px 10px;display:flex;flex-direction:column;overflow:hidden}
-  #closeSet{width:13px;height:13px;border-radius:50%;background:#5a5a5f;border:none;cursor:pointer;
-    margin:2px 4px 12px;padding:0;flex:none;align-self:flex-start;transition:background .2s}
-  #closeSet:hover{background:#ff5f57}
+  /* feux tricolores macOS : glyphes révélés au survol du groupe, comme Apple */
+  #traffic{display:flex;gap:8px;margin:2px 4px 12px;flex:none;align-self:flex-start}
+  .tl{width:13px;height:13px;border-radius:50%;border:none;padding:0;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:inset 0 0 0 .5px rgba(0,0,0,.2)}
+  .tl.red{background:#FF5F57}.tl.yel{background:#FEBC2E}.tl.grn{background:#28C840}
+  .tl svg{width:8px;height:8px;stroke:rgba(0,0,0,.6);stroke-width:1.6;fill:none;
+    stroke-linecap:round;opacity:0;transition:opacity .12s}
+  #traffic:hover .tl svg{opacity:1}
+  input[type=range].rng{-webkit-appearance:none;appearance:none;width:130px;height:4px;border-radius:2px;
+    background:#3a3a3f;outline:none;accent-color:#0A84FF}
+  input[type=range].rng::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;
+    border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.5);cursor:pointer}
   #search{display:flex;align-items:center;gap:6px;background:#1a1a1d;border:1px solid rgba(255,255,255,.055);
     border-radius:7px;padding:5px 8px;margin-bottom:12px}
   #search input{background:none;border:none;outline:none;color:var(--txt);font-size:12.5px;width:100%;font-family:inherit}
@@ -159,7 +181,11 @@
 
   <div id="settings">
     <div id="side">
-      <button id="closeSet" title="Fermer"></button>
+      <div id="traffic">
+        <button class="tl red" id="tlClose" title="Fermer"><svg viewBox="0 0 8 8"><path d="M1.6 1.6l4.8 4.8M6.4 1.6L1.6 6.4"/></svg></button>
+        <button class="tl yel" id="tlMin" title="Réduire"><svg viewBox="0 0 8 8"><path d="M1.4 4h5.2"/></svg></button>
+        <button class="tl grn" id="tlZoom" title="Agrandir"><svg viewBox="0 0 8 8"><path d="M4 1.4v5.2M1.4 4h5.2"/></svg></button>
+      </div>
       <div id="search">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7c7c84" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg>
         <input id="searchIn" placeholder="Rechercher" spellcheck="false">
@@ -177,6 +203,7 @@ function api(m){try{return Promise.resolve(window.pywebview.api[m].apply(null,[]
     .catch(function(){return null;});}
   catch(e){return Promise.resolve(null);}}
 let S={modes:[],profiles:[],languages:[],mode:'auto',ptt_key:'f9',mode_hotkeys:{},menu_hotkey:'',language:'fr',cloud_enabled:false,autostart:false,auto_update:true,app_version:'',
+  dock_prefs:{position:'bottom-center',scale:1,opacity:1},
   personal:{},custom_vars:[],hardware:{},tier:'free',lic:null,perso:{},custom_modes:[],
   best_ai:false,orb_color:'',custom_name:''};
 
@@ -188,12 +215,49 @@ window.novaShow=function(state,text,sub){
   document.getElementById('bubSub').textContent=sub||'';
   const bb=document.getElementById('bubble');bb.className='on'+(state==='ok'?' ok':state==='error'?' error':'');
   ORB.setState(state);
+  reportShape();
 };
-window.novaHide=function(ms){clearTimeout(hideT);hideT=setTimeout(()=>{document.getElementById('bubble').classList.remove('on');ORB.setState('repos');},ms||0);};
+window.novaHide=function(ms){clearTimeout(hideT);hideT=setTimeout(()=>{document.getElementById('bubble').classList.remove('on');ORB.setState('repos');reportShape();},ms||0);};
 window.novaLevel=function(rms){ORB.level(rms);};
 window.__openSettings=function(){openSettings();};
 window.novaOpenModes=function(){const m=document.getElementById('modes');
   if(!m.classList.contains('on'))document.getElementById('modesBtn').onclick();};
+
+// ---------- formes visibles → région native de la fenêtre ----------
+// La fenêtre est opaque : Python la découpe aux formes rapportées ici. Appelé
+// à chaque changement visuel (bulle, menu, réglages, resize). Double rAF pour
+// mesurer APRÈS la mise en page.
+function reportShape(){requestAnimationFrame(()=>requestAnimationFrame(()=>{
+  try{
+    const shapes=[];
+    const SET=document.getElementById('settings');
+    if(SET.classList.contains('on')){
+      shapes.push({x:0,y:0,w:innerWidth,h:innerHeight,r:13});
+    }else{
+      const add=(el,r)=>{const b=el.getBoundingClientRect();
+        if(b.width>1&&b.height>1)shapes.push({x:b.x,y:b.y,w:b.width,h:b.height,
+          r:(r==null?b.height/2:r)});};
+      add(document.getElementById('dock'));
+      const bb=document.getElementById('bubble');
+      if(bb.classList.contains('on'))add(bb);
+      const mm=document.getElementById('modes');
+      if(mm.classList.contains('on'))add(mm,24);
+      const cm=document.querySelector('.cmask .cbox');
+      if(cm){shapes.length=0;shapes.push({x:0,y:0,w:innerWidth,h:innerHeight,r:13});}
+    }
+    api('shape',{vw:innerWidth,vh:innerHeight,shapes:shapes});
+  }catch(_e){}
+}));}
+addEventListener('resize',reportShape);
+
+// ---------- préférences de la bulle : ancrage / taille appliqués côté page ----------
+function applyDockPrefs(){
+  const p=S.dock_prefs||{};
+  document.body.classList.toggle('pos-top',String(p.position||'').indexOf('top')===0);
+  const z=(p.scale&&p.scale!==1)?String(p.scale):'';
+  ['dock','bubble','modes'].forEach(id=>{document.getElementById(id).style.zoom=z;});
+  reportShape();
+}
 
 // capture d'une touche/combinaison dans un champ : Tab déplace le focus (pas de
 // piège), Échap annule, Retour arrière/Suppr efface si `clearable` ; les noms
@@ -229,7 +293,7 @@ function bindKeyCapture(el,clearable,set){
 }
 
 // ---------- menus ----------
-document.getElementById('modesBtn').onclick=()=>{const m=document.getElementById('modes');const open=!m.classList.contains('on');m.classList.toggle('on');if(open)renderModes();api('panel','modes',open);};
+document.getElementById('modesBtn').onclick=()=>{const m=document.getElementById('modes');const open=!m.classList.contains('on');m.classList.toggle('on');if(open)renderModes();api('panel','modes',open).then(reportShape);};
 // couleurs pastel (dérivées du thème de l'orbe) + icônes SVG monochromes — zéro emoji
 const MC={auto:'#C7B9EA',voice_to_text:'#AEBEEC',email:'#F0D3A8',prompt_engineer:'#E9B8CE',
   todo:'#AEE2CC',messages:'#9FE0BE',notes:'#AED6F0'};
@@ -251,12 +315,18 @@ function renderModes(){const box=document.getElementById('modes');box.innerHTML=
 
 // ---------- réglages : fenêtre style Réglages macOS ----------
 document.getElementById('gear').onclick=openSettings;
-document.getElementById('closeSet').onclick=closeSettings;
-function openSettings(){api('panel','settings',true).then(()=>{
+// feux tricolores macOS : rouge/jaune ferment (retour bulle), vert agrandit
+let setMax=false;
+document.getElementById('tlClose').onclick=closeSettings;
+document.getElementById('tlMin').onclick=closeSettings;
+document.getElementById('tlZoom').onclick=()=>{setMax=!setMax;
+  api('panel',setMax?'settings_max':'settings',true).then(reportShape);};
+function openSettings(){api('panel',setMax?'settings_max':'settings',true).then(()=>{
   document.getElementById('settings').classList.add('on');
-  buildSidebar();buildPane();
+  buildSidebar();buildPane();reportShape();
   api('license_status').then(ls=>{if(ls){S.lic=ls;buildSidebar();buildPane();}});});}
-function closeSettings(){document.getElementById('settings').classList.remove('on');api('panel','settings',false);}
+function closeSettings(){document.getElementById('settings').classList.remove('on');
+  api('panel','settings',false).then(reportShape);}
 
 let CAT='general';
 const NAV=[
@@ -349,6 +419,17 @@ function paneGeneral(p){
         '<input class="fieldc mono" id="menuHk" style="width:110px;text-align:center" readonly placeholder="—" value="'+esc(S.menu_hotkey||'')+'">')
       +styleRows,
       'Cliquez un champ puis appuyez sur une combinaison (ex. Ctrl + Alt + E). Retour arrière efface.')
+   +G('Bulle Nova',
+      R('Position à l\'écran','Où la bulle vit sur votre bureau',
+        '<select class="fieldc" id="dkPos">'+[['bottom-center','En bas, au centre'],['bottom-left','En bas, à gauche'],
+          ['bottom-right','En bas, à droite'],['top-center','En haut, au centre'],['top-left','En haut, à gauche'],
+          ['top-right','En haut, à droite']].map(([v,l])=>'<option value="'+v+'"'+((S.dock_prefs||{}).position===v?' selected':'')+'>'+l+'</option>').join('')+'</select>')
+      +R('Taille','Une bulle plus discrète si vous préférez',
+        '<select class="fieldc" id="dkScale"><option value="1"'+(((S.dock_prefs||{}).scale||1)===1?' selected':'')+'>Normale</option>'+
+        '<option value="0.85"'+(((S.dock_prefs||{}).scale||1)===0.85?' selected':'')+'>Petite</option></select>')
+      +R('Opacité','La bulle peut se faire légèrement transparente',
+        '<input type="range" class="rng" id="dkOp" min="55" max="100" value="'+Math.round(((S.dock_prefs||{}).opacity||1)*100)+'">'),
+      'S\'applique à la bulle et à ses menus — jamais à cette fenêtre de réglages.')
    +G('Profil de puissance',profs,'Machine : '+(hw.ram_total_gb||'?')+' Go de mémoire'+
       (hw.has_gpu?' · '+esc(hw.gpu_name):' · sans accélération graphique')+'. Les profils trop lourds pour cette machine sont verrouillés.')
    +G('Mises à jour',
@@ -378,6 +459,11 @@ function paneGeneral(p){
   p.querySelectorAll('.stylehk').forEach(el=>bindKeyCapture(el,true,k=>{
     if(k)S.mode_hotkeys[el.dataset.id]=k;else delete S.mode_hotkeys[el.dataset.id];
     api('set_mode_hotkey',el.dataset.id,k);}));
+  const saveDk=()=>{const o={position:document.getElementById('dkPos').value,
+      scale:parseFloat(document.getElementById('dkScale').value),
+      opacity:parseInt(document.getElementById('dkOp').value,10)/100};
+    api('set_dock_prefs',o).then(pr=>{if(pr)S.dock_prefs=pr;applyDockPrefs();});};
+  ['dkPos','dkScale','dkOp'].forEach(id=>{document.getElementById(id).onchange=saveDk;});
   document.getElementById('updBtn').onclick=()=>api('check_update');
   document.getElementById('swUpd').onclick=()=>{const el=document.getElementById('swUpd');
     const want=!el.classList.contains('on');
@@ -394,7 +480,7 @@ function paneAbo(p){
   const name='Nova '+(TIERS[tier]||'Gratuit');
   let hero;
   if(free){hero=R(name,'2 500 caractères par semaine · 3 Styles',
-    '<button class="btn" id="goUltra">Passer à Ultra…</button>');}
+    '<button class="btn" id="goUltra">Passer à Pro…</button>');}
   else{const exp=lic.expiry?new Date(lic.expiry*1000).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}):null;
     hero='<div class="row"><span class="check"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span>'+
       '<div class="l"><b>'+name+'</b><small>'+(lic.email?'Activé pour '+esc(lic.email)+' · ':'')+
@@ -426,7 +512,8 @@ function paneAbo(p){
     const v=document.getElementById('wkVal'),s=document.getElementById('wkSub');
     if(v)v.textContent='≈ '+(w.minutes||0)+' min';
     if(s)s.textContent=(w.count||0)+' dictées · '+(w.chars||0)+' caractères';});
-  const go=document.getElementById('goUltra');if(go)go.onclick=()=>{const k=document.getElementById('licKey');if(k)k.focus();};
+  // « Passer à Pro » ouvre directement les tarifs du site dans le navigateur
+  const go=document.getElementById('goUltra');if(go)go.onclick=()=>api('open_upgrade');
   const lg=document.getElementById('licGo');if(lg)lg.onclick=()=>{
     const ki=document.getElementById('licKey');const k=(ki&&ki.value||'').trim();if(!k)return;
     api('activate_license',k).then(r=>{
@@ -530,12 +617,28 @@ function paneInfos(p){
   const F=[['prenom','Prénom'],['nom','Nom'],['email','E-mail'],['telephone','Téléphone'],['adresse','Adresse']];
   let rows='';F.forEach(([k,lb])=>{rows+=R(lb,'','<input class="fieldc" data-k="'+k+
     '" style="width:230px;text-align:right" value="'+esc((S.personal||{})[k]||'')+'">');});
+  // informations personnalisées : autant de paires « ce que je dis » → valeur
+  // que voulu (ex. « ma plaque » → AB-123-CD), substituées comme les champs fixes
+  const extras=((S.personal||{}).extra||[]).slice();
+  const exRow=(e)=>'<div class="row xrow"><input class="fieldc xlab" placeholder="Ce que je dis (ex. ma plaque)"'+
+    ' style="width:190px" value="'+esc(e.label||'')+'"><div class="r" style="flex:1">'+
+    '<input class="fieldc xval" placeholder="Remplacé par…" style="flex:1;text-align:right" value="'+esc(e.value||'')+'">'+
+    '<button class="xdel" title="Supprimer"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div></div>';
   p.innerHTML='<h1>Mes infos</h1>'
    +G('Profil',rows,'Pour « mon adresse », « mon e-mail »… — substitué localement, jamais envoyé à une IA.')
+   +G('Informations personnalisées','<div id="xtras">'+extras.map(exRow).join('')+'</div>'+
+      '<div class="row"><button class="btn sec" id="meAdd">Ajouter une information</button></div>',
+      'Dites le libellé en dictant, Nova le remplace par la valeur. Exemple : « ma plaque » → AB-123-CD.')
    +'<button class="btn" id="meSave">Enregistrer</button>';
+  const wireDel=()=>{p.querySelectorAll('.xrow .xdel').forEach(b=>{b.onclick=()=>b.closest('.xrow').remove();});};
+  wireDel();
+  document.getElementById('meAdd').onclick=()=>{
+    document.getElementById('xtras').insertAdjacentHTML('beforeend',exRow({}));wireDel();};
   document.getElementById('meSave').onclick=()=>{const o={};
     p.querySelectorAll('input[data-k]').forEach(i=>o[i.dataset.k]=i.value.trim());
-    api('save_personal',o).then(r=>{S.personal=r||o;});};
+    o.extra=[...p.querySelectorAll('.xrow')].map(r=>({label:r.querySelector('.xlab').value.trim(),
+      value:r.querySelector('.xval').value.trim()})).filter(e=>e.label&&e.value);
+    api('save_personal',o).then(r=>{S.personal=r||o;buildPane();});};
 }
 
 // ---------- bille de verre (WebGL transparent) : intérieur vivant réfracté, réactif à l'état + voix ----------
@@ -624,7 +727,9 @@ function hexToRgb(h){const m=/^#?([0-9a-f]{6})$/i.exec((h||'').trim());if(!m)ret
 function applyOrbColor(h){ORB.setAccent(hexToRgb(h));}
 
 // ---------- init ----------
-function init(){api('state').then(st=>{if(st){S=Object.assign(S,st);if(S.orb_color)applyOrbColor(S.orb_color);}});}
+function init(){api('state').then(st=>{if(st){S=Object.assign(S,st);if(S.orb_color)applyOrbColor(S.orb_color);}
+  applyDockPrefs();   // ancrage + taille + PREMIER rapport de formes → révèle la fenêtre
+});}
 window.addEventListener('pywebviewready',init);
 setTimeout(()=>{init();},500);
 </script>

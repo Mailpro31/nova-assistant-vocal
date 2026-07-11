@@ -23,7 +23,7 @@ import winext
 # Version de l'app — source unique. Doit rester égale au MyAppVersion de
 # installer/nova.iss (test_v3 le vérifie) ; les releases GitHub sont taguées
 # « v » + cette valeur, et updater.py s'en sert pour détecter une mise à jour.
-APP_VERSION = "3.1.1"
+APP_VERSION = "3.1.2"
 
 APP_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
 
@@ -48,6 +48,9 @@ DEFAULT_CONFIG = {
                               # "pill" = pilule tkinter (repli sans WebView2)
     "mode_hotkeys": {},       # raccourci clavier par Style : {mode_id: "ctrl+alt+e"}
     "menu_hotkey": "",        # raccourci qui ouvre le menu des Styles ("" = aucun)
+    "dock_position": "bottom-center",  # ancrage de la bulle : top/bottom × left/center/right
+    "dock_scale": 1.0,        # taille de la bulle : 1.0 normale, 0.85 petite
+    "dock_opacity": 1.0,      # opacité de la bulle (0.55 → 1.0)
     "hotkey": "ctrl+alt+space",
     "note_hotkey": "ctrl+alt+n",
     "dictation_hotkey": "ctrl+alt+d",
@@ -1353,12 +1356,24 @@ def format_message(text, system_prompt=None):
     personnel de l'utilisateur est toujours injecté pour préserver les noms
     propres. Repli SANS IA (`format_rules`) si l'IA échoue ou est hors ligne :
     le curseur ne reçoit jamais du vide (garde-fou Phase 5b)."""
+    return format_message_ex(text, system_prompt)[0]
+
+
+def format_message_ex(text, system_prompt=None):
+    """Comme `format_message`, mais dit AUSSI si le Style a réellement été
+    appliqué : → (texte, ia_ok). Quand l'IA échoue (modèle absent, hors ligne,
+    panne), l'appelant peut l'annoncer honnêtement au lieu d'afficher le Style
+    comme si tout allait bien — le texte collé, lui, n'est jamais vide."""
     vocab = active_vocabulary()
     system = COMMON_RULES + (system_prompt or _DEFAULT_REFORMULATE) + " " + (
         f"Vocabulaire propre à l'utilisateur : {', '.join(vocab)}. " if vocab else "")
     system += "Réponds UNIQUEMENT avec le texte reformulé, rien d'autre."
     out = llm_complete(system, text)
-    return out or format_rules(text)
+    if out:
+        return out, True
+    log_err("style_fallback", "IA indisponible → collage format_rules (le "
+            "Style demandé n'a pas été appliqué)")
+    return format_rules(text), False
 
 
 def translate_if_needed(text):
@@ -1498,6 +1513,20 @@ def fill_personal(text, custom_vars=True):
         val = (info.get(key) or "").strip()
         if val:
             text = rx.sub(lambda _m, v=val: v, text)
+    # informations personnalisées (« Mes infos » extensibles) : même statut que
+    # les champs fixes (fonction de base, non gatée) — mêmes frontières
+    # conditionnelles que les Custom Variables ci-dessous.
+    for e in (info.get("extra") or []):
+        if not isinstance(e, dict):
+            continue
+        trig = str(e.get("label") or "").strip()
+        val = str(e.get("value") or "").strip()
+        if not trig or not val:
+            continue
+        left = r"(?<!\w)" if _is_word_char(trig[:1]) else ""
+        right = r"(?!\w)" if _is_word_char(trig[-1:]) else ""
+        text = re.sub(left + re.escape(trig) + right,
+                      lambda _m, v=val: v, text, flags=re.IGNORECASE)
     if not custom_vars:
         return text
     for trig, val in custom_variables():

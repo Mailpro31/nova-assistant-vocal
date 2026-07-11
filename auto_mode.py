@@ -46,30 +46,46 @@ _RULES_RAW = [
     ("email",
      ("gmail", "outlook", "thunderbird", "proton mail", "protonmail",
       "yahoo mail", "icloud mail", "fastmail", "superhuman", "courrier",
-      "hey.com"),
-     ("outlook", "thunderbird", "spark", "mailspring", "protonmail")),
+      "hey.com",
+      # titres d'onglets fréquents des webmails, FR et EN — le nom du service
+      # n'apparaît pas toujours, mais ces libellés d'écran si
+      "boîte de réception", "boite de réception", "inbox", "nouveau message",
+      "courriel", "webmail", "roundcube", "zimbra", "aol mail",
+      "gmx", "zoho mail", "laposte.net", "mail orange", "sfr mail"),
+     ("outlook", "thunderbird", "spark", "mailspring", "protonmail", "olk")),
 
     ("messages",
+     # « signal » et « element » restent des repères de PROCESS uniquement :
+     # en titre libre ce sont des mots courants (« Signal processing »…)
      ("whatsapp", "slack", "microsoft teams", "teams", "messenger",
-      "telegram", "discord", "google chat", "wechat", "instagram"),
+      "telegram", "discord", "google chat", "wechat", "instagram",
+      "imessage", "google messages", "beeper", "mattermost",
+      "rocket.chat", "viber", "snapchat"),
      ("whatsapp", "slack", "teams", "ms-teams", "discord", "telegram",
-      "signal", "messenger", "wechat", "line", "skype")),
+      "signal", "messenger", "wechat", "line", "skype", "beeper",
+      "element", "viber")),
 
     ("prompt_engineer",
+     # « cursor », « windsurf », « poe »… : PROCESS uniquement — en titre ce
+     # sont des mots/noms courants (docs CSS cursor, spots de windsurf, Poe…)
      ("chatgpt", "chat gpt", "claude", "gemini", "perplexity", "copilot",
-      "mistral", "deepseek", "grok", "hugging face"),
-     ("chatgpt", "claude", "msty", "lm studio")),
+      "mistral", "deepseek", "grok", "hugging face",
+      "google ai studio", "notebooklm", "bolt.new"),
+     ("chatgpt", "claude", "msty", "lm studio", "cursor", "windsurf")),
 
     ("todo",
      ("todoist", "ticktick", "microsoft to do", "google tasks", "omnifocus",
-      "any.do", "to-do", "to do"),
-     ("todoist", "ticktick", "omnifocus")),
+      "any.do", "to-do", "to do", "trello", "asana", "clickup",
+      "monday.com"),
+     ("todoist", "ticktick", "omnifocus", "trello", "asana", "clickup")),
 
     ("notes",
      ("notion", "obsidian", "onenote", "evernote", "logseq", "joplin",
-      "google keep", "roam research", "craft docs", "anytype"),
+      "google keep", "roam research", "craft docs", "anytype",
+      "sticky notes", "pense-bêtes", "notepad", "bloc-notes", "simplenote",
+      "standard notes"),
      ("notion", "obsidian", "onenote", "evernote", "logseq", "joplin",
-      "anytype")),
+      "anytype", "notepad", "simplenote")),
 ]
 
 _RULES = [
@@ -172,10 +188,20 @@ def custom_mode(cid):
 def current_mode():
     """Résout le mode d'après la fenêtre RÉELLE au premier plan (Windows).
     Repli sur le défaut si winext est indisponible OU si la résolution lève
-    (garantie « jamais de plantage » : resolve reste dans le try)."""
+    (garantie « jamais de plantage » : resolve reste dans le try). Chaque
+    résolution est journalisée (process | titre → mode) : c'est LA donnée qui
+    permet de diagnostiquer à distance « l'auto ne détecte pas mon app »."""
     try:
         import winext
-        return resolve(winext.active_window_title(),
-                       winext.active_process_name(), _user_rules())
+        title = winext.active_window_title()
+        proc = winext.active_process_name()
+        mode = resolve(title, proc, _user_rules())
+        try:
+            import core
+            core.log_err("auto_mode",
+                         f"{proc or '?'} | {str(title or '')[:90]} → {mode}")
+        except Exception:
+            pass
+        return mode
     except Exception:
         return DEFAULT_ID
