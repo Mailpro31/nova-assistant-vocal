@@ -549,6 +549,22 @@ def test_version_sync():
     check("updater : version identique → pas plus récente",
           _upd._vtuple(f"v{core.APP_VERSION}") > _upd._vtuple(core.APP_VERSION),
           False)
+    # Robustesse « Mise à jour impossible » : en développement (non gelé)
+    # l'installation est un no-op qui répond False sans toucher au réseau.
+    check("updater : non gelé → no-op (False)",
+          _upd.download_and_install(), False)
+    # Anti-chevauchement : si une tentative est déjà en cours (vérif auto du
+    # lancement), un clic « Rechercher maintenant » répond True (en cours),
+    # PAS False — sinon l'app affichait un faux « Mise à jour impossible ».
+    real_frozen = _upd.is_frozen
+    _upd.is_frozen = lambda: True
+    _upd._busy.acquire()
+    try:
+        check("updater : tentative déjà en cours → True (pas d'erreur)",
+              _upd.download_and_install(), True)
+    finally:
+        _upd._busy.release()
+        _upd.is_frozen = real_frozen
 
 
 def test_web_dock_default():
