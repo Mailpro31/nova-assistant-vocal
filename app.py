@@ -1105,7 +1105,8 @@ class DockApi:
     def state(self):
         hw = power_profiles.detect_hardware()
         return {
-            "modes": [{"id": m["id"], "label": m["label"], "hotkey": m["hotkey"]}
+            "modes": [{"id": m["id"], "label": m["label"], "hotkey": m["hotkey"],
+                       "allowed": licensing.mode_allowed(m["id"])}
                      for m in modes_registry.all_modes()],
             "profiles": power_profiles.evaluate(hw, _profiles_paid()),
             "hardware": hw,

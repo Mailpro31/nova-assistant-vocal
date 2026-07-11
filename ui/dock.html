@@ -62,6 +62,9 @@
     font-size:13.5px;transition:background .25s var(--ease)}
   .mrow:hover{background:rgba(255,255,255,.06)}
   .mrow.act{background:rgba(174,190,236,.14);box-shadow:0 0 0 1px rgba(174,190,236,.3) inset}
+  .mrow.lock .mg,.mrow.lock>span:first-of-type{opacity:.38}
+  .mbadge{margin-left:auto;font-size:9px;font-weight:700;letter-spacing:.06em;color:#c9b6f0;
+    background:rgba(150,120,220,.16);border-radius:999px;padding:3px 8px;flex:none}
   .mg{width:30px;height:30px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:none}
   .mg svg{width:16px;height:16px;stroke:#11131c;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
   .chk{margin-left:auto;color:var(--mint-d);display:flex}
@@ -311,11 +314,16 @@ const MI={
   notes:'<path d="M4 20h4L18 10l-4-4L4 16z"/><path d="M13 5.5l4 4"/>'};
 const CHK='<svg viewBox="0 0 24 24"><path d="M5 12l4 4 10-11"/></svg>';
 function renderModes(){const box=document.getElementById('modes');box.innerHTML='';
-  S.modes.forEach(m=>{const r=document.createElement('div');r.className='mrow'+(S.mode===m.id?' act':'');
+  S.modes.forEach(m=>{const ok=m.allowed!==false;   // champ absent = autorisé
+    const r=document.createElement('div');r.className='mrow'+(S.mode===m.id?' act':'')+(ok?'':' lock');
     r.innerHTML='<div class="mg" style="background:'+(MC[m.id]||'#AEBEEC')+'"><svg viewBox="0 0 24 24">'+
       (MI[m.id]||'<circle cx="12" cy="12" r="4"/>')+'</svg></div><span>'+esc(m.label)+'</span>'+
-      (S.mode===m.id?'<span class="chk">'+CHK+'</span>':'');
-    r.onclick=()=>{S.mode=m.id;api('set_mode',m.id);box.classList.remove('on');api('panel','modes',false);renderModes();};box.appendChild(r);});}
+      (ok?(S.mode===m.id?'<span class="chk">'+CHK+'</span>':'')
+         :'<span class="mbadge">NOVA&nbsp;PRO</span>');
+    r.onclick=ok
+      ?()=>{S.mode=m.id;api('set_mode',m.id);box.classList.remove('on');api('panel','modes',false);renderModes();}
+      :()=>api('open_upgrade');                     // Style verrouillé → page tarifs
+    box.appendChild(r);});}
 
 // ---------- réglages : fenêtre style Réglages macOS ----------
 document.getElementById('gear').onclick=openSettings;
