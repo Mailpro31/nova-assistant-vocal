@@ -176,7 +176,7 @@
 function api(m){try{return Promise.resolve(window.pywebview.api[m].apply(null,[].slice.call(arguments,1)))
     .catch(function(){return null;});}
   catch(e){return Promise.resolve(null);}}
-let S={modes:[],profiles:[],languages:[],mode:'auto',ptt_key:'f9',language:'fr',cloud_enabled:false,autostart:false,auto_update:true,app_version:'',
+let S={modes:[],profiles:[],languages:[],mode:'auto',ptt_key:'f9',mode_hotkeys:{},menu_hotkey:'',language:'fr',cloud_enabled:false,autostart:false,auto_update:true,app_version:'',
   personal:{},custom_vars:[],hardware:{},tier:'free',lic:null,perso:{},custom_modes:[],
   best_ai:false,orb_color:'',custom_name:''};
 
@@ -192,6 +192,41 @@ window.novaShow=function(state,text,sub){
 window.novaHide=function(ms){clearTimeout(hideT);hideT=setTimeout(()=>{document.getElementById('bubble').classList.remove('on');ORB.setState('repos');},ms||0);};
 window.novaLevel=function(rms){ORB.level(rms);};
 window.__openSettings=function(){openSettings();};
+window.novaOpenModes=function(){const m=document.getElementById('modes');
+  if(!m.classList.contains('on'))document.getElementById('modesBtn').onclick();};
+
+// capture d'une touche/combinaison dans un champ : Tab déplace le focus (pas de
+// piège), Échap annule, Retour arrière/Suppr efface si `clearable` ; les noms
+// DOM sont traduits vers ceux de la lib clavier et on ne lie QUE des touches
+// reconnues (sinon la lib échoue en silence → raccourci mort)
+function bindKeyCapture(el,clearable,set){
+  el.addEventListener('keydown',e=>{
+    const raw=e.key||'';
+    if(raw==='Tab')return;                       // laisse la tabulation naviguer
+    e.preventDefault();
+    if(raw==='Escape'){el.blur();return;}        // annule la capture, ne lie rien
+    if(clearable&&(raw==='Backspace'||raw==='Delete')){el.value='';set('');return;}
+    const MAP={'arrowleft':'left','arrowright':'right','arrowup':'up','arrowdown':'down',
+      ' ':'space','spacebar':'space','control':'ctrl','pageup':'page up','pagedown':'page down',
+      'meta':'windows','os':'windows','contextmenu':'menu'};
+    let k=raw.toLowerCase();k=MAP[k]||k;
+    const OK=['left','right','up','down','space','ctrl','alt','shift','enter','home',
+      'end','delete','insert','page up','page down','windows','menu','backspace'];
+    if(k.length===1||/^f\d{1,2}$/.test(k)||OK.indexOf(k)>=0){
+      // combinaison : les modificateurs TENUS se préfixent à la touche pressée
+      // (ex. Ctrl maintenu + Espace → « ctrl+space ») ; un modificateur pressé
+      // seul reste utilisable tel quel (« ctrl »)
+      const MODS=['ctrl','alt','shift','windows'];
+      if(MODS.indexOf(k)<0){
+        const held=[];
+        if(e.ctrlKey)held.push('ctrl');
+        if(e.altKey)held.push('alt');
+        if(e.shiftKey)held.push('shift');
+        if(e.metaKey)held.push('windows');
+        if(held.length)k=held.join('+')+'+'+k;
+      }
+      el.value=k;set(k);}});
+}
 
 // ---------- menus ----------
 document.getElementById('modesBtn').onclick=()=>{const m=document.getElementById('modes');const open=!m.classList.contains('on');m.classList.toggle('on');if(open)renderModes();api('panel','modes',open);};
@@ -295,6 +330,10 @@ function paneGeneral(p){
   // Turbo est un privilège Ultra : capacité fournie par licensing via _state
   // (S.perso.turbo) — le JS ne ré-encode pas la règle de palier
   const canTurbo=!!(S.perso&&S.perso.turbo);
+  // un raccourci direct par Style : bascule sans ouvrir le menu
+  let styleRows='';
+  (S.modes||[]).forEach(m=>{styleRows+=R('Style · '+esc(m.label),'',
+    '<input class="fieldc mono stylehk" data-id="'+esc(m.id)+'" style="width:110px;text-align:center" readonly placeholder="—" value="'+esc((S.mode_hotkeys||{})[m.id]||'')+'">');});
   p.innerHTML='<h1>Général</h1>'
    +G('Moteur'+(canTurbo?'':' <span class="badge-lock">NÉCESSITE NOVA ULTRA</span>'),
       '<div class="'+(canTurbo?'':'locked')+'">'
@@ -305,6 +344,11 @@ function paneGeneral(p){
       '<div class="sw'+(S.autostart?' on':'')+'" id="swAuto"></div>'),'')
    +G('Touche de dictée',R('Maintenir pour dicter','Cliquez le champ puis appuyez sur une touche',
       '<input class="fieldc mono" id="pttIn" style="width:86px;text-align:center" readonly value="'+esc(S.ptt_key)+'">'),'')
+   +G('Raccourcis clavier',
+      R('Ouvrir le menu des Styles','Le menu déroulant des Styles, où que vous soyez',
+        '<input class="fieldc mono" id="menuHk" style="width:110px;text-align:center" readonly placeholder="—" value="'+esc(S.menu_hotkey||'')+'">')
+      +styleRows,
+      'Cliquez un champ puis appuyez sur une combinaison (ex. Ctrl + Alt + E). Retour arrière efface.')
    +G('Profil de puissance',profs,'Machine : '+(hw.ram_total_gb||'?')+' Go de mémoire'+
       (hw.has_gpu?' · '+esc(hw.gpu_name):' · sans accélération graphique')+'. Les profils trop lourds pour cette machine sont verrouillés.')
    +G('Mises à jour',
@@ -327,34 +371,13 @@ function paneGeneral(p){
     const want=!el.classList.contains('on');
     api('set_autostart',want).then(on=>{S.autostart=!!on;      // état réel du registre
       const s=document.getElementById('swAuto');if(s)s.className='sw'+(on?' on':'');});};
-  // capture de la touche de dictée : Tab déplace le focus (pas de piège), Échap
-  // annule ; les noms DOM sont traduits vers les noms de la lib clavier, et on ne
-  // lie QUE des touches reconnues (sinon la lib échoue en silence → dictée morte)
-  document.getElementById('pttIn').addEventListener('keydown',e=>{
-    const raw=e.key||'';
-    if(raw==='Tab')return;                       // laisse la tabulation naviguer
-    e.preventDefault();
-    if(raw==='Escape'){e.target.blur();return;}  // annule la capture, ne lie rien
-    const MAP={'arrowleft':'left','arrowright':'right','arrowup':'up','arrowdown':'down',
-      ' ':'space','spacebar':'space','control':'ctrl','pageup':'page up','pagedown':'page down',
-      'meta':'windows','os':'windows','contextmenu':'menu'};
-    let k=raw.toLowerCase();k=MAP[k]||k;
-    const OK=['left','right','up','down','space','ctrl','alt','shift','enter','home',
-      'end','delete','insert','page up','page down','windows','menu','backspace'];
-    if(k.length===1||/^f\d{1,2}$/.test(k)||OK.indexOf(k)>=0){
-      // combinaison : les modificateurs TENUS se préfixent à la touche pressée
-      // (ex. Ctrl maintenu + Espace → « ctrl+space ») ; un modificateur pressé
-      // seul reste utilisable tel quel (« ctrl »)
-      const MODS=['ctrl','alt','shift','windows'];
-      if(MODS.indexOf(k)<0){
-        const held=[];
-        if(e.ctrlKey)held.push('ctrl');
-        if(e.altKey)held.push('alt');
-        if(e.shiftKey)held.push('shift');
-        if(e.metaKey)held.push('windows');
-        if(held.length)k=held.join('+')+'+'+k;
-      }
-      e.target.value=k;S.ptt_key=k;api('set_ptt_key',k);}});
+  bindKeyCapture(document.getElementById('pttIn'),false,
+    k=>{S.ptt_key=k;api('set_ptt_key',k);});
+  document.getElementById('menuHk')&&bindKeyCapture(document.getElementById('menuHk'),true,
+    k=>{S.menu_hotkey=k;api('set_menu_hotkey',k);});
+  p.querySelectorAll('.stylehk').forEach(el=>bindKeyCapture(el,true,k=>{
+    if(k)S.mode_hotkeys[el.dataset.id]=k;else delete S.mode_hotkeys[el.dataset.id];
+    api('set_mode_hotkey',el.dataset.id,k);}));
   document.getElementById('updBtn').onclick=()=>api('check_update');
   document.getElementById('swUpd').onclick=()=>{const el=document.getElementById('swUpd');
     const want=!el.classList.contains('on');

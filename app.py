@@ -132,6 +132,12 @@ class Pill(threading.Thread):
     def open_settings(self):
         self.q.put(("settings",))
 
+    def open_modes(self):
+        """La pilule n'a pas de menu déroulant : on oriente vers le tray (le
+        menu des Styles « bonne interface » vit dans le dock web)."""
+        self.show("repos", "Styles", "menu Nova dans la barre des tâches")
+        self.hide(2.2)
+
     # ---- cycle de vie (partagé avec WebDock : main() ne teste aucun type) ----
     def serve(self, build_tray):
         """La pilule tourne dans son thread tkinter ; le tray prend le thread
@@ -708,6 +714,39 @@ class Pill(threading.Thread):
         tk.Button(kb, text="Appliquer", command=save_key, bg=SET_ACCENT,
                   fg=SET_WHITE, relief="flat", padx=10, pady=3).pack(side="left")
 
+        # raccourcis clavier : un par Style + ouverture du menu des Styles.
+        # Pendant du groupe « Raccourcis clavier » du dock web (parité imposée
+        # par CLAUDE.md) — champs texte simples, ex. « ctrl+alt+e », vide = off.
+        hkf = tk.Frame(win, bg=SET_BG)
+        hkf.pack(fill="x", padx=16, pady=(4, 0))
+        tk.Label(hkf, text="Raccourcis clavier (ex. ctrl+alt+e — vide = aucun)",
+                 bg=SET_BG, fg=SET_MUT, font=("Segoe UI", 8)).grid(
+                     row=0, column=0, columnspan=2, sticky="w", pady=(0, 2))
+        hk_entries = {}
+        hk_cfg = core.CFG.get("mode_hotkeys") or {}
+        rows = [("__menu__", "Ouvrir le menu des Styles")] + \
+               [(m["id"], m["label"]) for m in modes_registry.all_modes()]
+        for i, (mid, label) in enumerate(rows, start=1):
+            tk.Label(hkf, text=label, bg=SET_BG, fg=SET_MUT, width=24,
+                     anchor="w").grid(row=i, column=0, sticky="w", pady=1)
+            e = tk.Entry(hkf, width=14, bg=SET_INSET, fg=SET_FG,
+                         insertbackground=SET_FG, relief="flat")
+            e.insert(0, core.CFG.get("menu_hotkey", "") if mid == "__menu__"
+                     else hk_cfg.get(mid, ""))
+            e.grid(row=i, column=1, sticky="w", ipady=2, pady=1)
+            hk_entries[mid] = e
+
+        def save_hotkeys():
+            vals = {m: e.get().strip().lower() for m, e in hk_entries.items()}
+            core.save_config({
+                "menu_hotkey": vals.pop("__menu__", ""),
+                "mode_hotkeys": {m: k for m, k in vals.items() if k}})
+            _rebind_style_hotkeys()
+        tk.Button(hkf, text="Appliquer les raccourcis", command=save_hotkeys,
+                  bg=SET_ACCENT, fg=SET_WHITE, relief="flat", padx=10,
+                  pady=3).grid(row=len(rows) + 1, column=0, sticky="w",
+                               pady=(4, 0))
+
         # Mes infos : champs de profil réutilisés par « mon adresse », « mon
         # e-mail »… dans le texte dicté (surtout le mode E-mail). 100 % local.
         sep2 = tk.Frame(win, bg=SET_LINE, height=1)
@@ -750,8 +789,10 @@ DOCK_HTML = core.resource_path(os.path.join("ui", "dock.html"))
 class WebDock:
     """Dock flottant rendu en webview (orbe organique WebGL, façon Speechly).
 
-    Remplaçant OPTIONNEL de Pill, activé par `CFG["dock_ui"] == "web"` — sinon
-    la pilule tkinter (éprouvée) reste la valeur par défaut : aucune régression.
+    Interface PAR DÉFAUT de Nova (`CFG["dock_ui"] == "web"`) : toutes les
+    fenêtres (dock, bulle d'état, Styles, réglages) partagent le langage
+    visuel du site. La pilule tkinter reste le repli automatique quand
+    pywebview/WebView2 manque — jamais de démarrage cassé.
     Expose la MÊME API publique que Pill (`show/hide/level/open_settings` +
     `serve/destroy`) pour que le push-to-talk et le tray n'aient rien à changer.
 
@@ -788,6 +829,12 @@ class WebDock:
     def open_settings(self):
         self._set_panel("settings")
         self._js("__openSettings")
+
+    def open_modes(self):
+        """Ouvre le menu déroulant des Styles du dock (raccourci clavier).
+        Le clic simulé côté JS passe par le protocole `panel` habituel, qui
+        redimensionne la fenêtre — un seul mécanisme."""
+        self._js("window.novaOpenModes")
 
     # ---- pont Python → JS ----
     def _js(self, fn, *args):
@@ -881,6 +928,8 @@ class DockApi:
             "mode": STATE.get("mode", modes_registry.DEFAULT_MODE_ID),
             "profile": STATE.get("profile", power_profiles.DEFAULT_ID),
             "ptt_key": core.CFG.get("ptt_key", "f9"),
+            "mode_hotkeys": core.CFG.get("mode_hotkeys") or {},
+            "menu_hotkey": core.CFG.get("menu_hotkey", ""),
             "language": core.CFG.get("language", "fr"),
             "cloud_enabled": bool((core.CFG.get("stt") or {}).get("cloud_enabled")),
             "autostart": winext.get_autostart(),
@@ -964,6 +1013,24 @@ class DockApi:
             _rebind_ptt()
         return core.CFG.get("ptt_key")
 
+    def set_mode_hotkey(self, mode_id, key):
+        """Raccourci direct d'un Style ; clé vide = suppression du raccourci."""
+        hk = dict(core.CFG.get("mode_hotkeys") or {})
+        key = (key or "").strip().lower()
+        if key:
+            hk[str(mode_id)] = key
+        else:
+            hk.pop(str(mode_id), None)
+        core.save_config({"mode_hotkeys": hk})
+        _rebind_style_hotkeys()
+        return hk
+
+    def set_menu_hotkey(self, key):
+        """Raccourci qui ouvre le menu des Styles ; vide = désactivé."""
+        core.save_config({"menu_hotkey": (key or "").strip().lower()})
+        _rebind_style_hotkeys()
+        return core.CFG.get("menu_hotkey", "")
+
     def save_custom_vars(self, items):
         return core.save_custom_variables(items or [])
 
@@ -1000,10 +1067,11 @@ class DockApi:
 
 
 def _make_ui():
-    """Choisit l'UI selon `CFG["dock_ui"]` : "web" = dock organique (webview),
-    tout le reste (défaut) = pilule tkinter éprouvée. Repli sur la pilule si le
-    dock web ne peut pas être instancié — jamais de démarrage cassé."""
-    if core.CFG.get("dock_ui") == "web" and licensing.has("web_dock"):
+    """Choisit l'UI selon `CFG["dock_ui"]` : "web" (défaut) = le dock et les
+    fenêtres du site (webview), "pill" = pilule tkinter. Repli automatique sur
+    la pilule si le dock web ne peut pas être instancié (pywebview/WebView2
+    absent ou cassé) — jamais de démarrage cassé."""
+    if core.CFG.get("dock_ui", "web") != "pill":
         try:
             import webview  # noqa: F401 — vérifie la dispo AVANT de renoncer à la pilule
             return WebDock()
@@ -1184,6 +1252,50 @@ def _rebind_ptt():
                 keyboard.on_release_key(p, _on_ptt_release, suppress=False))
     except Exception as e:
         core.log_err("ptt_bind", e)
+    finally:
+        _rebind_style_hotkeys()   # même point d'entrée : serve() et réglages
+
+
+_style_hotkeys = []               # handles keyboard.add_hotkey (Styles + menu)
+
+
+def _rebind_style_hotkeys():
+    """(Re)branche les raccourcis directs des Styles (`mode_hotkeys`) et celui
+    du menu des Styles (`menu_hotkey`). Chaque liaison est indépendante et
+    défensive : un raccourci invalide est journalisé puis ignoré — jamais de
+    plantage, jamais de dictée morte."""
+    global _style_hotkeys
+    for h in _style_hotkeys:
+        try:
+            keyboard.remove_hotkey(h)
+        except Exception:
+            pass
+    _style_hotkeys = []
+    for mode_id, key in (core.CFG.get("mode_hotkeys") or {}).items():
+        key = str(key or "").strip().lower()
+        if not key:
+            continue
+        try:
+            _style_hotkeys.append(keyboard.add_hotkey(
+                key, lambda m=mode_id: _hotkey_set_mode(m), suppress=False))
+        except Exception as e:
+            core.log_err("style_hotkey", e)
+    menu = str(core.CFG.get("menu_hotkey") or "").strip().lower()
+    if menu:
+        try:
+            _style_hotkeys.append(keyboard.add_hotkey(
+                menu, lambda: pill.open_modes(), suppress=False))
+        except Exception as e:
+            core.log_err("menu_hotkey", e)
+
+
+def _hotkey_set_mode(mode_id):
+    """Bascule de Style par raccourci clavier : sans le menu sous les yeux,
+    l'utilisateur a besoin d'une confirmation visible du Style désormais actif."""
+    _set_mode(mode_id)
+    if STATE.get("mode") == mode_id:              # refusé si Style verrouillé
+        pill.show("ok", _mode_label(mode_id), "Style actif")
+        pill.hide(1.4)
 
 
 # ============================================================ barre des tâches

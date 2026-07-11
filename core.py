@@ -23,7 +23,7 @@ import winext
 # Version de l'app — source unique. Doit rester égale au MyAppVersion de
 # installer/nova.iss (test_v3 le vérifie) ; les releases GitHub sont taguées
 # « v » + cette valeur, et updater.py s'en sert pour détecter une mise à jour.
-APP_VERSION = "3.1.0"
+APP_VERSION = "3.1.1"
 
 APP_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
 
@@ -44,6 +44,10 @@ DEFAULT_CONFIG = {
     "seq_memory": True,       # décharge le STT avant le LLM (petites configs)
     "onboarding_done": False, # assistant de bienvenue affiché une seule fois
     "auto_update": True,      # mise à jour silencieuse au lancement (updater.py)
+    "dock_ui": "web",         # interface : "web" = dock/fenêtres du site (défaut),
+                              # "pill" = pilule tkinter (repli sans WebView2)
+    "mode_hotkeys": {},       # raccourci clavier par Style : {mode_id: "ctrl+alt+e"}
+    "menu_hotkey": "",        # raccourci qui ouvre le menu des Styles ("" = aucun)
     "hotkey": "ctrl+alt+space",
     "note_hotkey": "ctrl+alt+n",
     "dictation_hotkey": "ctrl+alt+d",
