@@ -689,6 +689,68 @@ function scEnd(t){
   }
 }
 
+/* ================= curseur souris ================= *
+ * Présent sur les plans d'utilisation : il se déplace et CLIQUE pour de vrai
+ * (presse F9, coche les cases, clique « Envoyer », choisit les Styles), pile
+ * au moment où l'action se déclenche — l'app a l'air réellement utilisée. */
+const CURSOR = [
+  // S3 : la touche F9
+  { fade:.28, pts:[{t:4.30,x:930,y:600},{t:4.62,x:640,y:312},{t:5.55,x:640,y:312},{t:5.85,x:800,y:540}],
+    clicks:[4.66] },
+  // S7 : coche les 3 cases de la to-do, une par une
+  { fade:.28, pts:[{t:14.42,x:250,y:250},{t:14.82,x:402,y:306},{t:15.30,x:402,y:372},
+                   {t:15.80,x:402,y:438},{t:16.20,x:560,y:540}],
+    clicks:[14.85,15.35,15.85] },
+  // S9 : clique « Envoyer » sous le prompt IA
+  { fade:.28, pts:[{t:20.10,x:600,y:300},{t:20.62,x:893,y:467},{t:21.02,x:893,y:467}],
+    clicks:[20.66] },
+  // S10 : choisit chaque Style dans la barre de pilules
+  { fade:.28, pts:[{t:21.35,x:520,y:340},{t:21.75,x:415,y:173},{t:22.45,x:528,y:173},
+                   {t:23.15,x:640,y:173},{t:23.85,x:738,y:173},{t:24.45,x:851,y:173}],
+    clicks:[21.80,22.50,23.20,23.90,24.30] }
+];
+function cursorPos(pts,t){
+  if(t<=pts[0].t) return {x:pts[0].x,y:pts[0].y};
+  for(let i=0;i<pts.length-1;i++){
+    if(t>=pts[i].t&&t<=pts[i+1].t){
+      const u=eInOut((t-pts[i].t)/(pts[i+1].t-pts[i].t));
+      return {x:lerp(pts[i].x,pts[i+1].x,u), y:lerp(pts[i].y,pts[i+1].y,u)};
+    }
+  }
+  return {x:pts[pts.length-1].x,y:pts[pts.length-1].y};
+}
+function drawCursor(t){
+  for(const tr of CURSOR){
+    const a=tr.pts[0].t, b=tr.pts[tr.pts.length-1].t;
+    if(t<a-tr.fade||t>b+tr.fade) continue;
+    const p=cursorPos(tr.pts,clamp(t,a,b));
+    let alpha=1;
+    if(t<a) alpha=eOut((t-(a-tr.fade))/tr.fade);
+    else if(t>b) alpha=eOut(((b+tr.fade)-t)/tr.fade);
+    let press=0;
+    for(const ct of tr.clicks){
+      if(t>=ct&&t<ct+0.14) press=Math.max(press,1-(t-ct)/0.14);
+      if(t>=ct&&t<ct+0.45){
+        const rp=(t-ct)/0.45;
+        X.save();X.globalAlpha=alpha*(1-rp)*0.6;
+        X.strokeStyle=rgba(BLUE_RGB,.9);X.lineWidth=2;
+        X.beginPath();X.arc(p.x,p.y,6+rp*22,0,7);X.stroke();X.restore();
+      }
+    }
+    X.save();X.globalAlpha=alpha;
+    const s=1-press*0.2;
+    X.translate(p.x,p.y);X.scale(s,s);
+    X.shadowColor="rgba(0,0,0,.4)";X.shadowBlur=6;X.shadowOffsetY=2;
+    X.beginPath();
+    X.moveTo(0,0);X.lineTo(0,17.5);X.lineTo(4.6,13.4);X.lineTo(7.4,19.6);
+    X.lineTo(9.9,18.4);X.lineTo(7.1,12.4);X.lineTo(12.3,12.2);X.closePath();
+    X.fillStyle="#fff";X.fill();
+    X.shadowColor="transparent";
+    X.strokeStyle="rgba(0,0,0,.55)";X.lineWidth=1.4;X.stroke();
+    X.restore();
+  }
+}
+
 /* ================= rendu d'une image ================= */
 function frame(t){
   t=clamp(t,0,window.DUR);
@@ -697,6 +759,7 @@ function frame(t){
   scChat(t); scTodo(t); scNotes(t); scPrompt(t);
   scStyles(t); scCustom(t); scPriv(t); scTurbo(t);
   scEvery(t); scStat(t); scEnd(t);
+  drawCursor(t);
   if(t<.5){ X.fillStyle=`rgba(0,0,0,${1-eOut(t/.5)})`; X.fillRect(0,0,W,H); }
   if(t>window.DUR-.7){ X.fillStyle=`rgba(0,0,0,${eIn(clamp((t-(window.DUR-.7))/.7,0,1))})`; X.fillRect(0,0,W,H); }
 }
