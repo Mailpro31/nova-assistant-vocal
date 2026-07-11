@@ -401,6 +401,7 @@
   .pricing h2{font-size:clamp(30px,5vw,52px);font-weight:700;letter-spacing:-1.4px}
   .billing{display:inline-flex;gap:4px;margin-top:28px;padding:4px;border-radius:999px;
     background:var(--card);border:1px solid var(--line)}
+  .billing[hidden]{display:none}   /* l'attribut hidden doit gagner sur display:inline-flex */
   .billing .bseg{border:0;background:transparent;color:var(--mut);font:600 13px/1 var(--font,inherit);
     padding:9px 18px;border-radius:999px;cursor:pointer;transition:background .18s,color .18s}
   .billing .bseg.on{background:var(--blue);color:#fff}
