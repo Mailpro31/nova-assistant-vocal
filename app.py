@@ -1236,25 +1236,32 @@ def _build_tray():
     except Exception:
         img = Image.new("RGB", (64, 64), (0x0A, 0x63, 0xE8))
 
+    # NB pystray : l'action d'un MenuItem doit avoir AU PLUS 2 paramètres
+    # (co_argcount ≤ 2, cf. _base._assert_action) — un 3e paramètre de capture
+    # « x=val » lève ValueError et empêche tout le tray de se construire. Chaque
+    # fabrique ayant déjà sa propre variable locale, la fermeture est sûre sans
+    # capture par défaut.
     def mode_item(m):
+        mid = m["id"]
         return MenuItem(f"{m['hotkey']}. {m['label']}",
-                        lambda _i, _it, mid=m["id"]: _set_mode(mid),
-                        checked=lambda _it, mid=m["id"]: STATE["mode"] == mid,
+                        lambda _i, _it: _set_mode(mid),
+                        checked=lambda _it: STATE["mode"] == mid,
                         radio=True)
 
     def lang_item(code, label):
         return MenuItem(label,
-                        lambda _i, _it, c=code: _set_language(c),
-                        checked=lambda _it, c=code: core.CFG.get("language") == c,
+                        lambda _i, _it: _set_language(code),
+                        checked=lambda _it: core.CFG.get("language") == code,
                         radio=True)
 
     def profile_item(ev):
-        # profil trop lourd = verrouillé (grisé) + raison ; sinon avertissement discret
+        # profil verrouillé (grisé) + raison ; sinon avertissement discret
+        pid = ev["id"]
         suffix = (f"  — {ev['reason']}" if ev["locked"]
                   else ("  — plus demandeur" if ev["warning"] else ""))
         return MenuItem(ev["label"] + suffix,
-                        lambda _i, _it, pid=ev["id"]: _set_profile(pid),
-                        checked=lambda _it, pid=ev["id"]: STATE.get("profile") == pid,
+                        lambda _i, _it: _set_profile(pid),
+                        checked=lambda _it: STATE.get("profile") == pid,
                         radio=True, enabled=not ev["locked"])
 
     prof_items = [profile_item(ev)
