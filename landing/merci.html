@@ -9,6 +9,9 @@
 <style>
   :root{--font:-apple-system,"SF Pro Display","SF Pro Text","Segoe UI",Inter,system-ui,sans-serif}
   *{margin:0;padding:0;box-sizing:border-box}
+  /* l'attribut hidden doit TOUJOURS gagner (sinon .btn2{display:inline-block}
+     montre « Télécharger Nova » avant la vérification de la clé) */
+  [hidden]{display:none!important}
   body{min-height:100vh;display:flex;align-items:center;justify-content:center;
     background:#1F1F22;color:#F2F2F4;font-family:var(--font);padding:20px}
   .card{background:#2C2C30;border:1px solid rgba(255,255,255,.07);border-radius:13px;

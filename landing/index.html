@@ -545,8 +545,9 @@
   .dlov{position:fixed;inset:0;z-index:80;display:flex;align-items:center;
     justify-content:center;padding:20px;background:rgba(0,0,0,.55);
     backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
-    opacity:0;pointer-events:none;transition:opacity .3s var(--ease)}
-  .dlov.on{opacity:1;pointer-events:auto}
+    opacity:0;pointer-events:none;visibility:hidden;
+    transition:opacity .3s var(--ease),visibility 0s linear .3s}
+  .dlov.on{opacity:1;pointer-events:auto;visibility:visible;transition-delay:0s,0s}
   .dlbox{position:relative;width:min(420px,94vw);background:var(--card);
     border:1px solid var(--line);border-radius:16px;padding:36px 34px 30px;
     text-align:center;box-shadow:0 40px 120px rgba(0,0,0,.55);
@@ -1357,6 +1358,7 @@ const I18N = {
     dl_err_bad: "Code incorrect — vérifiez et réessayez.",
     dl_err_exp: "Code expiré — renvoyez-en un nouveau.",
     dl_err_many: "Trop de tentatives — réessayez dans une heure.",
+    dl_err_lock: "Trop d'essais sur ce code — renvoyez-en un nouveau.",
     dl_err_net: "Petit souci de connexion — réessayez.",
     final_h2: "Votre voix tape plus vite<br>que vos doigts.",
     final_btn: "Télécharger Nova gratuitement",
@@ -1462,6 +1464,7 @@ const I18N = {
     dl_err_bad: "Wrong code — check and try again.",
     dl_err_exp: "Code expired — send a new one.",
     dl_err_many: "Too many attempts — try again in an hour.",
+    dl_err_lock: "Too many tries on that code — send a new one.",
     dl_err_net: "Small connection hiccup — try again.",
     final_h2: "Your voice types faster<br>than your fingers.",
     final_btn: "Download Nova for free",
@@ -1535,8 +1538,9 @@ function dlStep(n) {
 function dlOpen(e) {
   if (e) e.preventDefault();
   $("dlErr1").textContent = ""; $("dlErr2").textContent = "";
-  dlStep(1); dlov.classList.add("on");
-  setTimeout(() => $("dlEmail").focus(), 250);
+  // un code vient d'être envoyé ? on rouvre directement à sa saisie
+  dlStep(dlEmailV ? 2 : 1); dlov.classList.add("on");
+  setTimeout(() => $(dlEmailV ? "dlCode" : "dlEmail").focus(), 250);
 }
 function dlHide() { dlov.classList.remove("on"); }
 $("dlClose").onclick = dlHide;
@@ -1569,8 +1573,11 @@ function dlCooldown() {                       // anti-spam du bouton « renvoyer
     else b.textContent = I18N[LANG].dl_resend + " (" + left + ")";
   }, 1000);
 }
-async function dlRequest(email) {
-  const btn = $("dlForm1").querySelector(".btn");
+async function dlRequest(email, resend) {
+  // depuis l'étape 2 (« renvoyer »), erreurs et boutons vivent à l'étape 2 —
+  // sinon le retour s'afficherait dans l'étape 1, cachée
+  const btn = resend ? $("dlResend") : $("dlForm1").querySelector(".btn");
+  const err = resend ? $("dlErr2") : $("dlErr1");
   btn.disabled = true;
   try {
     const { s, d } = await dlPost("/code", { email, lang: LANG, website: $("dlSite").value });
@@ -1582,9 +1589,13 @@ async function dlRequest(email) {
       setTimeout(() => $("dlCode").focus(), 200);
       return;
     }
-    $("dlErr1").textContent = I18N[LANG][s === 429 ? "dl_err_many" : "dl_err_mail"];
-  } catch (_e) { $("dlErr1").textContent = I18N[LANG].dl_err_net; }
-  finally { btn.disabled = false; }
+    // la porte est là pour recueillir des e-mails, jamais pour bloquer le
+    // produit : si NOTRE serveur est en panne (5xx), on ouvre le téléchargement
+    if (s >= 500) { dlGo(null); return; }
+    err.textContent = I18N[LANG][s === 429 ? "dl_err_many" : "dl_err_mail"];
+    if (resend) dlCooldown();          // échec compris : pas de martelage
+  } catch (_e) { dlGo(null); }         // réseau/extension bloquante → direct
+  finally { if (!resend) btn.disabled = false; }
 }
 $("dlForm1").onsubmit = (e) => {
   e.preventDefault();
@@ -1594,7 +1605,7 @@ $("dlForm1").onsubmit = (e) => {
   }
   dlRequest(email);
 };
-$("dlResend").onclick = () => { if (dlEmailV) dlRequest(dlEmailV); };
+$("dlResend").onclick = () => { if (dlEmailV) dlRequest(dlEmailV, true); };
 $("dlForm2").onsubmit = async (e) => {
   e.preventDefault();
   const code = $("dlCode").value.trim();
@@ -1604,8 +1615,11 @@ $("dlForm2").onsubmit = async (e) => {
   try {
     const { s, d } = await dlPost("/verify", { email: dlEmailV, code, lang: LANG });
     if (d && d.ok) { dlGo(d.url); return; }
+    // 429 ici = code verrouillé après 5 essais → renvoyer un code règle tout
+    // de suite (les codes expirent en 15 min — pas « une heure ») ; 5xx = notre
+    // panne, pas la sienne
     const k = d && d.error === "expired" ? "dl_err_exp"
-      : s === 429 ? "dl_err_many" : "dl_err_bad";
+      : s === 429 ? "dl_err_lock" : s >= 500 ? "dl_err_net" : "dl_err_bad";
     $("dlErr2").textContent = I18N[LANG][k];
   } catch (_e) { $("dlErr2").textContent = I18N[LANG].dl_err_net; }
   finally { btn.disabled = false; }
