@@ -588,16 +588,21 @@ class Pill(threading.Thread):
 
         def toggle_engine():
             if cloud.get() and not licensing.has("cloud_stt"):
-                cloud.set(False)                # cloud réservé à Pro
+                cloud.set(False)                # Turbo réservé à Ultra
                 return
             stt = dict(core.CFG.get("stt", {}))
             stt["cloud_enabled"] = bool(cloud.get())
             core.save_config({"stt": stt})
-        tk.Checkbutton(eng, text="Turbo (plus rapide, via le réseau) — sinon "
-                       "Intelligence privée", variable=cloud, command=toggle_engine,
-                       bg=SET_BG, fg=SET_FG, selectcolor=SET_INSET,
-                       activebackground=SET_BG, activeforeground=SET_FG,
-                       relief="flat").pack(anchor="w")
+        can_turbo = licensing.has("cloud_stt")
+        cb_cloud = tk.Checkbutton(
+            eng, text="Turbo (plus rapide, via le réseau) — sinon "
+            "Intelligence privée"
+            + ("" if can_turbo else "   — NÉCESSITE NOVA ULTRA"),
+            variable=cloud, command=toggle_engine,
+            bg=SET_BG, fg=SET_FG, selectcolor=SET_INSET,
+            activebackground=SET_BG, activeforeground=SET_FG, relief="flat")
+        cb_cloud.pack(anchor="w")
+        _lock(can_turbo, cb_cloud)
 
         # démarrage avec Windows : lit et écrit directement la clé Run (même
         # entrée que la case de l'installeur) — pas de copie dans config.json
@@ -1140,7 +1145,7 @@ def _toggle_cloud():
     par défaut, cloud proposé jamais imposé)."""
     stt = dict(core.CFG.get("stt", {}))
     to_cloud = not stt.get("cloud_enabled")
-    if to_cloud and not licensing.has("cloud_stt"):   # cloud réservé aux payants
+    if to_cloud and not licensing.has("cloud_stt"):   # Turbo réservé à Ultra
         pill.show("error", "Turbo réservé à Pro", "La vitesse maximale, via le réseau")
         pill.hide(2.2)
         return

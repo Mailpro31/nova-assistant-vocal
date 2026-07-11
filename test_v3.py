@@ -397,12 +397,14 @@ def test_licensing():
     check("free : pas de cloud", L.has("cloud_stt", L.FREE), False)
     check("free : dictée locale de base ok", L.has("cloud_stt", L.FREE) is False
           and L.mode_allowed("email", L.FREE), True)
-    check("pro : tout l'usage débloqué", L.has("cloud_stt", L.PRO), True)
+    check("pro : tout l'usage débloqué", L.has("unlimited_stt", L.PRO), True)
+    check("pro : pas de Turbo (Ultra only)", L.has("cloud_stt", L.PRO), False)
     check("pro : pas la perso Ultra", L.has("custom_modes", L.PRO), False)
     check("pro : pas la meilleure IA", L.has("best_models", L.PRO), False)
+    check("ultra : Turbo débloqué", L.has("cloud_stt", L.ULTRA), True)
     check("ultra : meilleure IA", L.has("best_models", L.ULTRA), True)
     check("ultra : personnalisation", L.has("orb_customization", L.ULTRA), True)
-    check("business = niveau Pro (fonctions)", L.has("cloud_stt", L.BUSINESS),
+    check("business = niveau Pro (fonctions)", L.has("unlimited_stt", L.BUSINESS),
           True)
     check("business : pas la perso Ultra", L.has("custom_modes", L.BUSINESS),
           False)

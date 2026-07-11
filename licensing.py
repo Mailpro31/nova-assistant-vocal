@@ -9,8 +9,8 @@ détient, cf. `tools/mint_license.py`).
 Paliers :
   • FREE     — dictée locale, quota ~2500 caractères transcrits / semaine.
   • PRO      — tout l'usage quotidien débloqué, transcription illimitée.
-  • ULTRA    — Pro + meilleure IA/qualité + personnalisation (couleurs, noms…)
-               + nouveautés en avant-première.
+  • ULTRA    — Pro + Turbo (moteur en ligne) + meilleure IA + personnalisation
+               (couleurs, noms…) + nouveautés en avant-première.
   • BUSINESS — mêmes fonctions que Pro, licence multi-postes (`seats`), tarif
                par siège plus bas (abonnement équipe).
 
@@ -51,7 +51,7 @@ FREE_WEEKLY_CHARS = 2500
 # Fonctionnalité → palier minimum requis. (Ajuster ici = changer l'offre.)
 FEATURES = {
     # toutes les langues sont offertes en Gratuit (choix produit) — non gaté
-    "cloud_stt":         PRO,     # transcription cloud (Groq)
+    "cloud_stt":         ULTRA,   # Turbo (transcription cloud Groq) — Ultra only
     "all_modes":         PRO,     # les 7 modes (Free en a 3)
     "custom_variables":  PRO,     # Custom Variables
     "power_profiles":    PRO,     # profils Élevé / Ultra (Free : Normal)
