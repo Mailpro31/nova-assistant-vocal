@@ -45,15 +45,15 @@ async function verifyToken(tok: string): Promise<Record<string, unknown> | null>
         "=".repeat((4 - s.length % 4) % 4)),
       (c) => c.charCodeAt(0),
     );
-  const payload = un64(m[1]), sig = un64(m[2]);
-  let okSig = false;
+  // décodage + vérif + parse sous une seule garde : un segment base64 ou un
+  // JSON invalide renvoie null (→ 401), jamais une exception non gérée (→ 500)
   try {
-    okSig = await ed.verifyAsync(sig, payload, PUB_BYTES);
+    const payload = un64(m[1]), sig = un64(m[2]);
+    if (!(await ed.verifyAsync(sig, payload, PUB_BYTES))) return null;
+    return JSON.parse(new TextDecoder().decode(payload));
   } catch {
-    okSig = false;
+    return null;
   }
-  if (!okSig) return null;
-  try { return JSON.parse(new TextDecoder().decode(payload)); } catch { return null; }
 }
 
 let groqKey = "";
@@ -110,15 +110,12 @@ Deno.serve(async (req: Request) => {
       headers: { Authorization: `Bearer ${key}` },
       body: form,
     });
-    if (!r.ok) return json(502, { ok: false, error: `stt ${r.status}` });
+    if (!r.ok) return json(502, { ok: false, error: "Turbo momentanément indisponible." });
     const text = ((await r.json()).text || "").trim();
 
-    // usage compté après succès (un échec fournisseur ne consomme pas le quota)
-    await supa.from("turbo_usage").upsert(
-      { machine_hash: machine, day: today, seconds: used + seconds,
-        updated_at: new Date().toISOString() },
-      { onConflict: "machine_hash,day" },
-    );
+    // usage compté après succès (un échec fournisseur ne consomme pas le quota),
+    // via un incrément ATOMIQUE en base — pas de perte de mise à jour concurrente
+    await supa.rpc("turbo_consume", { p_machine: machine, p_seconds: seconds });
     return json(200, { ok: true, text });
   } catch (e) {
     console.error("turbo error", e);

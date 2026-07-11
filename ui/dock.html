@@ -128,7 +128,11 @@
   .meter i{display:block;height:100%;background:#0A84FF;border-radius:3px}
   .badge-lock{font-size:10px;font-weight:700;color:#c9b6f0;background:rgba(150,120,220,.16);
     border:1px solid rgba(150,120,220,.32);padding:2.5px 8px;border-radius:999px;letter-spacing:.4px}
-  .locked .row .r{opacity:.35;pointer-events:none}
+  /* bloc gaté : tout le sous-arbre grisé et inerte (contrôles ET champs de
+     formulaire, qui ne sont pas tous dans .r) — l'UI ne « ment » pas */
+  .locked{opacity:.4;pointer-events:none}
+  .locked input,.locked textarea,.locked select{pointer-events:none}
+  .navempty{padding:16px 10px;font-size:12px;color:#7c7c84;text-align:center;line-height:1.5}
   .err{color:#ff8a80;font-size:11.5px;margin:6px 4px 0}
   .mono{font-family:"SF Mono","Liberation Mono",Menlo,Consolas,monospace}
   .radio{width:16px;height:16px;border-radius:50%;border:1.5px solid #6a6a70;flex:none;position:relative}
@@ -167,7 +171,10 @@
   </div>
 
 <script>
-function api(m){try{return Promise.resolve(window.pywebview.api[m].apply(null,[].slice.call(arguments,1)));}
+// tout appel au pont résout TOUJOURS (null en cas d'échec) — jamais de rejet
+// non rattrapé : un except Python imprévu ne doit pas figer l'UI (ex. engrenage)
+function api(m){try{return Promise.resolve(window.pywebview.api[m].apply(null,[].slice.call(arguments,1)))
+    .catch(function(){return null;});}
   catch(e){return Promise.resolve(null);}}
 let S={modes:[],profiles:[],languages:[],mode:'auto',ptt_key:'f9',language:'fr',cloud_enabled:false,autostart:false,
   personal:{},custom_vars:[],hardware:{},tier:'free',lic:null,perso:{},custom_modes:[],
@@ -203,7 +210,7 @@ const CHK='<svg viewBox="0 0 24 24"><path d="M5 12l4 4 10-11"/></svg>';
 function renderModes(){const box=document.getElementById('modes');box.innerHTML='';
   S.modes.forEach(m=>{const r=document.createElement('div');r.className='mrow'+(S.mode===m.id?' act':'');
     r.innerHTML='<div class="mg" style="background:'+(MC[m.id]||'#AEBEEC')+'"><svg viewBox="0 0 24 24">'+
-      (MI[m.id]||'<circle cx="12" cy="12" r="4"/>')+'</svg></div><span>'+m.label+'</span>'+
+      (MI[m.id]||'<circle cx="12" cy="12" r="4"/>')+'</svg></div><span>'+esc(m.label)+'</span>'+
       (S.mode===m.id?'<span class="chk">'+CHK+'</span>':'');
     r.onclick=()=>{S.mode=m.id;api('set_mode',m.id);box.classList.remove('on');api('panel','modes',false);renderModes();};box.appendChild(r);});}
 
@@ -226,16 +233,22 @@ const NAV=[
  ['infos','Mes infos','#4cd472,#2aa84f','<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 5-6 8-6s6.5 2 8 6"/>']];
 const TIERS={free:'Gratuit',pro:'Pro',ultra:'Ultra',business:'Business'};
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+// « général » trouve « Général » : on retire les accents pour comparer
+function _noAccent(s){return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
 function buildSidebar(){
   document.getElementById('meName').textContent=S.custom_name||'Nova';
   document.getElementById('meTier').textContent='Palier '+(TIERS[(S.lic&&S.lic.tier)||S.tier]||'Gratuit');
-  const q=(document.getElementById('searchIn').value||'').toLowerCase();
-  const nl=document.getElementById('navList');nl.innerHTML='';
+  const q=_noAccent(document.getElementById('searchIn').value);
+  const nl=document.getElementById('navList');nl.innerHTML='';let shown=0;
   NAV.forEach(([id,label,grad,icon])=>{
-    if(q&&!label.toLowerCase().includes(q))return;
+    if(q&&!_noAccent(label).includes(q))return;
+    shown++;
     const d=document.createElement('div');d.className='nitem'+(CAT===id?' on':'');
-    d.innerHTML='<span class="nic" style="background:linear-gradient(180deg,'+grad+')"><svg viewBox="0 0 24 24">'+icon+'</svg></span>'+label;
+    d.innerHTML='<span class="nic" style="background:linear-gradient(180deg,'+grad+')"><svg viewBox="0 0 24 24">'+icon+'</svg></span>'+esc(label);
     d.onclick=()=>{CAT=id;buildSidebar();buildPane();};nl.appendChild(d);});
+  if(!shown){const e=document.createElement('div');e.className='navempty';
+    e.textContent='Aucun réglage pour « '+document.getElementById('searchIn').value+' »';
+    nl.appendChild(e);}
 }
 document.getElementById('searchIn').addEventListener('input',buildSidebar);
 
@@ -248,24 +261,36 @@ function buildPane(){
   ({general:paneGeneral,abo:paneAbo,perso:panePerso,cmodes:paneCModes,
     lang:paneLang,infos:paneInfos}[CAT]||paneGeneral)(document.getElementById('pane'));
 }
-// confirmation façon macOS (promesse) — utilisée avant les actions à impact
-function askConfirm(title,body,ok,cancel){return new Promise(res=>{
-  const m=document.createElement('div');m.className='cmask';
-  m.innerHTML='<div class="cbox"><b>'+title+'</b><p>'+body+'</p><div class="cbtns">'+
-    '<button class="btn sec" id="cNo">'+cancel+'</button>'+
-    '<button class="btn" id="cYes">'+ok+'</button></div></div>';
-  document.body.appendChild(m);
-  const done=v=>{m.remove();res(v);};
-  m.querySelector('#cNo').onclick=()=>done(false);
-  m.querySelector('#cYes').onclick=()=>done(true);
-  m.onclick=e=>{if(e.target===m)done(false);};
-});}
+// confirmation façon macOS (promesse) — utilisée avant les actions à impact.
+// Réentrance verrouillée : une seule modale à la fois (un 2e appel résout
+// « annulé » sans empiler) ; Échap annule ; clic sur le fond annule.
+let _confirmOpen=false;
+function askConfirm(title,body,ok,cancel){
+  if(_confirmOpen)return Promise.resolve(false);
+  _confirmOpen=true;
+  return new Promise(res=>{
+    const m=document.createElement('div');m.className='cmask';
+    m.innerHTML='<div class="cbox"><b>'+esc(title)+'</b><p>'+esc(body)+'</p><div class="cbtns">'+
+      '<button class="btn sec" id="cNo">'+esc(cancel)+'</button>'+
+      '<button class="btn" id="cYes">'+esc(ok)+'</button></div></div>';
+    document.body.appendChild(m);
+    const done=v=>{m.remove();document.removeEventListener('keydown',onKey);
+      _confirmOpen=false;res(v);};
+    const onKey=e=>{if(e.key==='Escape')done(false);
+      else if(e.key==='Enter')done(true);};
+    document.addEventListener('keydown',onKey);
+    m.querySelector('#cNo').onclick=()=>done(false);
+    m.querySelector('#cYes').onclick=()=>done(true);
+    m.onclick=e=>{if(e.target===m)done(false);};
+    m.querySelector('#cYes').focus();
+  });
+}
 
 function paneGeneral(p){
   const hw=S.hardware||{};
   let profs='';
   (S.profiles||[]).forEach(pr=>{profs+='<div class="row prow'+(pr.locked?' dis':'')+(S.profile===pr.id?' sel':'')+
-    '" data-id="'+pr.id+'" data-lock="'+(pr.locked?1:0)+'" style="cursor:pointer"><span class="radio"></span><div class="l"><b>'+esc(pr.label)+'</b>'+
+    '" data-id="'+esc(pr.id)+'" data-lock="'+(pr.locked?1:0)+'"'+(pr.locked?'':' style="cursor:pointer"')+'><span class="radio"></span><div class="l"><b>'+esc(pr.label)+'</b>'+
     (pr.locked?'<small>'+esc(pr.reason)+'</small>':(pr.warning?'<small>'+esc(pr.warning)+'</small>':''))+'</div></div>';});
   // Turbo est un privilège Ultra : capacité fournie par licensing via _state
   // (S.perso.turbo) — le JS ne ré-encode pas la règle de palier
@@ -291,13 +316,29 @@ function paneGeneral(p){
         'Activer Turbo','Rester en privé');
       if(!ok)return;
     }
-    api('toggle_cloud').then(on=>{S.cloud_enabled=!!on;
-    document.getElementById('swCloud').className='sw'+(on?' on':'');});};
-  document.getElementById('swAuto').onclick=()=>{const want=!document.getElementById('swAuto').classList.contains('on');
+    const on=await api('toggle_cloud');S.cloud_enabled=!!on;
+    const sw=document.getElementById('swCloud');   // garde : l'utilisateur a pu changer de pane
+    if(sw)sw.className='sw'+(on?' on':'');};
+  document.getElementById('swAuto').onclick=()=>{const el=document.getElementById('swAuto');
+    const want=!el.classList.contains('on');
     api('set_autostart',want).then(on=>{S.autostart=!!on;      // état réel du registre
-      document.getElementById('swAuto').className='sw'+(on?' on':'');});};
-  document.getElementById('pttIn').addEventListener('keydown',e=>{e.preventDefault();
-    const k=(e.key||'').toLowerCase();if(k){e.target.value=k;S.ptt_key=k;api('set_ptt_key',k);}});
+      const s=document.getElementById('swAuto');if(s)s.className='sw'+(on?' on':'');});};
+  // capture de la touche de dictée : Tab déplace le focus (pas de piège), Échap
+  // annule ; les noms DOM sont traduits vers les noms de la lib clavier, et on ne
+  // lie QUE des touches reconnues (sinon la lib échoue en silence → dictée morte)
+  document.getElementById('pttIn').addEventListener('keydown',e=>{
+    const raw=e.key||'';
+    if(raw==='Tab')return;                       // laisse la tabulation naviguer
+    e.preventDefault();
+    if(raw==='Escape'){e.target.blur();return;}  // annule la capture, ne lie rien
+    const MAP={'arrowleft':'left','arrowright':'right','arrowup':'up','arrowdown':'down',
+      ' ':'space','spacebar':'space','control':'ctrl','pageup':'page up','pagedown':'page down',
+      'meta':'windows','os':'windows','contextmenu':'menu'};
+    let k=raw.toLowerCase();k=MAP[k]||k;
+    const OK=['left','right','up','down','space','ctrl','alt','shift','enter','home',
+      'end','delete','insert','page up','page down','windows','menu','backspace'];
+    if(k.length===1||/^f\d{1,2}$/.test(k)||OK.indexOf(k)>=0){
+      e.target.value=k;S.ptt_key=k;api('set_ptt_key',k);}});
   document.getElementById('updBtn').onclick=()=>api('check_update');
   p.querySelectorAll('.prow').forEach(d=>{if(d.dataset.lock==='1')return;
     d.onclick=()=>api('set_profile',d.dataset.id).then(a=>{S.profile=a||d.dataset.id;buildPane();});});
@@ -338,16 +379,19 @@ function paneAbo(p){
    +G('Votre semaine','<div class="row"><div class="l"><b>Temps de frappe évité</b>'+
       '<small id="wkSub">Calcul…</small></div><div class="r"><span class="val" id="wkVal" style="color:#30d158;font-weight:600">—</span></div></div>',
       'Estimation : parler est environ trois fois plus rapide que taper.');
-  api('week_stats').then(w=>{if(!w)return;
+  api('week_stats').then(w=>{w=w||{};
     const v=document.getElementById('wkVal'),s=document.getElementById('wkSub');
     if(v)v.textContent='≈ '+(w.minutes||0)+' min';
     if(s)s.textContent=(w.count||0)+' dictées · '+(w.chars||0)+' caractères';});
   const go=document.getElementById('goUltra');if(go)go.onclick=()=>{const k=document.getElementById('licKey');if(k)k.focus();};
   const lg=document.getElementById('licGo');if(lg)lg.onclick=()=>{
-    const k=(document.getElementById('licKey').value||'').trim();if(!k)return;
+    const ki=document.getElementById('licKey');const k=(ki&&ki.value||'').trim();if(!k)return;
     api('activate_license',k).then(r=>{
-      if(r&&r.ok){api('license_status').then(ls=>{if(ls){S.lic=ls;S.tier=ls.tier||S.tier;}buildSidebar();buildPane();});}
-      else{const e=document.getElementById('licErr');e.style.display='';e.textContent=(r&&r.error)||'Clé invalide.';}});};
+      if(r&&r.ok){api('license_status').then(ls=>{
+        // rafraîchit palier ET capacités → l'UI se déverrouille sans redémarrage
+        if(ls){S.lic=ls;S.tier=ls.tier||S.tier;if(ls.perso)S.perso=ls.perso;}
+        buildSidebar();buildPane();});}
+      else{const e=document.getElementById('licErr');if(e){e.style.display='';e.textContent=(r&&r.error)||'Clé invalide.';}}});};
 }
 
 const ORBCHOICES=[['','Nova (défaut)','#AEBEEC'],['#E8A0C0','Rose pastel','#E8A0C0'],
@@ -379,9 +423,10 @@ function panePerso(p){
   const paint=v=>{dot.style.background=(choices.find(o=>o[0]===v)||choices[0])[2];};
   paint(cur);
   if(!ok)return;
-  document.getElementById('swAI').onclick=()=>{const on=!document.getElementById('swAI').classList.contains('on');
+  document.getElementById('swAI').onclick=()=>{const el=document.getElementById('swAI');
+    const on=!el.classList.contains('on');
     api('set_best_ai',on).then(r=>{if(!(r&&r.ok===false)){S.best_ai=on;
-      document.getElementById('swAI').className='sw'+(on?' on':'');}});};
+      const s=document.getElementById('swAI');if(s)s.className='sw'+(on?' on':'');}});};
   document.getElementById('orbSel').onchange=e=>{const v=e.target.value;S.orb_color=v;paint(v);
     applyOrbColor(v);api('set_orb_color',v);};
   const ni=document.getElementById('nameIn');

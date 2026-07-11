@@ -810,13 +810,22 @@ const keycap = $("keycap"), garble = $("garble"), result = $("result"),
       bubble = $("bubble"), pill = $("statepill"), stateTxt = $("stateTxt"),
       hint = $("hint"), hero = document.querySelector(".hero");
 let holding = false, wordTimer = null, wi = 0, typeTimer = null, resetTimer = null,
-    typingActive = false;
+    suckTimer = null, typingActive = false, demoClean = "";
+
+// annule TOUT timer de la démo — indispensable pour que re-presser la touche
+// (double-tap) n'orpheline pas le setTimeout « suck » et ne laisse pas deux
+// intervalles de frappe tourner en parallèle (bip continu + démo figée)
+function clearDemoTimers() {
+  clearInterval(wordTimer); clearInterval(typeTimer);
+  clearTimeout(resetTimer); clearTimeout(suckTimer);
+  typingActive = false;
+}
 
 function startHold(e) {
   if (holding) return;
   if (e && e.cancelable) e.preventDefault();
   holding = true; wi = 0;
-  clearTimeout(resetTimer); clearInterval(typeTimer);
+  clearDemoTimers();                          // repart d'un état propre
   hero.classList.add("listening"); keycap.classList.add("down");
   sndDown();
   ampT = 1.3;
@@ -824,8 +833,8 @@ function startHold(e) {
   garble.classList.remove("suck"); garble.innerHTML = "";
   pill.classList.add("on"); stateTxt.textContent = I18N[LANG]._listen;
   hint.style.opacity = ".35";
-  const W = I18N[LANG]._words;
   const addWord = () => {
+    const W = I18N[LANG]._words;               // lu à chaque mot → suit la langue
     if (wi >= W.length) return;
     amp = Math.min(1.4, amp + 0.3);            // l'orbe pulse à chaque mot
     const s = document.createElement("span");
@@ -841,32 +850,35 @@ function endHold() {
   holding = false;
   hero.classList.remove("listening"); keycap.classList.remove("down");
   sndUp();
-  clearInterval(wordTimer);
+  clearInterval(wordTimer); clearTimeout(suckTimer);
   ampT = 0;
   stateTxt.textContent = I18N[LANG]._write;
   garble.classList.add("suck");                    // les mots filent vers l'orbe
-  setTimeout(() => {
+  suckTimer = setTimeout(() => {
     garble.innerHTML = "";
     result.classList.add("on");
-    const C = I18N[LANG]._clean;
+    demoClean = I18N[LANG]._clean;                 // cible mutable : applyLang la met à jour
     let i = 0;
     typingActive = true;
-    typeTimer = setInterval(() => {
-      bubble.innerHTML = C.slice(0, ++i) + '<span class="caret"></span>';
-      if (i >= C.length) {
-        clearInterval(typeTimer);
+    clearInterval(typeTimer);
+    const myType = setInterval(() => {              // handle local → on clôt le BON intervalle
+      bubble.innerHTML = demoClean.slice(0, ++i) + '<span class="caret"></span>';
+      if (i >= demoClean.length) {
+        clearInterval(myType);
         typingActive = false;
-        bubble.textContent = C;
+        bubble.textContent = demoClean;
         sndDone();
         pill.classList.remove("on");
         hint.innerHTML = I18N[LANG]._hint_done;
         hint.style.opacity = "1";
+        clearTimeout(resetTimer);
         resetTimer = setTimeout(() => {
           result.classList.remove("on");
           hint.innerHTML = I18N[LANG].hint_idle;
         }, 6000);
       }
     }, RM ? 0 : 16);
+    typeTimer = myType;
   }, RM ? 0 : 480);
 }
 keycap.addEventListener("pointerdown", startHold);
@@ -1098,7 +1110,9 @@ function applyLang(l) {
   });
   // ne pas écraser l'état de la démo en cours : indice, pilule et bulle
   if (pill.classList.contains("on")) stateTxt.textContent = holding ? d._listen : d._write;
-  if (result.classList.contains("on") && !typingActive) {
+  if (typingActive) {
+    demoClean = d._clean;         // frappe en cours → la cible suit la langue
+  } else if (result.classList.contains("on")) {
     bubble.textContent = d._clean;
     hint.innerHTML = d._hint_done;
   }

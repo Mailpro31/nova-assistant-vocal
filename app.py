@@ -834,6 +834,17 @@ class WebDock:
             pass
 
 
+def _perso_caps():
+    """Capacités du palier (licensing = seule autorité) — le JS ne compare
+    jamais un tier en dur. Source UNIQUE, partagée par state() et
+    license_status() pour que l'UI se déverrouille dès l'activation."""
+    return {"orb": licensing.has("orb_customization"),
+            "name": licensing.has("custom_naming"),
+            "modes": licensing.has("custom_modes"),
+            "best_ai": licensing.has("best_models"),
+            "turbo": licensing.has("cloud_stt")}
+
+
 class DockApi:
     """Pont JS → Python du dock. Chaque méthode réutilise EXACTEMENT la logique
     du tray / des Réglables tkinter (aucune règle de configuration dupliquée)."""
@@ -853,19 +864,13 @@ class DockApi:
             "profile": STATE.get("profile", power_profiles.DEFAULT_ID),
             "ptt_key": core.CFG.get("ptt_key", "f9"),
             "language": core.CFG.get("language", "fr"),
-            "cloud_enabled": bool(core.CFG.get("stt", {}).get("cloud_enabled")),
+            "cloud_enabled": bool((core.CFG.get("stt") or {}).get("cloud_enabled")),
             "autostart": winext.get_autostart(),
             "personal": core.personal_info(),
             "custom_vars": [{"trigger": t, "value": v}
                             for t, v in core.custom_variables()],
             "tier": licensing.status()["tier"],
-            "perso": {"orb": licensing.has("orb_customization"),
-                      "name": licensing.has("custom_naming"),
-                      "modes": licensing.has("custom_modes"),
-                      "best_ai": licensing.has("best_models"),
-                      # capacité calculée ici (licensing = seule autorité de
-                      # palier) : le JS ne compare jamais un tier en dur
-                      "turbo": licensing.has("cloud_stt")},
+            "perso": _perso_caps(),
             "orb_color": core.CFG.get("orb_color", ""),
             "custom_name": core.CFG.get("custom_name", ""),
             "custom_modes": core.CFG.get("custom_modes") or [],
@@ -938,9 +943,12 @@ class DockApi:
         return core.save_custom_variables(items or [])
 
     def license_status(self):
-        """Palier + quota courant, pour l'écran de licence du dock."""
+        """Palier + quota + capacités, pour l'écran de licence du dock. Les
+        capacités permettent au dock de déverrouiller l'UI dès l'activation,
+        sans redémarrage (perso/cmodes/Turbo)."""
         st = licensing.status()
         st["quota"] = licensing.quota_status()
+        st["perso"] = _perso_caps()
         return st
 
     def week_stats(self):

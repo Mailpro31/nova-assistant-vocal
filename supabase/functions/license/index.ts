@@ -67,6 +67,9 @@ const json = (code: number, body: unknown) =>
 async function activate(req: Request): Promise<Response> {
   let body: { key?: string; machine?: string };
   try { body = await req.json(); } catch { return json(400, { ok: false, error: "Requête invalide." }); }
+  if (!body || typeof body !== "object") {   // JSON « null »/scalaire → pas un objet
+    return json(400, { ok: false, error: "Requête invalide." });
+  }
   const key = (body.key || "").trim().toUpperCase();
   const machine = (body.machine || "").trim().toLowerCase();
   if (!/^NOVA-[A-Z0-9-]{8,40}$/.test(key) || !/^[a-f0-9]{16,64}$/.test(machine)) {

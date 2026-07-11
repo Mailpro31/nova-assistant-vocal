@@ -40,8 +40,9 @@ def best_local_llm(ram_gb=None):
     hw = detect_hardware() if ram_gb is None else {"ram_total_gb": ram_gb}
     return get_profile(recommended_id(hw))["llm"]
 
-# marge de sécurité : on ne débloque un profil que si la RAM totale dépasse son
-# minimum d'au moins cette marge (évite le cas « pile à la limite » qui swappe)
+# tolérance : on débloque un profil dès que la RAM totale atteint son minimum
+# à cette marge près en DESSOUS (16 Go débloque Élevé/16 ; évite le rejet d'une
+# machine « pile à la limite » où psutil rapporte 15,9 « Go »)
 _RAM_MARGIN_GB = 0.5
 
 _LOCK_MSG = "Nécessite plus de mémoire"
@@ -103,7 +104,11 @@ def evaluate(hw):
     has_gpu = hw.get("has_gpu", False)
     out = []
     for p in PROFILES:
-        locked = ram + _RAM_MARGIN_GB < p["min_ram_gb"]
+        # le profil plancher (le plus léger) n'est JAMAIS verrouillé : c'est la
+        # base sûre garantie, il n'existe rien de plus léger vers quoi replier.
+        # Invariant : safe_selection() renvoie toujours un profil débloqué.
+        locked = (p["id"] != DEFAULT_ID
+                  and ram + _RAM_MARGIN_GB < p["min_ram_gb"])
         reason = _LOCK_MSG if locked else ""
         warning = ""
         if not locked:
