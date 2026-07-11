@@ -541,6 +541,51 @@
   .wlnote.ok b{font-weight:600}
   .wlnote.err{color:#FF6B64}
 
+  /* --------------------------------- porte e-mail du téléchargement ------ */
+  .dlov{position:fixed;inset:0;z-index:80;display:flex;align-items:center;
+    justify-content:center;padding:20px;background:rgba(0,0,0,.55);
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    opacity:0;pointer-events:none;transition:opacity .3s var(--ease)}
+  .dlov.on{opacity:1;pointer-events:auto}
+  .dlbox{position:relative;width:min(420px,94vw);background:var(--card);
+    border:1px solid var(--line);border-radius:16px;padding:36px 34px 30px;
+    text-align:center;box-shadow:0 40px 120px rgba(0,0,0,.55);
+    transform:translateY(16px) scale(.97);transition:transform .35s var(--spring)}
+  .dlov.on .dlbox{transform:none}
+  .dlx{position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:50%;
+    border:1px solid var(--line);background:transparent;cursor:pointer;color:var(--mut);
+    display:flex;align-items:center;justify-content:center;transition:color .2s,background .2s}
+  .dlx:hover{color:var(--txt);background:rgba(127,127,127,.12)}
+  .dlx svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;
+    stroke-linecap:round}
+  .dldot{width:30px;height:30px;border-radius:50%;margin:0 auto 14px;
+    background:radial-gradient(circle at 34% 30%,#fff 0%,#DFE7FA 18%,var(--peri) 45%,var(--peri-d) 72%,#7E92D6 100%);
+    box-shadow:0 0 18px rgba(174,190,236,.55)}
+  .dlbox h3{font-size:19px;font-weight:700;letter-spacing:-.3px}
+  .dlbox .dlp{margin:8px 0 20px;font-size:13px;line-height:1.55;color:var(--mut)}
+  .dlbox .dlp b{color:var(--txt);font-weight:600}
+  .dlrow{display:flex;gap:10px;flex-wrap:wrap}
+  .dlrow input[type=email]{flex:1;min-width:0;background:var(--inset);
+    border:1px solid var(--line);border-radius:10px;padding:13px 15px;font-size:14px;
+    color:var(--txt);font-family:var(--font);outline:none;transition:border-color .2s}
+  .dlrow input[type=email]:focus{border-color:var(--blue)}
+  .dlrow .btn{padding:13px 18px;font-size:14px;flex:none}
+  .dlbox .btn[disabled]{opacity:.55;cursor:default}
+  #dlCode{width:100%;background:var(--inset);border:1px solid var(--line);
+    border-radius:10px;padding:13px;font:700 24px/1 ui-monospace,Menlo,Consolas,monospace;
+    letter-spacing:12px;text-align:center;color:var(--txt);outline:none;
+    transition:border-color .2s}
+  #dlCode:focus{border-color:var(--blue)}
+  #dlStep2 .btn{width:100%;justify-content:center;margin-top:12px}
+  .dlagain{margin-top:14px;font-size:12px;color:var(--mut)}
+  .dlagain button{border:0;background:none;color:var(--blue);font:inherit;
+    cursor:pointer;padding:0}
+  .dlagain button[disabled]{color:var(--mut);cursor:default}
+  .dlnote{margin-top:16px;font-size:11px;line-height:1.5;color:var(--mut)}
+  .dlerr{margin-top:12px;font-size:12.5px;color:#FF6B64;min-height:16px}
+  .dlok{color:var(--ok)!important}
+  [hidden]{display:none!important}   /* les étapes de la modale l'exigent */
+
   /* -------------------------------------------------------- fin ---------- */
   .final{padding:140px 6vw 120px;text-align:center;position:relative}
   .final h2{font-size:clamp(34px,6vw,64px);font-weight:700;letter-spacing:-.04em;line-height:1.05}
@@ -907,6 +952,53 @@
   <span data-t="foot_copy">© 2026 Nova — dictée vocale pour Windows</span>
 </footer>
 
+<!-- porte e-mail du téléchargement gratuit : code de vérification 15 min -->
+<div class="dlov" id="dlov" role="dialog" aria-modal="true" aria-labelledby="dlTitle">
+  <div class="dlbox">
+    <button class="dlx" id="dlClose" aria-label="Fermer">
+      <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    <div class="dldot" aria-hidden="true"></div>
+
+    <div id="dlStep1">
+      <h3 id="dlTitle" data-t="dl_t1">Recevez Nova</h3>
+      <p class="dlp" data-t="dl_p1">Entrez votre e-mail : nous vous envoyons un
+        code de vérification, et le téléchargement démarre.</p>
+      <form class="dlrow" id="dlForm1" novalidate>
+        <input type="email" id="dlEmail" required autocomplete="email"
+          placeholder="votre@email.com" aria-label="Votre adresse e-mail">
+        <input type="text" id="dlSite" name="website" tabindex="-1" autocomplete="off"
+          aria-hidden="true" style="position:absolute;left:-5000px;width:1px;height:1px">
+        <button class="btn" type="submit" data-t="dl_send">Recevoir le code</button>
+      </form>
+      <p class="dlerr" id="dlErr1"></p>
+      <p class="dlnote" data-t="dl_note">Vous recevrez aussi, de loin en loin, les
+        nouveautés de Nova — jamais partagé, désinscription en un clic.</p>
+    </div>
+
+    <div id="dlStep2" hidden>
+      <h3 data-t="dl_t2">Entrez le code</h3>
+      <p class="dlp"><span data-t="dl_p2">Envoyé à</span> <b id="dlMail"></b><br>
+        <span data-t="dl_p2b">Valable 15 minutes.</span></p>
+      <form id="dlForm2" novalidate>
+        <input id="dlCode" inputmode="numeric" autocomplete="one-time-code"
+          maxlength="6" placeholder="••••••" aria-label="Code à 6 chiffres">
+        <button class="btn" type="submit" data-t="dl_verify">Vérifier et télécharger</button>
+      </form>
+      <p class="dlerr" id="dlErr2"></p>
+      <p class="dlagain"><span data-t="dl_again">Rien reçu&nbsp;?</span>
+        <button id="dlResend" type="button" data-t="dl_resend">Renvoyer le code</button></p>
+    </div>
+
+    <div id="dlStep3" hidden>
+      <h3 data-t="dl_t3">C'est parti.</h3>
+      <p class="dlp" data-t="dl_p3">Nova se télécharge. Lancez l'installation,
+        maintenez <b>F9</b>, parlez.</p>
+      <p class="dlnote"><a id="dlFallback" href="#" style="color:var(--blue)"
+        data-t="dl_fallback">Le téléchargement n'a pas démarré ? Cliquez ici.</a></p>
+    </div>
+  </div>
+</div>
+
 <script>
 const RM = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const $ = (id) => document.getElementById(id);
@@ -1238,6 +1330,21 @@ const I18N = {
     wl_ok: "<b>C'est noté.</b> À très vite.",
     wl_bad: "Cette adresse ne semble pas valide.",
     wl_err: "Petit souci de connexion — réessayez dans un instant.",
+    dl_t1: "Recevez Nova",
+    dl_p1: "Entrez votre e-mail : nous vous envoyons un code de vérification, et le téléchargement démarre.",
+    dl_send: "Recevoir le code",
+    dl_note: "Vous recevrez aussi, de loin en loin, les nouveautés de Nova — jamais partagé, désinscription en un clic.",
+    dl_t2: "Entrez le code", dl_p2: "Envoyé à", dl_p2b: "Valable 15 minutes.",
+    dl_verify: "Vérifier et télécharger",
+    dl_again: "Rien reçu&nbsp;?", dl_resend: "Renvoyer le code",
+    dl_t3: "C'est parti.",
+    dl_p3: "Nova se télécharge. Lancez l'installation, maintenez <b>F9</b>, parlez.",
+    dl_fallback: "Le téléchargement n'a pas démarré ? Cliquez ici.",
+    dl_err_mail: "Cette adresse ne semble pas valide.",
+    dl_err_bad: "Code incorrect — vérifiez et réessayez.",
+    dl_err_exp: "Code expiré — renvoyez-en un nouveau.",
+    dl_err_many: "Trop de tentatives — réessayez dans une heure.",
+    dl_err_net: "Petit souci de connexion — réessayez.",
     final_h2: "Votre voix tape plus vite<br>que vos doigts.",
     final_btn: "Télécharger Nova gratuitement",
     foot_demo: "La démo", foot_pricing: "Tarifs", foot_faq: "FAQ",
@@ -1328,6 +1435,21 @@ const I18N = {
     wl_ok: "<b>You're on the list.</b> Talk soon.",
     wl_bad: "That address doesn't look right.",
     wl_err: "Small connection hiccup — try again in a moment.",
+    dl_t1: "Get Nova",
+    dl_p1: "Enter your email: we'll send you a verification code, and your download starts.",
+    dl_send: "Send the code",
+    dl_note: "You'll also get Nova news once in a while — never shared, one-click unsubscribe.",
+    dl_t2: "Enter the code", dl_p2: "Sent to", dl_p2b: "Valid for 15 minutes.",
+    dl_verify: "Verify and download",
+    dl_again: "Nothing yet?", dl_resend: "Resend the code",
+    dl_t3: "Here we go.",
+    dl_p3: "Nova is downloading. Run the installer, hold <b>F9</b>, speak.",
+    dl_fallback: "Download didn't start? Click here.",
+    dl_err_mail: "That address doesn't look right.",
+    dl_err_bad: "Wrong code — check and try again.",
+    dl_err_exp: "Code expired — send a new one.",
+    dl_err_many: "Too many attempts — try again in an hour.",
+    dl_err_net: "Small connection hiccup — try again.",
     final_h2: "Your voice types faster<br>than your fingers.",
     final_btn: "Download Nova for free",
     foot_demo: "The demo", foot_pricing: "Pricing", foot_faq: "FAQ",
@@ -1388,6 +1510,94 @@ $("wlForm").onsubmit = async (e) => {
   }
 };
 
+/* ---------- porte e-mail du téléchargement gratuit (code 15 min) ---------- */
+const DL_API = "https://cvpucqsxgjczkdskohte.supabase.co/functions/v1/download";
+const DL_EXE = "https://github.com/Mailpro31/nova-assistant-vocal/releases/latest/download/Nova-Setup.exe";
+const dlov = $("dlov");
+let dlEmailV = "", dlCdTimer = null, dlDone = false;
+try { dlDone = localStorage.getItem("nova-dl-ok") === "1"; } catch (_e) { /* privé */ }
+function dlStep(n) {
+  $("dlStep1").hidden = n !== 1; $("dlStep2").hidden = n !== 2; $("dlStep3").hidden = n !== 3;
+}
+function dlOpen(e) {
+  if (e) e.preventDefault();
+  $("dlErr1").textContent = ""; $("dlErr2").textContent = "";
+  dlStep(1); dlov.classList.add("on");
+  setTimeout(() => $("dlEmail").focus(), 250);
+}
+function dlHide() { dlov.classList.remove("on"); }
+$("dlClose").onclick = dlHide;
+dlov.addEventListener("click", (e) => { if (e.target === dlov) dlHide(); });
+addEventListener("keydown", (e) => { if (e.key === "Escape") dlHide(); });
+// tous les boutons « Télécharger » passent par la porte — sauf déjà vérifié
+document.querySelectorAll('a[href$="Nova-Setup.exe"]').forEach((a) => {
+  a.addEventListener("click", (e) => { if (!dlDone) dlOpen(e); });
+});
+function dlGo(url) {
+  dlDone = true;
+  try { localStorage.setItem("nova-dl-ok", "1"); } catch (_e) { /* privé */ }
+  $("dlFallback").href = url || DL_EXE;
+  dlStep(3); sndDone();
+  location.href = url || DL_EXE;
+}
+async function dlPost(path, body) {
+  const r = await fetch(DL_API + path, { method: "POST",
+    headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  let d = null; try { d = await r.json(); } catch (_e) { /* corps vide */ }
+  return { s: r.status, d };
+}
+function dlCooldown() {                       // anti-spam du bouton « renvoyer »
+  let left = 30;
+  const b = $("dlResend");
+  b.disabled = true;
+  clearInterval(dlCdTimer);
+  dlCdTimer = setInterval(() => {
+    if (--left <= 0) { clearInterval(dlCdTimer); b.disabled = false; b.textContent = I18N[LANG].dl_resend; }
+    else b.textContent = I18N[LANG].dl_resend + " (" + left + ")";
+  }, 1000);
+}
+async function dlRequest(email) {
+  const btn = $("dlForm1").querySelector(".btn");
+  btn.disabled = true;
+  try {
+    const { s, d } = await dlPost("/code", { email, lang: LANG, website: $("dlSite").value });
+    if (d && d.ok && d.open) { dlGo(d.url); return; }   // e-mail en panne → on ouvre
+    if (d && d.ok) {
+      dlEmailV = email; $("dlMail").textContent = email;
+      $("dlErr2").textContent = ""; $("dlCode").value = "";
+      dlStep(2); dlCooldown();
+      setTimeout(() => $("dlCode").focus(), 200);
+      return;
+    }
+    $("dlErr1").textContent = I18N[LANG][s === 429 ? "dl_err_many" : "dl_err_mail"];
+  } catch (_e) { $("dlErr1").textContent = I18N[LANG].dl_err_net; }
+  finally { btn.disabled = false; }
+}
+$("dlForm1").onsubmit = (e) => {
+  e.preventDefault();
+  const email = $("dlEmail").value.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+    $("dlErr1").textContent = I18N[LANG].dl_err_mail; return;
+  }
+  dlRequest(email);
+};
+$("dlResend").onclick = () => { if (dlEmailV) dlRequest(dlEmailV); };
+$("dlForm2").onsubmit = async (e) => {
+  e.preventDefault();
+  const code = $("dlCode").value.trim();
+  if (!/^\d{6}$/.test(code)) { $("dlErr2").textContent = I18N[LANG].dl_err_bad; return; }
+  const btn = $("dlForm2").querySelector(".btn");
+  btn.disabled = true;
+  try {
+    const { s, d } = await dlPost("/verify", { email: dlEmailV, code, lang: LANG });
+    if (d && d.ok) { dlGo(d.url); return; }
+    const k = d && d.error === "expired" ? "dl_err_exp"
+      : s === 429 ? "dl_err_many" : "dl_err_bad";
+    $("dlErr2").textContent = I18N[LANG][k];
+  } catch (_e) { $("dlErr2").textContent = I18N[LANG].dl_err_net; }
+  finally { btn.disabled = false; }
+};
+
 function applyLang(l) {
   LANG = l;
   const d = I18N[l];
@@ -1416,6 +1626,7 @@ function applyLang(l) {
   $("track").innerHTML = d._track + d._track;   // dupliqué : boucle parfaite
   keycap.setAttribute("aria-label", d._key_aria);
   $("wlEmail").placeholder = d.wl_ph;
+  $("dlEmail").placeholder = d.wl_ph;
   $("langBtn").textContent = l === "fr" ? "EN" : "FR";
   syncBilling();          // ré-applique prix/liens (la passe data-t remet le mensuel)
   const v = $("filmv");
