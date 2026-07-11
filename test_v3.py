@@ -507,6 +507,27 @@ def test_licensing():
                    or {}).get("tier"), "pro")
 
 
+def test_version_sync():
+    """core.APP_VERSION et installer/nova.iss doivent porter la même version :
+    l'updater compare APP_VERSION au tag de release, l'installateur affiche la
+    sienne — une dérive casserait la détection de mise à jour."""
+    print("Version — core.APP_VERSION ↔ installer/nova.iss")
+    import os
+    import re as _re
+    iss = open(os.path.join(os.path.dirname(__file__),
+                            "installer", "nova.iss"), encoding="utf-8").read()
+    m = _re.search(r'#define\s+MyAppVersion\s+"([^"]+)"', iss)
+    check("nova.iss définit MyAppVersion", bool(m), True)
+    check("versions identiques (core ↔ installeur)",
+          m.group(1) if m else "", core.APP_VERSION)
+    import updater as _upd
+    check("updater compare correctement (3.1.0 < 3.2)",
+          _upd._vtuple("v3.2") > _upd._vtuple(core.APP_VERSION), True)
+    check("updater : version identique → pas plus récente",
+          _upd._vtuple(f"v{core.APP_VERSION}") > _upd._vtuple(core.APP_VERSION),
+          False)
+
+
 if __name__ == "__main__":
     test_registry()
     test_auto_resolve()
@@ -517,6 +538,7 @@ if __name__ == "__main__":
     test_stt_language()
     test_format_rules()
     test_licensing()
+    test_version_sync()
     print()
     if _fails:
         print(f"❌ {len(_fails)} échec(s) : {', '.join(_fails)}")

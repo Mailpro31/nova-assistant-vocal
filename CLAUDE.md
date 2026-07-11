@@ -35,10 +35,15 @@ surface existante qui s'en écarte doit y être ramenée.
   parler de « Meilleure IA », « profil de puissance », etc.
 - **Lexique produit (obligatoire dans toute l'UI et le marketing)** : les modes
   de reformulation s'appellent des **« Styles »** ; le moteur local s'appelle
-  **« Intelligence privée »** ; le moteur en ligne s'appelle **« Turbo »**.
+  **« Intelligence privée »** ; le moteur en ligne s'appelle **« Turbo »** ;
+  les trois moteurs d'intelligence (profils de puissance) s'appellent
+  **« Nova Air »** (léger et vif), **« Nova Aura »** (le meilleur équilibre)
+  et **« Nova Apex »** (l'intelligence maximale) — jamais « Normal/Élevé/
+  Ultra » nus (collision avec les plans d'abonnement Pro/Ultra).
   Jamais « cloud », « IA locale » ni « mode » nus dans un texte utilisateur.
-  (Les identifiants techniques — `mode`, `custom_modes`, `cloud_enabled` —
-  ne changent pas : seul le texte visible est rebrandé.)
+  (Les identifiants techniques — `mode`, `custom_modes`, `cloud_enabled`,
+  `normal`/`eleve`/`ultra` — ne changent pas : seul le texte visible est
+  rebrandé.)
 - Textes utilisateur **en français**, ton sobre (pas de superlatifs criards).
 - Fonctionnalité au-dessus du palier : griser les contrôles + badge
   « NÉCESSITE NOVA ULTRA » (`licensing.has(...)` décide).

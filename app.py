@@ -31,6 +31,7 @@ import modes_registry
 import onboarding
 import power_profiles
 import storage
+import updater
 import winext
 
 APP_NAME = "Nova"
@@ -248,10 +249,13 @@ class Pill(threading.Thread):
         cy = self.H // 2
 
         if st == "repos":
-            c.create_oval(20, cy - 5, 30, cy + 5, fill="#3A3D46", outline="")
+            # point-orbe : la bille de verre du site, version tkinter (3 ovales)
+            c.create_oval(18, cy - 7, 32, cy + 7, fill="#7E92D6", outline="")
+            c.create_oval(19, cy - 6, 30, cy + 5, fill="#AEBEEC", outline="")
+            c.create_oval(21, cy - 5, 26, cy, fill="#DFE7FA", outline="")
             label = _mode_label(STATE["mode"])   # gère les modes sur mesure (custom:)
-            c.create_text(44, cy, anchor="w", fill="#6E7280", font=self.font,
-                          text=f"{label} — prêt")
+            c.create_text(44, cy, anchor="w", fill="#7C8398", font=self.font,
+                          text=f"{label} — prête")
             key = (core.CFG.get("ptt_key") or "").upper()
             if key:
                 tw = self.font_badge.measure(key)
@@ -262,15 +266,19 @@ class Pill(threading.Thread):
                               font=self.font_badge, text=key)
 
         elif st == "listening":
+            # barres d'égaliseur périwinkle alternées, bouts ronds — la bulle du site
             for i in range(self.N_BARS):
-                x = 18 + i * 5.6
+                x = 20 + i * 6
                 lv = self.levels[i] if i < len(self.levels) else 0.2
-                hh = max(3, lv * 20)
-                c.create_rectangle(x, cy - hh / 2, x + 3, cy + hh / 2,
-                                   fill=BLUE, outline="")
-            c.create_text(104, cy, anchor="w",
-                          fill="#6E7280" if not self._text else "#ECEFF7",
-                          font=self.font, text=self._text or "Je t'écoute…")
+                hh = max(4, lv * 22)
+                c.create_line(x, cy - hh / 2, x, cy + hh / 2, width=4,
+                              capstyle="round",
+                              fill="#9CC8F0" if i % 2 else "#AEBEEC")
+            c.create_text(112, cy, anchor="w",
+                          fill="#7C8398" if not self._text else "#ECEFF7",
+                          font=self.font, text=self._text or "Nova écoute…")
+            c.create_text(self.W - 20, cy, anchor="e", fill="#7C8398",
+                          font=self.font_small, text="relâchez pour coller")
 
         elif st == "thinking":
             c.create_oval(14, cy - 17, 48, cy + 17, fill="#1E2A3C", outline="")
@@ -627,6 +635,16 @@ class Pill(threading.Thread):
                        activebackground=SET_BG, activeforeground=SET_FG,
                        relief="flat").pack(anchor="w")
 
+        # mises à jour automatiques (updater GitHub Releases, silencieux)
+        autoupd = tk.BooleanVar(value=bool(core.CFG.get("auto_update", True)))
+        tk.Checkbutton(eng, text="Mettre à jour Nova automatiquement",
+                       variable=autoupd,
+                       command=lambda: core.save_config(
+                           {"auto_update": autoupd.get()}),
+                       bg=SET_BG, fg=SET_FG, selectcolor=SET_INSET,
+                       activebackground=SET_BG, activeforeground=SET_FG,
+                       relief="flat").pack(anchor="w")
+
         # « Meilleure IA » (palier Ultra) : meilleur modèle local (selon la RAM)
         # ou cloud (petit modèle rapide et multilingue) pour la reformulation
         can_best = licensing.has("best_models")
@@ -866,6 +884,8 @@ class DockApi:
             "language": core.CFG.get("language", "fr"),
             "cloud_enabled": bool((core.CFG.get("stt") or {}).get("cloud_enabled")),
             "autostart": winext.get_autostart(),
+            "auto_update": bool(core.CFG.get("auto_update", True)),
+            "app_version": core.APP_VERSION,
             "personal": core.personal_info(),
             "custom_vars": [{"trigger": t, "value": v}
                             for t, v in core.custom_variables()],
@@ -881,6 +901,11 @@ class DockApi:
         """Démarrage avec Windows (clé Run HKCU). Renvoie l'état réel."""
         winext.set_autostart(bool(on))
         return winext.get_autostart()
+
+    def set_auto_update(self, on):
+        """Mises à jour automatiques (updater GitHub Releases)."""
+        core.save_config({"auto_update": bool(on)})
+        return bool(core.CFG.get("auto_update", True))
 
     def set_best_ai(self, on):
         """« Meilleure IA » (palier Ultra) : meilleur modèle local/cloud."""
@@ -1126,7 +1151,10 @@ def _on_ptt_release(_e=None):
 
 
 def _rebind_ptt():
-    """(Re)branche la touche push-to-talk d'après la config."""
+    """(Re)branche la touche push-to-talk d'après la config. Accepte une touche
+    seule (« f9 ») ou une combinaison « ctrl+space », « alt+n »… : la dictée
+    démarre quand TOUTES les touches sont enfoncées, s'arrête dès que l'une
+    d'elles est relâchée (même geste maintenir-parler-relâcher)."""
     global _ptt_handles
     for h in _ptt_handles:
         try:
@@ -1135,9 +1163,25 @@ def _rebind_ptt():
             pass
     _ptt_handles = []
     key = core.CFG.get("ptt_key", "f9")
+    parts = [p.strip() for p in str(key).split("+") if p.strip()]
     try:
-        _ptt_handles.append(keyboard.on_press_key(key, _on_ptt_press, suppress=False))
-        _ptt_handles.append(keyboard.on_release_key(key, _on_ptt_release, suppress=False))
+        if len(parts) <= 1:
+            _ptt_handles.append(
+                keyboard.on_press_key(key, _on_ptt_press, suppress=False))
+            _ptt_handles.append(
+                keyboard.on_release_key(key, _on_ptt_release, suppress=False))
+            return
+        def chord_press(_e=None):
+            try:
+                if all(keyboard.is_pressed(p) for p in parts):
+                    _on_ptt_press()
+            except Exception:
+                pass
+        for p in parts:
+            _ptt_handles.append(
+                keyboard.on_press_key(p, chord_press, suppress=False))
+            _ptt_handles.append(
+                keyboard.on_release_key(p, _on_ptt_release, suppress=False))
     except Exception as e:
         core.log_err("ptt_bind", e)
 
@@ -1227,10 +1271,40 @@ def _license_tray_label():
     return f"Version : {st['tier'].capitalize()}"
 
 
-def _check_update():
-    """Ouvre la page des versions (pas de serveur de MàJ dédié pour l'instant)."""
-    import webbrowser
-    webbrowser.open("https://github.com/Mailpro31/nova-assistant-vocal/releases")
+def _check_update(manual=True):
+    """Vraie mise à jour : compare à la dernière release ; si plus récente,
+    télécharge et installe en silencieux puis relance Nova. Feedback dans la
+    pilule/bulle ; jamais bloquant (thread de fond, best-effort)."""
+    def work():
+        info = updater.check_latest()
+        if info and info["newer"]:
+            pill.show("thinking", f"Mise à jour vers {info['version']}…")
+            if not updater.download_and_install():   # False = rien n'est parti
+                if manual:
+                    pill.show("error", "Mise à jour impossible — réessaie plus tard")
+                    pill.hide(2.6)
+                else:
+                    pill.hide(0)
+        elif manual:
+            if info:
+                pill.show("ok", "Nova est à jour", "à jour")
+                pill.hide(2.0)
+            else:
+                pill.show("error", "Impossible de vérifier — hors ligne ?")
+                pill.hide(2.4)
+    threading.Thread(target=work, daemon=True).start()
+
+
+def _auto_update_check():
+    """Au lancement : vérifie en fond (si activé) et met à jour tout seul.
+    6 s de délai pour laisser l'app démarrer et le réseau s'établir."""
+    if not (core.CFG.get("auto_update", True) and updater.is_frozen()):
+        return
+
+    def work():
+        time.sleep(6)
+        _check_update(manual=False)
+    threading.Thread(target=work, daemon=True).start()
 
 
 def _build_tray():
@@ -1318,6 +1392,7 @@ def main():
     STATE["profile"] = core.CFG.get("profile", safe)   # reflète un choix fait dans l'onboarding
 
     integrations.start_connectivity_loop()   # sonde en ligne (active le STT cloud)
+    _auto_update_check()                      # MàJ auto en fond (jamais bloquant)
 
     # abonnement : renouvelle le jeton de licence s'il approche de l'expiration
     # (best-effort, en fond — hors ligne, la période de grâce du jeton suffit)

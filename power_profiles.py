@@ -16,14 +16,17 @@ PURE (matériel en entrée) → testable hors Windows, sur des configs simulées
 #   min_ram_gb  : RAM totale minimale pour tenir le profil sans risque
 #   seq_memory  : décharger le STT avant d'appeler le LLM (petites configs)
 #   prefers_gpu : profil pensé pour une machine à GPU (avertissement sinon)
+# Noms de marque des trois moteurs d'intelligence (lexique produit — voir
+# CLAUDE.md) : Nova Air (léger et vif), Nova Aura (le meilleur équilibre),
+# Nova Apex (l'intelligence maximale). Les ids techniques ne changent pas.
 PROFILES = [
-    {"id": "normal", "label": "Normal", "stt": "small",
+    {"id": "normal", "label": "Nova Air", "stt": "small",
      "llm": "qwen2.5:3b", "min_ram_gb": 4, "seq_memory": True,
      "prefers_gpu": False},
-    {"id": "eleve", "label": "Élevé", "stt": "large-v3-turbo",
+    {"id": "eleve", "label": "Nova Aura", "stt": "large-v3-turbo",
      "llm": "qwen2.5:7b", "min_ram_gb": 16, "seq_memory": True,
      "prefers_gpu": False},
-    {"id": "ultra", "label": "Ultra", "stt": "large-v3",
+    {"id": "ultra", "label": "Nova Apex", "stt": "large-v3",
      "llm": "qwen2.5:14b", "min_ram_gb": 24, "seq_memory": False,
      "prefers_gpu": True},
 ]

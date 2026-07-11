@@ -176,7 +176,7 @@
 function api(m){try{return Promise.resolve(window.pywebview.api[m].apply(null,[].slice.call(arguments,1)))
     .catch(function(){return null;});}
   catch(e){return Promise.resolve(null);}}
-let S={modes:[],profiles:[],languages:[],mode:'auto',ptt_key:'f9',language:'fr',cloud_enabled:false,autostart:false,
+let S={modes:[],profiles:[],languages:[],mode:'auto',ptt_key:'f9',language:'fr',cloud_enabled:false,autostart:false,auto_update:true,app_version:'',
   personal:{},custom_vars:[],hardware:{},tier:'free',lic:null,perso:{},custom_modes:[],
   best_ai:false,orb_color:'',custom_name:''};
 
@@ -307,8 +307,12 @@ function paneGeneral(p){
       '<input class="fieldc mono" id="pttIn" style="width:86px;text-align:center" readonly value="'+esc(S.ptt_key)+'">'),'')
    +G('Profil de puissance',profs,'Machine : '+(hw.ram_total_gb||'?')+' Go de mémoire'+
       (hw.has_gpu?' · '+esc(hw.gpu_name):' · sans accélération graphique')+'. Les profils trop lourds pour cette machine sont verrouillés.')
-   +G('Mises à jour',R('Nova','Vérifier la disponibilité d\'une nouvelle version',
-      '<button class="btn sec" id="updBtn">Rechercher…</button>'),'');
+   +G('Mises à jour',
+      R('Mettre à jour automatiquement','Nova s\'installe tout seul au lancement quand une nouvelle version existe',
+        '<div class="sw'+(S.auto_update?' on':'')+'" id="swUpd"></div>')
+      +R('Rechercher maintenant','Vérifie la disponibilité d\'une nouvelle version',
+        '<button class="btn sec" id="updBtn">Rechercher…</button>'),
+      'Version installée : '+esc(S.app_version||'—')+'.');
   document.getElementById('swCloud').onclick=async()=>{if(!canTurbo)return; // verrou Ultra
     if(!S.cloud_enabled){                       // activation = choix éclairé
       const ok=await askConfirm('Activer Turbo ?',
@@ -338,8 +342,24 @@ function paneGeneral(p){
     const OK=['left','right','up','down','space','ctrl','alt','shift','enter','home',
       'end','delete','insert','page up','page down','windows','menu','backspace'];
     if(k.length===1||/^f\d{1,2}$/.test(k)||OK.indexOf(k)>=0){
+      // combinaison : les modificateurs TENUS se préfixent à la touche pressée
+      // (ex. Ctrl maintenu + Espace → « ctrl+space ») ; un modificateur pressé
+      // seul reste utilisable tel quel (« ctrl »)
+      const MODS=['ctrl','alt','shift','windows'];
+      if(MODS.indexOf(k)<0){
+        const held=[];
+        if(e.ctrlKey)held.push('ctrl');
+        if(e.altKey)held.push('alt');
+        if(e.shiftKey)held.push('shift');
+        if(e.metaKey)held.push('windows');
+        if(held.length)k=held.join('+')+'+'+k;
+      }
       e.target.value=k;S.ptt_key=k;api('set_ptt_key',k);}});
   document.getElementById('updBtn').onclick=()=>api('check_update');
+  document.getElementById('swUpd').onclick=()=>{const el=document.getElementById('swUpd');
+    const want=!el.classList.contains('on');
+    api('set_auto_update',want).then(on=>{S.auto_update=!!on;
+      const s=document.getElementById('swUpd');if(s)s.className='sw'+(on?' on':'');});};
   p.querySelectorAll('.prow').forEach(d=>{if(d.dataset.lock==='1')return;
     d.onclick=()=>api('set_profile',d.dataset.id).then(a=>{S.profile=a||d.dataset.id;buildPane();});});
 }
