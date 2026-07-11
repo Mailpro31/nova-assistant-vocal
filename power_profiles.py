@@ -46,6 +46,7 @@ def best_local_llm(ram_gb=None):
 _RAM_MARGIN_GB = 0.5
 
 _LOCK_MSG = "Nécessite plus de mémoire"
+_LOCK_MSG_SUB = "Nécessite Nova Pro ou Ultra"
 _HEAVY_MSG = "Plus performant, mais plus demandeur en mémoire et processeur."
 _GPU_MSG = ("Optimal avec une carte graphique récente ; "
             "fonctionnera plus lentement sans.")
@@ -97,9 +98,16 @@ def _detect_gpu():
 
 
 # --------------------------------------------------- évaluation (PURE) -------
-def evaluate(hw):
+def evaluate(hw, has_paid=True):
     """matériel → [{id, label, locked, reason, warning}] pour construire l'UI.
-    Fonction pure : aucun effet de bord, testable sur des configs simulées."""
+    Fonction pure : aucun effet de bord, testable sur des configs simulées.
+
+    `has_paid` = l'utilisateur a un abonnement payant (Pro/Ultra). Élevé et Ultra
+    sont des profils payants ; sans abonnement ils sont verrouillés avec le motif
+    « abonnement ». La RAM reste un garde-fou : même abonné, un profil que la
+    machine ne peut pas tenir reste verrouillé (motif « mémoire ») — jamais de
+    saturation. Défaut True → no-op quand `licensing` est dormant (has() partout
+    True), conformément à la règle des gates dormants."""
     ram = hw.get("ram_total_gb", 0.0)
     has_gpu = hw.get("has_gpu", False)
     out = []
@@ -107,9 +115,12 @@ def evaluate(hw):
         # le profil plancher (le plus léger) n'est JAMAIS verrouillé : c'est la
         # base sûre garantie, il n'existe rien de plus léger vers quoi replier.
         # Invariant : safe_selection() renvoie toujours un profil débloqué.
-        locked = (p["id"] != DEFAULT_ID
-                  and ram + _RAM_MARGIN_GB < p["min_ram_gb"])
-        reason = _LOCK_MSG if locked else ""
+        premium = p["id"] != DEFAULT_ID
+        sub_locked = premium and not has_paid
+        ram_locked = premium and ram + _RAM_MARGIN_GB < p["min_ram_gb"]
+        locked = sub_locked or ram_locked
+        # l'abonnement d'abord (c'est l'argument de vente), la RAM en garde-fou
+        reason = _LOCK_MSG_SUB if sub_locked else (_LOCK_MSG if ram_locked else "")
         warning = ""
         if not locked:
             if p["prefers_gpu"] and not has_gpu:
@@ -121,18 +132,18 @@ def evaluate(hw):
     return out
 
 
-def recommended_id(hw):
+def recommended_id(hw, has_paid=True):
     """Meilleur profil que la machine encaisse sans risque (le plus lourd
     débloqué), pour présélectionner un défaut pertinent à la 1re ouverture."""
     best = DEFAULT_ID
-    for ev in evaluate(hw):
+    for ev in evaluate(hw, has_paid):
         if not ev["locked"]:
             best = ev["id"]
     return best
 
 
-def is_available(profile_id, hw):
-    for ev in evaluate(hw):
+def is_available(profile_id, hw, has_paid=True):
+    for ev in evaluate(hw, has_paid):
         if ev["id"] == profile_id:
             return not ev["locked"]
     return False
@@ -143,12 +154,13 @@ def get_profile(profile_id):
     return _BY_ID.get(profile_id) or _BY_ID[DEFAULT_ID]
 
 
-def safe_selection(profile_id, hw):
-    """Profil demandé s'il est sûr sur cette machine, sinon repli sur le plus
-    lourd débloqué. Empêche toute sélection qui planterait (règle absolue)."""
-    if is_available(profile_id, hw):
+def safe_selection(profile_id, hw, has_paid=True):
+    """Profil demandé s'il est disponible (abonnement + RAM), sinon repli sur le
+    plus lourd débloqué. Empêche toute sélection qui planterait (règle absolue)
+    et toute sélection au-dessus du palier."""
+    if is_available(profile_id, hw, has_paid):
         return profile_id
-    return recommended_id(hw)
+    return recommended_id(hw, has_paid)
 
 
 def apply_profile(profile_id, cfg_save):
@@ -166,10 +178,11 @@ def apply_profile(profile_id, cfg_save):
     return p["id"]
 
 
-def select_and_apply(profile_id, cfg_save):
+def select_and_apply(profile_id, cfg_save, has_paid=True):
     """Détecte le matériel, borne la sélection à ce qu'il supporte sans risque
-    et l'applique — la SEULE séquence à appeler pour changer de profil (tray,
-    onboarding, démarrage). Retourne l'id réellement appliqué."""
+    ET au palier d'abonnement, puis l'applique — la SEULE séquence à appeler
+    pour changer de profil (tray, onboarding, démarrage). Retourne l'id
+    réellement appliqué."""
     hw = detect_hardware()
-    safe = safe_selection(profile_id, hw)
+    safe = safe_selection(profile_id, hw, has_paid)
     return apply_profile(safe, cfg_save)

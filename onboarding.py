@@ -14,6 +14,7 @@ le reste de l'app (et la CI, qui n'installe pas pywebview) n'en dépend jamais.
 import os
 
 import core
+import licensing
 import modes_registry
 import power_profiles
 
@@ -44,7 +45,7 @@ class Api:
         return {
             "modes": [{"id": m["id"], "label": m["label"], "hotkey": m["hotkey"]}
                      for m in modes_registry.all_modes()],
-            "profiles": power_profiles.evaluate(hw),
+            "profiles": power_profiles.evaluate(hw, licensing.has("power_profiles")),
             "hardware": hw,
             "languages": [{"code": c, "label": lbl} for c, lbl in core.LANGUAGES],
             "ptt_key": core.CFG.get("ptt_key", "f9"),
@@ -62,7 +63,8 @@ class Api:
     def set_profile(self, profile_id):
         """Sélection bornée à ce que la machine encaisse — même séquence que le
         tray (`power_profiles.select_and_apply`) : jamais de profil instable."""
-        return power_profiles.select_and_apply(profile_id, core.save_config)
+        return power_profiles.select_and_apply(profile_id, core.save_config,
+                                               licensing.has("power_profiles"))
 
     def set_language(self, code):
         core.save_config({"language": code})
