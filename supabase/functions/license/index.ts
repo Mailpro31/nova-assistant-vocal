@@ -11,7 +11,7 @@ const supa = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
 
-const SUCCESS_PAGE = "https://nova-landing-omega-ten.vercel.app/merci.html";
+const SUCCESS_PAGE = "https://novaspeak.app/merci.html";
 const GRACE_MS = 7 * 24 * 3600 * 1000;      // 7 j de grâce après fin de période
 const SEAT_IDLE_MS = 30 * 24 * 3600 * 1000; // un poste inactif 30 j libère sa place
 
