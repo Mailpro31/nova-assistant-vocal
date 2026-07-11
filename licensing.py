@@ -304,16 +304,6 @@ def _activate_online(purchase_key):
     token = data.get("token", "")
     if not verify_key(token):
         return {"ok": False, "error": "Réponse du serveur invalide."}
-    # Turbo (Ultra) : le serveur livre la clé du moteur en ligne à
-    # l'activation — l'utilisateur n'a rien à coller. Stockée dans le
-    # coffre Windows ; les renouvellements de jeton la rafraîchissent.
-    turbo_key = data.get("turbo_key") or ""
-    if turbo_key:
-        try:
-            import winext
-            winext.set_secret("groq", turbo_key)
-        except Exception:
-            pass
     return _persist(token, purchase_key)
 
 

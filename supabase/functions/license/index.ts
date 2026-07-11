@@ -97,19 +97,9 @@ async function activate(req: Request): Promise<Response> {
     { license_id: lic.id, machine_hash: machine, last_seen: new Date().toISOString() },
     { onConflict: "license_id,machine_hash" });
   const token = await mintToken(lic, machine);
-  // Turbo (Ultra) : la clé du moteur en ligne est livrée à l'activation —
-  // jamais embarquée dans l'installeur public ; rotation centralisée ici
-  // (refresh_if_needed la re-propage à chaque renouvellement de jeton).
-  let turboKey = "";
-  if (lic.tier === "ultra") {
-    const { data: tk } = await supa.from("server_secrets").select("value")
-      .eq("name", "groq_api_key").maybeSingle();
-    turboKey = tk?.value || "";
-  }
-  return json(200, {
-    ok: true, token, tier: lic.tier,
-    ...(turboKey ? { turbo_key: turboKey } : {}),
-  });
+  // Turbo passe par la fonction « turbo » (relais) : le jeton ci-dessous
+  // sert d'identité par machine — aucune clé fournisseur ne sort du serveur.
+  return json(200, { ok: true, token, tier: lic.tier });
 }
 
 // Clé d'une session de paiement — consommé par la page merci.html du site
