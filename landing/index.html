@@ -357,12 +357,16 @@
   .saidwin .sbars i:nth-child(2){animation-delay:.14s}.saidwin .sbars i:nth-child(3){animation-delay:.28s}
   .saidwin .sbars i:nth-child(4){animation-delay:.42s}.saidwin .sbars i:nth-child(5){animation-delay:.56s}
   .saidwin .stx{font-size:15px;line-height:1.5;color:#ECEFF7;font-style:italic}
-  .frames{position:relative;margin-top:44px;width:min(560px,92vw);height:250px}
+  /* pile en grille : les cadres occupent la même cellule et le conteneur prend
+     la hauteur du PLUS GRAND contenu — le texte n'est jamais coupé, quelle que
+     soit la langue ou la taille d'écran (avant : hauteur fixe → dernière ligne
+     de l'e-mail tronquée sur les écrans peu hauts) */
+  .frames{position:relative;display:grid;margin-top:44px;width:min(560px,92vw)}
   .frames::before{content:"";position:absolute;inset:-90px -120px;pointer-events:none;
     filter:blur(70px);z-index:-1;
     background:radial-gradient(50% 50% at 44% 46%,rgba(199,185,234,.17),transparent 70%),
       radial-gradient(45% 55% at 60% 58%,rgba(174,190,236,.13),transparent 72%)}
-  .frame{position:absolute;inset:0;background:var(--card);border:1px solid var(--line);
+  .frame{grid-area:1/1;background:var(--card);border:1px solid var(--line);
     border-radius:13px;box-shadow:0 30px 80px rgba(0,0,0,.5);overflow:hidden;
     opacity:0;transform:translateY(30px) scale(.96);
     transition:opacity .5s var(--ease),transform .5s var(--ease)}
@@ -396,7 +400,8 @@
     .tones .said{margin-top:12px}
     .saidwin{padding:10px 18px}
     .saidwin .stx{font-size:13px}
-    .frames{margin-top:22px;height:220px}
+    .frames{margin-top:22px}
+    .frame .fbody{padding:14px 18px;font-size:13px}
     .tabs{margin-top:14px}
     .autonote{margin-top:12px;font-size:12px}
   }
@@ -404,7 +409,7 @@
     .tones .stick{padding:16px 6vw}
     .tones h2{font-size:20px}
     .tones .said{display:none}
-    .frames{margin-top:12px;height:168px}
+    .frames{margin-top:12px}
     .frame .fbody{padding:12px 18px;font-size:12.5px}
     .tabs{margin-top:10px}
     .autonote{margin-top:8px}
@@ -606,8 +611,8 @@
 
   /* sans JavaScript : tout visible, démo interactive retirée, cadres empilés */
   html:not(.js) .try{display:none}
-  html:not(.js) .tones .frame{position:static;opacity:1;transform:none;margin-bottom:14px}
-  html:not(.js) .tones .frames{height:auto}
+  html:not(.js) .tones .frame{opacity:1;transform:none;margin-bottom:14px}
+  html:not(.js) .tones .frames{display:block}
   html:not(.js) .tones .tabs{display:none}
 
   @media(prefers-reduced-motion:reduce){
@@ -615,8 +620,8 @@
     .js .rv{opacity:1;transform:none}
     h1 .l{opacity:1!important;transform:none!important}
     #wave,.strip .track{display:none}
-    .tones .frame{position:static;opacity:1;transform:none;margin-bottom:14px}
-    .tones .frames{height:auto}
+    .tones .frame{opacity:1;transform:none;margin-bottom:14px}
+    .tones .frames{display:block}
     .tones .tabs{display:none}
   }
 </style>

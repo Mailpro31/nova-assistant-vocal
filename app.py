@@ -771,8 +771,38 @@ class Pill(threading.Thread):
             e.grid(row=i, column=1, sticky="w", ipady=3, pady=2)
             entries[key] = e
 
+        # informations personnalisées : paires libres « ce que je dis » → valeur,
+        # pendant du groupe équivalent du dock web (parité CLAUDE.md)
+        xf = tk.Frame(win, bg=SET_BG)
+        xf.pack(fill="x", padx=16, pady=(8, 0))
+        tk.Label(xf, text="Informations personnalisées (libellé → valeur)",
+                 bg=SET_BG, fg=SET_MUT, font=("Segoe UI", 8)).grid(
+                     row=0, column=0, columnspan=2, sticky="w")
+        extra_rows = []
+
+        def add_extra(label="", value=""):
+            r = len(extra_rows) + 1
+            e1 = tk.Entry(xf, width=22, bg=SET_INSET, fg=SET_FG,
+                          insertbackground=SET_FG, relief="flat")
+            e1.insert(0, label)
+            e1.grid(row=r, column=0, sticky="w", ipady=2, pady=1)
+            e2 = tk.Entry(xf, width=30, bg=SET_INSET, fg=SET_FG,
+                          insertbackground=SET_FG, relief="flat")
+            e2.insert(0, value)
+            e2.grid(row=r, column=1, sticky="w", ipady=2, pady=1, padx=(6, 0))
+            extra_rows.append((e1, e2))
+        for it in (info.get("extra") or []):
+            add_extra(str(it.get("label", "")), str(it.get("value", "")))
+        tk.Button(win, text="Ajouter une information", command=add_extra,
+                  bg=SET_INSET, fg=SET_FG, relief="flat", padx=10,
+                  pady=3).pack(anchor="w", padx=16, pady=(4, 0))
+
         def save_me():
-            core.save_personal({k: e.get().strip() for k, e in entries.items()})
+            o = {k: e.get().strip() for k, e in entries.items()}
+            o["extra"] = [{"label": a.get().strip(), "value": b.get().strip()}
+                          for a, b in extra_rows
+                          if a.get().strip() and b.get().strip()]
+            core.save_personal(o)
             pill.show("ok", "Infos enregistrées")
             pill.hide(1.2)
         tk.Button(win, text="Enregistrer mes infos", command=save_me,
@@ -802,15 +832,25 @@ class WebDock:
     surimpression) vit dans la webview → aucun conflit de boucle d'événements
     tkinter/pywebview."""
 
-    # tailles de fenêtre : compacte au repos (petite zone au bas-centre),
-    # agrandie quand le menu des modes ou les réglages s'ouvrent.
+    # tailles de fenêtre : compacte au repos (petite zone ancrée au bord),
+    # agrandie quand le menu des modes ou les réglages s'ouvrent. La fenêtre
+    # est OPAQUE et découpée par une région native aux formes réellement
+    # visibles (pilule / bulle / menu / réglages) : aucune dépendance à la
+    # transparence WebView2 (cassée sur certaines machines → carré blanc).
     COMPACT = (440, 170)
     MODES = (440, 470)
-    SETTINGS = (880, 620)   # fenêtre paysage type Réglages macOS (barre latérale)
+    SETTINGS = (880, 620)      # fenêtre paysage type Réglages macOS
+    SETTINGS_MAX = (1180, 780)  # bouton vert (zoom) — borné à l'écran
+    BG = "#101218"              # fond opaque sous les surfaces translucides
 
     def __init__(self):
+        if not os.path.isfile(DOCK_HTML):   # exe incomplet → repli pilule,
+            raise RuntimeError("dock.html introuvable")   # jamais de 404
         self._win = None
         self._lvl_n = 0
+        self._panel = "compact"
+        self._hwnd = None
+        self._shown = False
 
     # ---- API compatible Pill ----
     def show(self, state, text="", sub=""):
@@ -856,21 +896,131 @@ class WebDock:
 
     def _set_panel(self, name):
         """Redimensionne la fenêtre du dock vers le panneau nommé (compact /
-        modes / settings). La taille est dérivée du nom → un seul mécanisme,
-        pas de cas particulier par panneau."""
+        modes / settings / settings_max). Taille dérivée du nom (bornée à
+        l'écran), position dérivée de l'ancrage choisi (`dock_position`) pour
+        la bulle, centrée pour les réglages. Les réglages ne restent PAS au
+        premier plan (contrairement à la bulle, qui doit rester visible
+        pendant la dictée)."""
         if self._win is None:
             return
+        self._panel = name
         sw, sh = self._screen()
         w, h = getattr(self, name.upper(), self.COMPACT)
-        if name == "settings":
+        w, h = min(w, sw - 24), min(h, sh - 24)
+        if name.startswith("settings"):
             x, y = (sw - w) // 2, max(0, (sh - h) // 2)
-        else:                                   # compacte / modes : ancré bas-centre
-            x, y = (sw - w) // 2, sh - h - 56
+        else:                       # bulle / menu : ancrage utilisateur
+            anchor = str(core.CFG.get("dock_position") or "bottom-center")
+            vert, _, horiz = anchor.partition("-")
+            x = {"left": 24, "right": sw - w - 24}.get(horiz, (sw - w) // 2)
+            y = 24 if vert == "top" else sh - h - 56
         try:
             self._win.resize(w, h)
             self._win.move(x, y)
+            self._win.on_top = not name.startswith("settings")
         except Exception:
             pass
+        self._apply_opacity()
+
+    # ---- fenêtre native : région arrondie, opacité, hors barre des tâches ----
+    def _get_hwnd(self):
+        """Handle Win32 de la fenêtre (mémorisé). À la première acquisition,
+        la fenêtre est retirée de la barre des tâches et d'Alt-Tab
+        (WS_EX_TOOLWINDOW) : Nova ne vit que dans la zone de notification."""
+        if self._hwnd:
+            return self._hwnd
+        hwnd = 0
+        try:
+            native = getattr(self._win, "native", None)
+            handle = getattr(native, "Handle", None)
+            if handle is not None:
+                hwnd = int(getattr(handle, "ToInt64", lambda: handle)())
+        except Exception:
+            hwnd = 0
+        if not hwnd:
+            try:
+                hwnd = ctypes.windll.user32.FindWindowW(None, "NovaDock")
+            except Exception:
+                hwnd = 0
+        if hwnd:
+            self._hwnd = hwnd
+            try:  # tray uniquement : ni barre des tâches, ni Alt-Tab
+                u = ctypes.windll.user32
+                GWL_EXSTYLE, TOOL, APPWIN = -20, 0x00000080, 0x00040000
+                st = u.GetWindowLongW(hwnd, GWL_EXSTYLE)
+                u.SetWindowLongW(hwnd, GWL_EXSTYLE, (st | TOOL) & ~APPWIN)
+            except Exception as e:
+                core.log_err("dock_exstyle", e)
+        return self._hwnd
+
+    def apply_shape(self, payload):
+        """Découpe la fenêtre aux formes visibles rapportées par le JS
+        ({vw, vh, shapes:[{x,y,w,h,r}]} en px CSS). L'échelle réelle est
+        mesurée (client Win32 ÷ viewport JS) → correct quel que soit le DPI.
+        Tout ce qui est hors région n'existe pas : pas de fond blanc, pas de
+        zone cliquable fantôme. À la première forme, la fenêtre (créée cachée)
+        est révélée — l'utilisateur ne voit jamais le rectangle nu."""
+        try:
+            hwnd = self._get_hwnd()
+            if not hwnd:
+                return
+            import ctypes.wintypes as wt
+            u, g = ctypes.windll.user32, ctypes.windll.gdi32
+            rc = wt.RECT()
+            u.GetClientRect(hwnd, ctypes.byref(rc))
+            vw, vh = float(payload.get("vw") or 0), float(payload.get("vh") or 0)
+            if not (rc.right and rc.bottom and vw and vh):
+                return
+            sx, sy = rc.right / vw, rc.bottom / vh
+            shapes = payload.get("shapes") or []
+            region = None
+            for s in shapes:
+                x1, y1 = int(s["x"] * sx), int(s["y"] * sy)
+                x2 = int((s["x"] + s["w"]) * sx) + 1
+                y2 = int((s["y"] + s["h"]) * sy) + 1
+                r = int(min(float(s.get("r", 13)), s["w"] / 2, s["h"] / 2) * sx) * 2
+                rgn = g.CreateRoundRectRgn(x1, y1, x2, y2, r, r)
+                if region is None:
+                    region = rgn
+                else:
+                    g.CombineRgn(region, region, rgn, 2)      # RGN_OR
+                    g.DeleteObject(rgn)
+            if region is not None:
+                u.SetWindowRgn(hwnd, region, True)  # le système en devient proprio
+        except Exception as e:
+            core.log_err("dock_shape", e)
+        self._reveal()
+
+    def _reveal(self):
+        if self._shown:
+            return
+        self._shown = True
+        try:
+            self._win.show()
+        except Exception:
+            pass
+
+    def _apply_opacity(self):
+        """Opacité choisie par l'utilisateur pour la bulle (réglages toujours
+        pleinement opaques). WS_EX_LAYERED + LWA_ALPHA — best effort."""
+        try:
+            hwnd = self._get_hwnd()
+            if not hwnd:
+                return
+            u = ctypes.windll.user32
+            op = 1.0 if self._panel.startswith("settings") else \
+                float(core.CFG.get("dock_opacity", 1.0) or 1.0)
+            op = min(1.0, max(0.55, op))
+            GWL_EXSTYLE, LAYERED, LWA_ALPHA = -20, 0x00080000, 0x2
+            st = u.GetWindowLongW(hwnd, GWL_EXSTYLE)
+            u.SetWindowLongW(hwnd, GWL_EXSTYLE, st | LAYERED)
+            u.SetLayeredWindowAttributes(hwnd, 0, int(op * 255), LWA_ALPHA)
+        except Exception as e:
+            core.log_err("dock_opacity", e)
+
+    def refresh_prefs(self):
+        """Ré-applique position + opacité après un changement de réglage."""
+        self._set_panel(self._panel)
 
     # ---- cycle de vie (bloquant, thread principal) ----
     def serve(self, build_tray):
@@ -883,11 +1033,22 @@ class WebDock:
         import webview
         sw, sh = self._screen()
         w, h = self.COMPACT
+        anchor = str(core.CFG.get("dock_position") or "bottom-center")
+        vert, _, horiz = anchor.partition("-")
+        x = {"left": 24, "right": sw - w - 24}.get(horiz, (sw - w) // 2)
+        y = 24 if vert == "top" else sh - h - 56
+        # Fenêtre OPAQUE créée CACHÉE : le JS rapporte les formes visibles,
+        # apply_shape découpe la région native puis révèle la fenêtre. Si le
+        # JS ne répond pas (page cassée), on révèle quand même après 5 s —
+        # jamais d'app invisible.
+        # focus=False : la bulle ne vole JAMAIS le focus clavier — la fenêtre
+        # active reste celle de l'utilisateur (détection auto + collage fiables)
         self._win = webview.create_window(
-            "Nova", DOCK_HTML, width=w, height=h,
-            x=(sw - w) // 2, y=sh - h - 56,
-            frameless=True, easy_drag=False, on_top=True,
-            transparent=True, resizable=False, js_api=DockApi(self))
+            "NovaDock", DOCK_HTML, width=w, height=h, x=x, y=y,
+            frameless=True, easy_drag=False, on_top=True, hidden=True,
+            focus=False, background_color=self.BG, resizable=False,
+            js_api=DockApi(self))
+        threading.Timer(5.0, self._reveal).start()
         webview.start()
 
     def destroy(self):
@@ -930,6 +1091,9 @@ class DockApi:
             "ptt_key": core.CFG.get("ptt_key", "f9"),
             "mode_hotkeys": core.CFG.get("mode_hotkeys") or {},
             "menu_hotkey": core.CFG.get("menu_hotkey", ""),
+            "dock_prefs": {"position": core.CFG.get("dock_position", "bottom-center"),
+                           "scale": core.CFG.get("dock_scale", 1.0),
+                           "opacity": core.CFG.get("dock_opacity", 1.0)},
             "language": core.CFG.get("language", "fr"),
             "cloud_enabled": bool((core.CFG.get("stt") or {}).get("cloud_enabled")),
             "autostart": winext.get_autostart(),
@@ -994,6 +1158,41 @@ class DockApi:
         """Le dock signale quel panneau nommé est ouvert (modes, settings…) ;
         fermé = retour au dock compact. Un seul protocole de redimensionnement."""
         self._dock._set_panel(name if open_ else "compact")
+
+    def shape(self, payload):
+        """Formes réellement visibles (px CSS) → région native de la fenêtre."""
+        self._dock.apply_shape(payload or {})
+
+    def set_dock_prefs(self, prefs):
+        """Préférences de la bulle : ancrage (6 positions), taille, opacité.
+        Valide côté Python (le JS ne fait pas autorité) puis ré-applique."""
+        prefs = prefs or {}
+        cfg = {}
+        pos = str(prefs.get("position") or "")
+        if pos in ("top-left", "top-center", "top-right",
+                   "bottom-left", "bottom-center", "bottom-right"):
+            cfg["dock_position"] = pos
+        try:
+            sc = float(prefs.get("scale"))
+            if sc in (1.0, 0.85):
+                cfg["dock_scale"] = sc
+        except (TypeError, ValueError):
+            pass
+        try:
+            cfg["dock_opacity"] = min(1.0, max(0.55, float(prefs.get("opacity"))))
+        except (TypeError, ValueError):
+            pass
+        if cfg:
+            core.save_config(cfg)
+            self._dock.refresh_prefs()
+        return {"position": core.CFG.get("dock_position", "bottom-center"),
+                "scale": core.CFG.get("dock_scale", 1.0),
+                "opacity": core.CFG.get("dock_opacity", 1.0)}
+
+    def open_upgrade(self):
+        """« Passer à Pro » : ouvre les tarifs du site dans le navigateur."""
+        import webbrowser
+        webbrowser.open("https://novaspeak.app/#tarifs")
 
     def set_profile(self, profile_id):
         return _set_profile(profile_id, silent=True)
@@ -1170,8 +1369,9 @@ def _ptt_session():
         prompt, concrete = _resolve_prompt(STATE["mode"])
         # cascade de repli universelle : IA → format_rules → texte brut. Chaque
         # étage est protégé : jamais de plantage, jamais de curseur vide.
+        styled = False
         try:
-            out = core.format_message(text, prompt)    # repli format_rules intégré
+            out, styled = core.format_message_ex(text, prompt)
         except Exception as e:
             core.log_err("reformulate", e)
             out = ""
@@ -1179,7 +1379,13 @@ def _ptt_session():
             out = core.format_rules(text) or text
         pasted = winext.paste_into_active_app(out)
         dt = time.time() - t_release
-        if pasted:
+        if pasted and not styled:
+            # honnêteté : le texte est collé mais SANS le Style demandé —
+            # le dire, plutôt que d'afficher le Style comme si tout allait bien
+            pill.show("error", "Collé sans Style — IA indisponible",
+                      "L'Intelligence privée n'a pas répondu")
+            pill.hide(2.6)
+        elif pasted:
             # l'identifiant moteur (`cloud`, `local`…) reste technique : seul
             # l'affichage est rebrandé (lexique produit : Turbo / Intelligence privée)
             eng_label = "Turbo" if engine == "cloud" else "Intelligence privée"

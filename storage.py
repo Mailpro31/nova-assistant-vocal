@@ -353,6 +353,15 @@ def save_profile(p):
     vocab = [str(v)[:80] for v in (p.get("vocabulary") or []) if str(v).strip()][:200]
     personal = {k: str(v)[:200] for k, v in (p.get("personal") or {}).items()
                 if k in PERSONAL_FIELDS and str(v).strip()}
+    # informations personnalisées (« Mes infos » extensibles) : libellé → valeur,
+    # substituées dans la dictée comme les champs fixes. Assainies et bornées.
+    extra = [{"label": str(e.get("label", ""))[:60].strip(),
+              "value": str(e.get("value", ""))[:200].strip()}
+             for e in ((p.get("personal") or {}).get("extra") or [])
+             if isinstance(e, dict) and str(e.get("label", "")).strip()
+             and str(e.get("value", "")).strip()][:50]
+    if extra:
+        personal["extra"] = extra
     with _lock:
         _db().execute(
             "INSERT INTO profiles(id, name, vocabulary, contacts, language, created_at,"
