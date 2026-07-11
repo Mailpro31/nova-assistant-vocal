@@ -328,6 +328,25 @@ def test_power_profiles():
     check("evaluate n'expose aucun nom de modèle",
           set(ev) == {"id", "label", "locked", "reason", "warning"}, True)
 
+    # gating par abonnement : sans palier payant, Élevé/Ultra verrouillés même
+    # sur une grosse machine, avec le motif « abonnement » (pas « mémoire »)
+    free = {e["id"]: e for e in power_profiles.evaluate(forte, has_paid=False)}
+    check("Free : Normal débloqué (32 Go)", free["normal"]["locked"], False)
+    check("Free : Élevé verrouillé (abonnement)", free["eleve"]["locked"], True)
+    check("Free : Ultra verrouillé (abonnement)", free["ultra"]["locked"], True)
+    check("Free : motif = abonnement, pas mémoire",
+          "Pro" in free["eleve"]["reason"], True)
+    check("Free 32 Go : recommandé retombe sur Normal",
+          power_profiles.recommended_id(forte, has_paid=False), "normal")
+    check("Free : sélection Ultra bornée à Normal",
+          power_profiles.safe_selection("ultra", forte, has_paid=False), "normal")
+    # payé mais petite machine : la RAM reste un garde-fou (motif « mémoire »)
+    paid_low = {e["id"]: e for e in power_profiles.evaluate(faible, has_paid=True)}
+    check("Payé 8 Go : Ultra verrouillé par la RAM",
+          paid_low["ultra"]["locked"], True)
+    check("Payé 8 Go : motif = mémoire",
+          "mémoire" in paid_low["ultra"]["reason"], True)
+
 
 # --------------------------------------------------- onboarding (accueil) ----
 def test_onboarding():

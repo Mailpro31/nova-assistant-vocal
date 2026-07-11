@@ -1,9 +1,10 @@
 // Nova — porte e-mail du téléchargement gratuit : POST /code envoie un code à
 // 6 chiffres (Resend, 15 min de validité), POST /verify le contrôle puis rend
 // l'URL de l'installateur et range l'adresse dans « waitlist » (source
-// download). JAMAIS BLOQUANT : si l'e-mail ne part pas (quota, panne, config
-// absente), on rend l'URL directement — on ne perd pas un utilisateur pour un
-// formulaire. Public, sans JWT ; pot de miel + limites d'envoi côté table.
+// download). JAMAIS BLOQUANT : si l'e-mail ne peut pas partir (config dormante,
+// insert en échec, quota, panne), on rend l'URL directement — on ne perd pas un
+// utilisateur pour un formulaire. Public, sans JWT ; pot de miel + limites de
+// débit par e-mail ET par empreinte réseau (IP hachée, jamais stockée en clair).
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const supa = createClient(
@@ -15,7 +16,9 @@ const DL_URL =
   "https://github.com/Mailpro31/nova-assistant-vocal/releases/latest/download/Nova-Setup.exe";
 const TTL_MIN = 15;          // validité du code
 const MAX_SENDS_H = 3;       // envois max par adresse et par heure
-const MAX_ATTEMPTS = 5;      // essais max par code
+const MAX_SENDS_IP_H = 12;   // envois max par empreinte réseau et par heure
+const MAX_ATTEMPTS = 5;      // essais de code max par adresse (fenêtre active)
+const IP_SALT = "nova-dl-v1"; // sel de hachage d'empreinte (anti-abus, pseudonyme)
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -28,20 +31,38 @@ const json = (code: number, body: unknown) =>
     headers: { "Content-Type": "application/json; charset=utf-8", ...CORS },
   });
 
-let mailCfg: { key: string; from: string } | null | undefined;
+// Ne mémorise QUE le succès : en dormance (secrets absents) ou après une lecture
+// en échec, on relit — sinon un isolat resterait bloqué en mode ouvert.
+let mailCfg: { key: string; from: string } | null = null;
 async function mailConfig() {
-  if (mailCfg !== undefined) return mailCfg;
-  const { data } = await supa.from("server_secrets").select("name,value")
+  if (mailCfg) return mailCfg;
+  const { data, error } = await supa.from("server_secrets").select("name,value")
     .in("name", ["resend_api_key", "email_from"]);
+  if (error) return null;
   const m = Object.fromEntries((data || []).map((r) => [r.name, r.value]));
-  mailCfg = (m.resend_api_key && m.email_from)
-    ? { key: m.resend_api_key, from: m.email_from } : null;
+  if (m.resend_api_key && m.email_from) {
+    mailCfg = { key: m.resend_api_key, from: m.email_from };
+  }
   return mailCfg;
 }
 
 async function sha256hex(s: string): Promise<string> {
   const h = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
   return [...new Uint8Array(h)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// empreinte réseau pseudonyme : hash tronqué de la 1re IP de x-forwarded-for
+async function ipHash(req: Request): Promise<string> {
+  const xff = req.headers.get("x-forwarded-for") || "";
+  const ip = xff.split(",")[0].trim();
+  if (!ip) return "";
+  return (await sha256hex(IP_SALT + ":" + ip)).slice(0, 16);
+}
+
+async function addToWaitlist(email: string, lang: string, iph: string) {
+  await supa.from("waitlist").upsert(
+    { email, lang, source: "download", iph },
+    { onConflict: "email", ignoreDuplicates: true });
 }
 
 function codeEmailHtml(code: string, lang: string): string {
@@ -76,10 +97,9 @@ function codeEmailHtml(code: string, lang: string): string {
 </td></tr></table></body></html>`;
 }
 
-async function sendCode(to: string, code: string, lang: string): Promise<boolean> {
+async function sendCode(cfg: { key: string; from: string }, to: string,
+                        code: string, lang: string): Promise<boolean> {
   try {
-    const cfg = await mailConfig();
-    if (!cfg) return false;
     const r = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { "Authorization": `Bearer ${cfg.key}`, "Content-Type": "application/json" },
@@ -102,61 +122,84 @@ async function sendCode(to: string, code: string, lang: string): Promise<boolean
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-async function requestCode(b: Record<string, unknown>): Promise<Response> {
+async function requestCode(b: Record<string, unknown>, iph: string): Promise<Response> {
   if (b.website) return json(200, { ok: true, sent: true });   // pot de miel
   const email = String(b.email || "").trim().toLowerCase();
   const lang = b.lang === "en" ? "en" : "fr";
   if (email.length > 254 || !EMAIL_RE.test(email)) {
     return json(400, { ok: false, error: "invalid_email" });
   }
-  // limite d'envoi : 3 codes / heure / adresse
-  const { count } = await supa.from("download_codes")
-    .select("id", { count: "exact", head: true })
-    .eq("email", email)
-    .gt("created_at", new Date(Date.now() - 3600_000).toISOString());
-  if ((count || 0) >= MAX_SENDS_H) return json(429, { ok: false, error: "too_many" });
+  // dormant (e-mail non configuré) : aucune insertion de code mort — on ouvre
+  const cfg = await mailConfig();
+  if (!cfg) {
+    await addToWaitlist(email, lang, iph);
+    return json(200, { ok: true, open: true, url: DL_URL });
+  }
+  // limites de débit : par adresse ET par empreinte réseau (1 h glissante)
+  const since = new Date(Date.now() - 3600_000).toISOString();
+  const [byEmail, byIp] = await Promise.all([
+    supa.from("download_codes").select("id", { count: "exact", head: true })
+      .eq("email", email).gt("created_at", since),
+    iph
+      ? supa.from("download_codes").select("id", { count: "exact", head: true })
+          .eq("iph", iph).gt("created_at", since)
+      : Promise.resolve({ count: 0 }),
+  ]);
+  if ((byEmail.count || 0) >= MAX_SENDS_H || (byIp.count || 0) >= MAX_SENDS_IP_H) {
+    return json(429, { ok: false, error: "too_many" });
+  }
   const code = String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
-  await supa.from("download_codes").insert({
+  const { data: row, error: insErr } = await supa.from("download_codes").insert({
     email,
     code_hash: await sha256hex(`${email}:${code}`),
     expires_at: new Date(Date.now() + TTL_MIN * 60_000).toISOString(),
-  });
-  const sent = await sendCode(email, code, lang);
-  // e-mail impossible (dormant, quota, panne) → on ouvre : l'utilisateur
-  // télécharge quand même, l'adresse est quand même enregistrée
+    iph,
+  }).select("id").maybeSingle();
+  // insert impossible → ne pas remettre de code mort : on ouvre
+  if (insErr || !row) {
+    console.error("download insert", insErr);
+    await addToWaitlist(email, lang, iph);
+    return json(200, { ok: true, open: true, url: DL_URL });
+  }
+  const sent = await sendCode(cfg, email, code, lang);
   if (!sent) {
-    await supa.from("waitlist").upsert(
-      { email, lang, source: "download" },
-      { onConflict: "email", ignoreDuplicates: true });
+    // l'e-mail n'est pas parti : la ligne ne servira jamais → on la retire pour
+    // ne pas gonfler le compteur de débit, et on ouvre
+    await supa.from("download_codes").delete().eq("id", row.id);
+    await addToWaitlist(email, lang, iph);
     return json(200, { ok: true, open: true, url: DL_URL });
   }
   return json(200, { ok: true, sent: true });
 }
 
-async function verifyCode(b: Record<string, unknown>): Promise<Response> {
+async function verifyCode(b: Record<string, unknown>, iph: string): Promise<Response> {
   const email = String(b.email || "").trim().toLowerCase();
   const code = String(b.code || "").trim();
-  if (!EMAIL_RE.test(email) || !/^\d{6}$/.test(code)) {
+  if (email.length > 254 || !EMAIL_RE.test(email) || !/^\d{6}$/.test(code)) {
     return json(400, { ok: false, error: "bad_code" });
   }
-  const { data: row } = await supa.from("download_codes")
-    .select("*").eq("email", email).is("consumed_at", null)
-    .order("created_at", { ascending: false }).limit(1).maybeSingle();
-  if (!row || new Date(row.expires_at).getTime() < Date.now()) {
-    return json(400, { ok: false, error: "expired" });
-  }
-  if (row.attempts >= MAX_ATTEMPTS) return json(429, { ok: false, error: "too_many" });
-  if (row.code_hash !== await sha256hex(`${email}:${code}`)) {
-    await supa.from("download_codes").update({ attempts: row.attempts + 1 })
-      .eq("id", row.id);
+  // tous les codes encore valides et non consommés de cette adresse (un renvoi
+  // n'invalide plus les précédents — livraison d'e-mails dans le désordre OK)
+  const nowISO = new Date().toISOString();
+  const { data: rows } = await supa.from("download_codes")
+    .select("id,code_hash,attempts").eq("email", email).is("consumed_at", null)
+    .gt("expires_at", nowISO).order("created_at", { ascending: false });
+  const active = rows || [];
+  const spent = active.reduce((n, r) => n + (r.attempts || 0), 0);
+  if (spent >= MAX_ATTEMPTS) return json(429, { ok: false, error: "locked" });
+  const hash = await sha256hex(`${email}:${code}`);
+  const hit = active.find((r) => r.code_hash === hash);
+  if (!hit) {
+    if (active[0]) {   // un mauvais essai coûte une tentative (sur la + récente)
+      await supa.from("download_codes")
+        .update({ attempts: (active[0].attempts || 0) + 1 }).eq("id", active[0].id);
+    }
     return json(400, { ok: false, error: "bad_code" });
   }
   await supa.from("download_codes").update(
-    { consumed_at: new Date().toISOString() }).eq("id", row.id);
+    { consumed_at: nowISO }).eq("id", hit.id);
   const lang = b.lang === "en" ? "en" : "fr";
-  await supa.from("waitlist").upsert(
-    { email, lang, source: "download" },
-    { onConflict: "email", ignoreDuplicates: true });
+  await addToWaitlist(email, lang, iph);
   return json(200, { ok: true, url: DL_URL });
 }
 
@@ -167,9 +210,10 @@ Deno.serve(async (req: Request) => {
     let b: Record<string, unknown>;
     try { b = await req.json(); } catch { return json(400, { ok: false }); }
     if (!b || typeof b !== "object") return json(400, { ok: false });
+    const iph = await ipHash(req);
     const path = new URL(req.url).pathname;
-    if (path.endsWith("/code")) return await requestCode(b);
-    if (path.endsWith("/verify")) return await verifyCode(b);
+    if (path.endsWith("/code")) return await requestCode(b, iph);
+    if (path.endsWith("/verify")) return await verifyCode(b, iph);
     return json(404, { ok: false });
   } catch (e) {
     console.error("download error", e);

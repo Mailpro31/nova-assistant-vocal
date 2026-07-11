@@ -663,7 +663,7 @@ class Pill(threading.Thread):
             _set_profile(prof_var.get())
             prof_var.set(STATE.get("profile", "normal"))   # reflète le repli éventuel
 
-        for ev in power_profiles.evaluate(hw):
+        for ev in power_profiles.evaluate(hw, _profiles_paid()):
             txt = ev["label"] + (f"   — {ev['reason']}" if ev["locked"]
                                  else (f"   — {ev['warning']}" if ev["warning"] else ""))
             tk.Radiobutton(prof, text=txt, value=ev["id"], variable=prof_var,
@@ -857,7 +857,7 @@ class DockApi:
         return {
             "modes": [{"id": m["id"], "label": m["label"], "hotkey": m["hotkey"]}
                      for m in modes_registry.all_modes()],
-            "profiles": power_profiles.evaluate(hw),
+            "profiles": power_profiles.evaluate(hw, _profiles_paid()),
             "hardware": hw,
             "languages": [{"code": c, "label": lbl} for c, lbl in core.LANGUAGES],
             "mode": STATE.get("mode", modes_registry.DEFAULT_MODE_ID),
@@ -1180,7 +1180,8 @@ def _set_profile(profile_id, silent=False):
     forced = profile_id != "normal" and not licensing.has("power_profiles")
     if forced:
         profile_id = "normal"                        # profils avancés réservés à Pro
-    safe = power_profiles.select_and_apply(profile_id, core.save_config)
+    safe = power_profiles.select_and_apply(profile_id, core.save_config,
+                                           _profiles_paid())
     STATE["profile"] = safe
     if not silent and forced:
         pill.show("error", "Profils avancés → Pro", "Élevé / Ultra débloqués en Pro")
@@ -1201,6 +1202,12 @@ def _request_quit(icon=None):
     except Exception:
         pass
     pill.destroy()
+
+
+def _profiles_paid():
+    """L'utilisateur peut-il choisir les profils Élevé/Ultra ? (abonnement
+    Pro/Ultra). Dormant → True (no-op), la RAM reste seule à décider."""
+    return licensing.has("power_profiles")
 
 
 def _app_display_name():
@@ -1236,29 +1243,37 @@ def _build_tray():
     except Exception:
         img = Image.new("RGB", (64, 64), (0x0A, 0x63, 0xE8))
 
+    # NB pystray : l'action d'un MenuItem doit avoir AU PLUS 2 paramètres
+    # (co_argcount ≤ 2, cf. _base._assert_action) — un 3e paramètre de capture
+    # « x=val » lève ValueError et empêche tout le tray de se construire. Chaque
+    # fabrique ayant déjà sa propre variable locale, la fermeture est sûre sans
+    # capture par défaut.
     def mode_item(m):
+        mid = m["id"]
         return MenuItem(f"{m['hotkey']}. {m['label']}",
-                        lambda _i, _it, mid=m["id"]: _set_mode(mid),
-                        checked=lambda _it, mid=m["id"]: STATE["mode"] == mid,
+                        lambda _i, _it: _set_mode(mid),
+                        checked=lambda _it: STATE["mode"] == mid,
                         radio=True)
 
     def lang_item(code, label):
         return MenuItem(label,
-                        lambda _i, _it, c=code: _set_language(c),
-                        checked=lambda _it, c=code: core.CFG.get("language") == c,
+                        lambda _i, _it: _set_language(code),
+                        checked=lambda _it: core.CFG.get("language") == code,
                         radio=True)
 
     def profile_item(ev):
-        # profil trop lourd = verrouillé (grisé) + raison ; sinon avertissement discret
+        # profil verrouillé (grisé) + raison ; sinon avertissement discret
+        pid = ev["id"]
         suffix = (f"  — {ev['reason']}" if ev["locked"]
                   else ("  — plus demandeur" if ev["warning"] else ""))
         return MenuItem(ev["label"] + suffix,
-                        lambda _i, _it, pid=ev["id"]: _set_profile(pid),
-                        checked=lambda _it, pid=ev["id"]: STATE.get("profile") == pid,
+                        lambda _i, _it: _set_profile(pid),
+                        checked=lambda _it: STATE.get("profile") == pid,
                         radio=True, enabled=not ev["locked"])
 
     prof_items = [profile_item(ev)
-                  for ev in power_profiles.evaluate(power_profiles.detect_hardware())]
+                  for ev in power_profiles.evaluate(
+                      power_profiles.detect_hardware(), _profiles_paid())]
 
     menu = Menu(
         MenuItem("Style", Menu(*[mode_item(m) for m in modes_registry.all_modes()])),
@@ -1290,7 +1305,8 @@ def main():
     # (best-effort, peut échouer ou être fermé sans être terminé) — la garantie
     # « jamais de saturation RAM » ne doit jamais dépendre de l'écran d'accueil.
     hw = power_profiles.detect_hardware()
-    safe = power_profiles.select_and_apply(core.CFG.get("profile", "normal"), core.save_config)
+    safe = power_profiles.select_and_apply(core.CFG.get("profile", "normal"),
+                                           core.save_config, _profiles_paid())
     core.log_err("startup", f"matériel={hw} → profil={safe}")
 
     if onboarding.needs_onboarding():
