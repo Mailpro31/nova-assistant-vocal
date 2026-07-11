@@ -851,6 +851,7 @@ class WebDock:
         self._panel = "compact"
         self._hwnd = None
         self._shown = False
+        self._got_shape = False
 
     # ---- API compatible Pill ----
     def show(self, state, text="", sub=""):
@@ -966,13 +967,21 @@ class WebDock:
                 return
             import ctypes.wintypes as wt
             u, g = ctypes.windll.user32, ctypes.windll.gdi32
+            self._got_shape = True          # le JS est vivant : plus de secours
+            shapes = payload.get("shapes") or []
+            if not shapes:
+                # rien à montrer : en mode « invisible au repos », la fenêtre
+                # disparaît complètement (SW_HIDE) — silencieuse, sans jamais
+                # rien ouvrir dans la barre des tâches
+                if core.CFG.get("dock_ghost"):
+                    u.ShowWindow(hwnd, 0)                     # SW_HIDE
+                return
             rc = wt.RECT()
             u.GetClientRect(hwnd, ctypes.byref(rc))
             vw, vh = float(payload.get("vw") or 0), float(payload.get("vh") or 0)
             if not (rc.right and rc.bottom and vw and vh):
                 return
             sx, sy = rc.right / vw, rc.bottom / vh
-            shapes = payload.get("shapes") or []
             region = None
             for s in shapes:
                 x1, y1 = int(s["x"] * sx), int(s["y"] * sy)
@@ -987,12 +996,19 @@ class WebDock:
                     g.DeleteObject(rgn)
             if region is not None:
                 u.SetWindowRgn(hwnd, region, True)  # le système en devient proprio
+            # SW_SHOWNOACTIVATE : la bulle (ré)apparaît SANS prendre le focus —
+            # la fenêtre de l'utilisateur reste active pendant la dictée
+            u.ShowWindow(hwnd, 4)
+            self._shown = True
         except Exception as e:
             core.log_err("dock_shape", e)
         self._reveal()
 
     def _reveal(self):
-        if self._shown:
+        """Secours : ne montre la fenêtre nue QUE si le JS n'a jamais rapporté
+        de forme (page cassée) — jamais d'app invisible, jamais de rectangle nu
+        par-dessus le mode « invisible au repos »."""
+        if self._shown or self._got_shape:
             return
         self._shown = True
         try:
@@ -1012,8 +1028,16 @@ class WebDock:
                 float(core.CFG.get("dock_opacity", 1.0) or 1.0)
             op = min(1.0, max(0.55, op))
             GWL_EXSTYLE, LAYERED, LWA_ALPHA = -20, 0x00080000, 0x2
-            st = u.GetWindowLongW(hwnd, GWL_EXSTYLE)
-            u.SetWindowLongW(hwnd, GWL_EXSTYLE, st | LAYERED)
+            NOACT = 0x08000000
+            st = u.GetWindowLongW(hwnd, GWL_EXSTYLE) | LAYERED
+            # WS_EX_NOACTIVATE partout SAUF réglages : la bulle et ses menus ne
+            # prennent JAMAIS l'activation (la dictée colle dans la bonne app),
+            # mais les champs des réglages doivent pouvoir recevoir le clavier
+            if self._panel.startswith("settings"):
+                st &= ~NOACT
+            else:
+                st |= NOACT
+            u.SetWindowLongW(hwnd, GWL_EXSTYLE, st)
             u.SetLayeredWindowAttributes(hwnd, 0, int(op * 255), LWA_ALPHA)
         except Exception as e:
             core.log_err("dock_opacity", e)
@@ -1093,7 +1117,8 @@ class DockApi:
             "menu_hotkey": core.CFG.get("menu_hotkey", ""),
             "dock_prefs": {"position": core.CFG.get("dock_position", "bottom-center"),
                            "scale": core.CFG.get("dock_scale", 1.0),
-                           "opacity": core.CFG.get("dock_opacity", 1.0)},
+                           "opacity": core.CFG.get("dock_opacity", 1.0),
+                           "ghost": bool(core.CFG.get("dock_ghost"))},
             "language": core.CFG.get("language", "fr"),
             "cloud_enabled": bool((core.CFG.get("stt") or {}).get("cloud_enabled")),
             "autostart": winext.get_autostart(),
@@ -1182,12 +1207,15 @@ class DockApi:
             cfg["dock_opacity"] = min(1.0, max(0.55, float(prefs.get("opacity"))))
         except (TypeError, ValueError):
             pass
+        if "ghost" in prefs:
+            cfg["dock_ghost"] = bool(prefs.get("ghost"))
         if cfg:
             core.save_config(cfg)
             self._dock.refresh_prefs()
         return {"position": core.CFG.get("dock_position", "bottom-center"),
                 "scale": core.CFG.get("dock_scale", 1.0),
-                "opacity": core.CFG.get("dock_opacity", 1.0)}
+                "opacity": core.CFG.get("dock_opacity", 1.0),
+                "ghost": bool(core.CFG.get("dock_ghost"))}
 
     def open_upgrade(self):
         """« Passer à Pro » : ouvre les tarifs du site dans le navigateur."""

@@ -39,6 +39,9 @@
   /* un long texte dicté ne déborde JAMAIS : points de suspension */
   #bubble #bubText{min-width:0;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   #bubble .sub{color:var(--txt3);font-size:11px;margin-left:8px;flex:none}
+  /* invisible au repos : le dock n'existe plus à l'écran, seule la bulle
+     d'état apparaît pendant la dictée (fenêtre masquée quand tout est vide) */
+  body.ghost #dock{display:none}
   /* ancrage en HAUT de l'écran : bulle et menu passent SOUS le dock */
   body.pos-top #dock{bottom:auto;top:14px}
   body.pos-top #bubble{bottom:auto;top:80px}
@@ -254,6 +257,7 @@ addEventListener('resize',reportShape);
 function applyDockPrefs(){
   const p=S.dock_prefs||{};
   document.body.classList.toggle('pos-top',String(p.position||'').indexOf('top')===0);
+  document.body.classList.toggle('ghost',!!p.ghost);
   const z=(p.scale&&p.scale!==1)?String(p.scale):'';
   ['dock','bubble','modes'].forEach(id=>{document.getElementById(id).style.zoom=z;});
   reportShape();
@@ -428,8 +432,10 @@ function paneGeneral(p){
         '<select class="fieldc" id="dkScale"><option value="1"'+(((S.dock_prefs||{}).scale||1)===1?' selected':'')+'>Normale</option>'+
         '<option value="0.85"'+(((S.dock_prefs||{}).scale||1)===0.85?' selected':'')+'>Petite</option></select>')
       +R('Opacité','La bulle peut se faire légèrement transparente',
-        '<input type="range" class="rng" id="dkOp" min="55" max="100" value="'+Math.round(((S.dock_prefs||{}).opacity||1)*100)+'">'),
-      'S\'applique à la bulle et à ses menus — jamais à cette fenêtre de réglages.')
+        '<input type="range" class="rng" id="dkOp" min="55" max="100" value="'+Math.round(((S.dock_prefs||{}).opacity||1)*100)+'">')
+      +R('Invisible au repos','Rien à l\'écran : la bulle n\'apparaît que pendant la dictée',
+        '<div class="sw'+((S.dock_prefs||{}).ghost?' on':'')+'" id="dkGhost"></div>'),
+      'S\'applique à la bulle et à ses menus — jamais à cette fenêtre de réglages. En mode invisible, ouvrez Nova depuis l\'icône de la zone de notification ou vos raccourcis clavier.')
    +G('Profil de puissance',profs,'Machine : '+(hw.ram_total_gb||'?')+' Go de mémoire'+
       (hw.has_gpu?' · '+esc(hw.gpu_name):' · sans accélération graphique')+'. Les profils trop lourds pour cette machine sont verrouillés.')
    +G('Mises à jour',
@@ -461,9 +467,12 @@ function paneGeneral(p){
     api('set_mode_hotkey',el.dataset.id,k);}));
   const saveDk=()=>{const o={position:document.getElementById('dkPos').value,
       scale:parseFloat(document.getElementById('dkScale').value),
-      opacity:parseInt(document.getElementById('dkOp').value,10)/100};
+      opacity:parseInt(document.getElementById('dkOp').value,10)/100,
+      ghost:document.getElementById('dkGhost').classList.contains('on')};
     api('set_dock_prefs',o).then(pr=>{if(pr)S.dock_prefs=pr;applyDockPrefs();});};
   ['dkPos','dkScale','dkOp'].forEach(id=>{document.getElementById(id).onchange=saveDk;});
+  document.getElementById('dkGhost').onclick=()=>{
+    document.getElementById('dkGhost').classList.toggle('on');saveDk();};
   document.getElementById('updBtn').onclick=()=>api('check_update');
   document.getElementById('swUpd').onclick=()=>{const el=document.getElementById('swUpd');
     const want=!el.classList.contains('on');
