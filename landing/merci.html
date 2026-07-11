@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Nova — votre licence</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <style>
   :root{--font:-apple-system,"SF Pro Display","SF Pro Text","Segoe UI",Inter,system-ui,sans-serif}
   *{margin:0;padding:0;box-sizing:border-box}
@@ -23,6 +24,10 @@
   .btn{background:#0A84FF;color:#fff;border:none;border-radius:6px;padding:9px 18px;
     font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
   .btn:hover{filter:brightness(1.08)}
+  .btn2{display:inline-block;margin:10px 6px 0;background:rgba(255,255,255,.08);
+    color:#F2F2F4;border-radius:6px;padding:9px 18px;font-size:13px;font-weight:600;
+    text-decoration:none}
+  .btn2:hover{background:rgba(255,255,255,.14)}
   .foot{color:#98989F;font-size:11.5px;line-height:1.55;margin-top:16px}
   .foot a{color:#0A84FF;text-decoration:none}
 </style>
@@ -34,6 +39,8 @@
   <p class="sub" id="sub">Récupération de votre clé de licence…</p>
   <div class="key" id="k">…</div>
   <button class="btn" id="copy" style="display:none">Copier la clé</button>
+  <a class="btn2" id="dl" hidden
+    href="https://github.com/Mailpro31/nova-assistant-vocal/releases/latest/download/Nova-Setup.exe">Télécharger Nova</a>
   <p class="foot" id="foot">Cette page nécessite JavaScript. Si rien ne s'affiche,
     <a href="mailto:mailprosasha2@gmail.com">écrivez-nous</a> avec votre reçu Stripe.</p>
 </div>
@@ -50,6 +57,7 @@ const M = {
     title: "Nova — votre licence",
     loading: "Récupération de votre clé de licence…",
     copy: "Copier la clé",
+    dl: "Télécharger Nova pour Windows",
     nolink: "Lien incomplet — ouvrez le lien reçu après votre paiement.",
     thanks: (t) => "Merci ! Voici votre clé de licence Nova " + t + " :",
     okfoot: "Ouvrez Nova → Réglages → Abonnement, collez la clé puis cliquez « Activer ».<br>" +
@@ -63,6 +71,7 @@ const M = {
     title: "Nova — your license",
     loading: "Retrieving your license key…",
     copy: "Copy the key",
+    dl: "Download Nova for Windows",
     nolink: "Incomplete link — open the link you received after payment.",
     thanks: (t) => "Thank you! Here is your Nova " + t + " license key:",
     okfoot: "Open Nova → Settings → Subscription, paste the key and click “Activate”.<br>" +
@@ -83,6 +92,7 @@ document.documentElement.lang = lang;
 document.title = L.title;
 $("sub").textContent = L.loading;
 $("copy").textContent = L.copy;
+$("dl").textContent = L.dl;
 
 async function load() {
   if (!sid) { $("sub").textContent = L.nolink; return; }
@@ -93,6 +103,7 @@ async function load() {
       $("sub").textContent = L.thanks(TIERS[d.tier] || "");
       $("k").textContent = d.key;
       $("copy").style.display = "";
+      $("dl").hidden = false;
       $("foot").innerHTML = L.okfoot;
       return;
     }
