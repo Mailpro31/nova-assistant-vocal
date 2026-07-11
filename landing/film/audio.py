@@ -261,6 +261,21 @@ while tt < 35.70:
 add(bell(880.00, 1.2, 0.40, decay=4.0), 36.05)
 add(bell(1108.73, 1.0, 0.24, decay=4.5), 36.18)
 
+# --- clics de souris du curseur (tactiles, discrets, calés sur drawCursor)
+def mouse_click(gain=1.0):
+    """Petit clic de souris : deux transitoires très courts (down/up feutrés)."""
+    n = int(0.05 * SR)
+    t = np.arange(n) / SR
+    down = np.sin(2 * np.pi * 2400 * t) * np.exp(-t * 130)
+    noise = np.random.RandomState(7).randn(n)
+    noise = np.convolve(noise, np.ones(20) / 20, mode="same") * np.exp(-t * 150)
+    s = down * 0.7 + noise * 0.5
+    return s / (np.max(np.abs(s)) + 1e-9) * gain
+
+
+for tt in (4.66, 14.85, 15.35, 15.85, 20.66, 21.80, 22.50, 23.20, 23.90, 24.30):
+    add(mouse_click(0.20), tt - 0.02)
+
 # --- S16 [36.9–40.4] final : accord chaud + cloches
 add(chord([220, 277.18, 329.63, 440, 554.37], 3.2, 0.28, attack=0.5), 36.95)
 add(bell(440.00, 2.4, 0.45, decay=2.0), 37.50)
