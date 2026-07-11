@@ -1,5 +1,7 @@
 User-agent: *
 Allow: /
-Disallow: /merci.html
+# merci.html porte <meta name="robots" content="noindex"> : il faut LAISSER les
+# robots la crawler pour qu'ils voient ce noindex (un Disallow ici permettrait
+# quand même l'indexation de l'URL, sans son contenu).
 
 Sitemap: https://novaspeak.app/sitemap.xml
