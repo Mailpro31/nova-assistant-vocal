@@ -385,14 +385,17 @@ def test_onboarding():
           api.set_ptt_key(""), "f8")
     check("set_language persiste", api.set_language("ja"), "ja")
     # Turbo n'est pas proposé à l'installation sans droit Ultra : refus net,
-    # provider inchangé. Avec le droit (simulé), la bascule fonctionne.
+    # provider inchangé. Les deux cas sont SIMULÉS (has patché) pour ne pas
+    # dépendre de l'état de licence de la machine qui exécute les tests
+    # (dormante en CI, active ailleurs).
     import licensing as _lic
-    _prov0 = core.CFG.get("provider")
-    check("set_cloud→True SANS droit Ultra → refusé",
-          (api.set_cloud(True), core.CFG.get("provider")), (False, _prov0))
     _has0 = _lic.has
-    _lic.has = lambda f: True
+    _prov0 = core.CFG.get("provider")
     try:
+        _lic.has = lambda f: False
+        check("set_cloud→True SANS droit Ultra → refusé",
+              (api.set_cloud(True), core.CFG.get("provider")), (False, _prov0))
+        _lic.has = lambda f: True
         check("set_cloud→True AVEC droit Ultra → provider auto",
               (api.set_cloud(True), core.CFG.get("provider")), (True, "auto"))
     finally:
