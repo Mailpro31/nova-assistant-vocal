@@ -750,8 +750,10 @@ DOCK_HTML = core.resource_path(os.path.join("ui", "dock.html"))
 class WebDock:
     """Dock flottant rendu en webview (orbe organique WebGL, façon Speechly).
 
-    Remplaçant OPTIONNEL de Pill, activé par `CFG["dock_ui"] == "web"` — sinon
-    la pilule tkinter (éprouvée) reste la valeur par défaut : aucune régression.
+    Interface PAR DÉFAUT de Nova (`CFG["dock_ui"] == "web"`) : toutes les
+    fenêtres (dock, bulle d'état, Styles, réglages) partagent le langage
+    visuel du site. La pilule tkinter reste le repli automatique quand
+    pywebview/WebView2 manque — jamais de démarrage cassé.
     Expose la MÊME API publique que Pill (`show/hide/level/open_settings` +
     `serve/destroy`) pour que le push-to-talk et le tray n'aient rien à changer.
 
@@ -1000,10 +1002,11 @@ class DockApi:
 
 
 def _make_ui():
-    """Choisit l'UI selon `CFG["dock_ui"]` : "web" = dock organique (webview),
-    tout le reste (défaut) = pilule tkinter éprouvée. Repli sur la pilule si le
-    dock web ne peut pas être instancié — jamais de démarrage cassé."""
-    if core.CFG.get("dock_ui") == "web" and licensing.has("web_dock"):
+    """Choisit l'UI selon `CFG["dock_ui"]` : "web" (défaut) = le dock et les
+    fenêtres du site (webview), "pill" = pilule tkinter. Repli automatique sur
+    la pilule si le dock web ne peut pas être instancié (pywebview/WebView2
+    absent ou cassé) — jamais de démarrage cassé."""
+    if core.CFG.get("dock_ui", "web") != "pill":
         try:
             import webview  # noqa: F401 — vérifie la dispo AVANT de renoncer à la pilule
             return WebDock()

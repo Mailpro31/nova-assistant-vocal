@@ -528,6 +528,18 @@ def test_version_sync():
           False)
 
 
+def test_web_dock_default():
+    """L'interface web (dock.html) est l'UI par défaut pour TOUS : décision
+    produit — la pilule tkinter n'est que le repli WebView2-absent. Une
+    régression ici renverrait les utilisateurs à « l'interface pas belle »."""
+    print("UI — dock web par défaut pour tous")
+    check("config : dock_ui vaut « web » par défaut",
+          core.DEFAULT_CONFIG.get("dock_ui"), "web")
+    import licensing as _lic
+    check("licensing : web_dock offert en Free",
+          _lic.FEATURES.get("web_dock"), _lic.FREE)
+
+
 if __name__ == "__main__":
     test_registry()
     test_auto_resolve()
@@ -539,6 +551,7 @@ if __name__ == "__main__":
     test_format_rules()
     test_licensing()
     test_version_sync()
+    test_web_dock_default()
     print()
     if _fails:
         print(f"❌ {len(_fails)} échec(s) : {', '.join(_fails)}")

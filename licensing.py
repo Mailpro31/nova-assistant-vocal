@@ -55,7 +55,9 @@ FEATURES = {
     "all_modes":         PRO,     # les 7 modes (Free en a 3)
     "custom_variables":  PRO,     # Custom Variables
     "power_profiles":    PRO,     # profils Élevé / Ultra (Free : Normal)
-    "web_dock":          PRO,     # dock web « bille de verre »
+    "web_dock":          FREE,    # dock web « bille de verre » = l'interface
+                                  # principale de Nova (la pilule tkinter n'est
+                                  # qu'un repli si WebView2 manque)
     "unlimited_stt":     PRO,     # transcription sans quota hebdo
     "best_models":       ULTRA,   # meilleure IA / meilleure qualité
     "custom_modes":      ULTRA,   # créer ses propres modes / prompts
