@@ -40,10 +40,47 @@ def start_connectivity_loop():
     threading.Thread(target=loop, daemon=True).start()
 
 
-# ------------------------------------------------------------ Groq (STT) ----
+# ------------------------------------------------------------ Turbo (STT) ---
+
+NOVA_TURBO_URL = ("https://cvpucqsxgjczkdskohte.supabase.co"
+                  "/functions/v1/turbo")
+
+
+def turbo_transcribe(audio_f32, language="fr", model="whisper-large-v3-turbo",
+                     prompt=""):
+    """Turbo via le relais Nova : le jeton de licence (propre à chaque
+    machine activée) authentifie ; le serveur applique le fair-use quotidien
+    et porte la clé du fournisseur — l'utilisateur n'a rien à configurer.
+    Un refus (quota, licence, panne) lève : l'appelant retombe en local."""
+    import numpy as np
+    import requests
+    import core
+    token = (core.CFG.get("license_key") or "").strip()
+    if not token.startswith("NOVA1."):
+        raise RuntimeError("licence Turbo absente")
+    pcm = (np.clip(audio_f32, -1, 1) * 32767).astype("<i2").tobytes()
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(16000)
+        w.writeframes(pcm)
+    params = {"model": model}
+    if language:                       # vide = détection automatique
+        params["language"] = language
+    if prompt:
+        params["prompt"] = prompt[:200]
+    r = requests.post(NOVA_TURBO_URL, params=params,
+                      headers={"Authorization": f"Bearer {token}",
+                               "Content-Type": "audio/wav"},
+                      data=buf.getvalue(), timeout=12)
+    r.raise_for_status()
+    return (r.json().get("text") or "").strip()
+
 
 def groq_transcribe(audio_f32, language="fr", model="whisper-large-v3-turbo", prompt=""):
-    """Whisper cloud (opt-in). audio_f32 : np.float32 16 kHz mono."""
+    """Whisper cloud en direct (clé personnelle — dev/avancé). audio_f32 :
+    np.float32 16 kHz mono. Les abonnés passent par turbo_transcribe."""
     import numpy as np
     import requests
     key = winext.get_secret("groq")

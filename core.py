@@ -1646,9 +1646,14 @@ def transcribe_routed(audio, fast=False):
     Retourne (texte, moteur)."""
     import integrations
     if (CFG.get("stt", {}).get("cloud_enabled") and _cloud_licensed()
-            and winext.has_secret("groq") and integrations.is_online()):
+            and integrations.is_online()):
         try:
-            text = integrations.groq_transcribe(
+            # clé personnelle présente (dev/avancé) → Groq en direct ;
+            # sinon relais Nova : jeton de licence + fair-use côté serveur
+            _cloud_fn = (integrations.groq_transcribe
+                         if winext.has_secret("groq")
+                         else integrations.turbo_transcribe)
+            text = _cloud_fn(
                 audio, language=_stt_language(),
                 model=CFG["stt"].get("cloud_model", "whisper-large-v3-turbo"),
                 prompt=stt_prompt())
