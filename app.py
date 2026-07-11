@@ -589,6 +589,17 @@ class Pill(threading.Thread):
             if cloud.get() and not licensing.has("cloud_stt"):
                 cloud.set(False)                # Turbo réservé à Ultra
                 return
+            if cloud.get():                     # activation = choix éclairé
+                from tkinter import messagebox
+                if not messagebox.askyesno(
+                        "Activer Turbo ?",
+                        "Vos dictées seront traitées en ligne, à la vitesse "
+                        "maximale — elles ne restent alors plus exclusivement "
+                        "sur votre appareil. Sans connexion, Nova repasse "
+                        "automatiquement en Intelligence privée.\n\n"
+                        "Activer Turbo ?", parent=win):
+                    cloud.set(False)
+                    return
             stt = dict(core.CFG.get("stt", {}))
             stt["cloud_enabled"] = bool(cloud.get())
             core.save_config({"stt": stt})
