@@ -20,7 +20,7 @@ AUDIO = "/home/user/nova-assistant-vocal/landing/film/nova-film-audio.wav"
 DEST = "/home/user/nova-assistant-vocal/landing"
 FPS = 30
 W, H = 1280, 720
-POSTER_T = 8.35   # e-mail reformulé (le « payoff »)
+POSTER_T = 10.5   # e-mail reformulé + coche (le « payoff »)
 
 JOBS = [
     ("fr", f"{DEST}/nova-film2.mp4", f"{DEST}/film2-poster.jpg"),
