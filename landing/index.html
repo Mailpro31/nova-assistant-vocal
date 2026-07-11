@@ -197,6 +197,20 @@
     -webkit-backdrop-filter:blur(12px);cursor:pointer;display:flex;align-items:center;
     justify-content:center;color:#fff;transition:transform .25s var(--spring)}
   #vsound:hover{transform:scale(1.1)}
+  /* tant que le son est coupé : anneau qui pulse + pilule d'invite — le film a
+     une vraie bande-son, mais l'autoplay des navigateurs démarre muet */
+  #vsound:not(.on){animation:vpulse 2.2s ease-out infinite}
+  @keyframes vpulse{0%{box-shadow:0 0 0 0 rgba(10,132,255,.55)}
+    70%{box-shadow:0 0 0 14px rgba(10,132,255,0)}100%{box-shadow:0 0 0 0 rgba(10,132,255,0)}}
+  #vhint{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);
+    padding:8px 16px;border-radius:999px;font-size:12.5px;font-weight:600;color:#fff;
+    background:rgba(20,22,28,.72);backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.14);
+    pointer-events:none;white-space:nowrap;transition:opacity .4s;display:flex;
+    align-items:center;gap:8px}
+  #vhint svg{width:14px;height:14px;stroke:#fff;fill:none;stroke-width:2;
+    stroke-linecap:round;stroke-linejoin:round}
+  #vhint.off{opacity:0}
   #vsound svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2;
     stroke-linecap:round;stroke-linejoin:round}
   #vsound .von{display:none}
@@ -513,8 +527,9 @@
       <svg class="voff" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="m17 9 4 6m0-6-4 6"/></svg>
       <svg class="von" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>
     </button>
+    <span id="vhint"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg><span data-t="film_hint">Cliquez pour activer le son</span></span>
   </div>
-  <p class="filmNote rv" data-t="film_note">Vingt-six secondes. Pas une de trop.</p>
+  <p class="filmNote rv" data-t="film_note">Quarante secondes. Pas une de trop.</p>
 </section>
 
 <section class="vitrine" id="app">
@@ -854,7 +869,7 @@ addEventListener("keyup", (e) => { if (e.code === "F9" || e.code === "Space") en
 
 /* ---------- le film : lecture muette quand il entre à l'écran, clic = son ---------- */
 (function () {
-  const v = $("filmv"), btn = $("vsound"), wrap = $("vwrap");
+  const v = $("filmv"), btn = $("vsound"), wrap = $("vwrap"), vhint = $("vhint");
   if (!v) return;
   if (!RM) new IntersectionObserver((es) => {
     for (const e of es) {
@@ -865,6 +880,7 @@ addEventListener("keyup", (e) => { if (e.code === "F9" || e.code === "Space") en
   const toggle = () => {
     v.muted = !v.muted;
     btn.classList.toggle("on", !v.muted);
+    vhint.classList.toggle("off", !v.muted);   // l'invite disparaît une fois le son actif
     if (v.paused) v.play().catch(() => {});
   };
   btn.onclick = (e) => { e.stopPropagation(); toggle(); };
@@ -921,7 +937,8 @@ const I18N = {
     hint_idle: "<b>Maintenez la touche</b> — comme dans Nova.",
     hero_dl: "Télécharger gratuitement", hero_pricing: "Voir les tarifs",
     hero_note: "Windows 10/11 · sans carte bancaire · vos données restent chez vous",
-    film_kicker: "Le film", film_note: "Vingt-six secondes. Pas une de trop.",
+    film_kicker: "Le film", film_note: "Quarante secondes. Pas une de trop.",
+    film_hint: "Cliquez pour activer le son",
     app_kicker: "L'app", app_h2: "Discrète, jusqu'à<br>ce que vous parliez.",
     pill_listen: "Nova écoute…", pill_release: "relâchez pour coller", bubble_ready: "Prête",
     tones_h2: "Une voix.<br>Tous vos Styles.",
@@ -978,7 +995,8 @@ const I18N = {
     hint_idle: "<b>Hold the key</b> — just like in Nova.",
     hero_dl: "Download for free", hero_pricing: "See pricing",
     hero_note: "Windows 10/11 · no credit card · your data stays on your device",
-    film_kicker: "The film", film_note: "Twenty-six seconds. Not one too many.",
+    film_kicker: "The film", film_note: "Forty seconds. Not one too many.",
+    film_hint: "Click to turn the sound on",
     app_kicker: "The app", app_h2: "Discreet, until<br>you speak.",
     pill_listen: "Nova is listening…", pill_release: "release to paste", bubble_ready: "Ready",
     tones_h2: "One voice.<br>All your Styles.",
