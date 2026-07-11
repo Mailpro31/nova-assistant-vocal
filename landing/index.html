@@ -8,7 +8,39 @@
 <meta property="og:title" content="Nova — Parlez. Nova écrit.">
 <meta property="og:description" content="Dictée vocale intelligente pour Windows. Maintenez une touche, parlez — un texte propre apparaît là où vous écriviez.">
 <meta property="og:type" content="website">
-<meta name="twitter:card" content="summary">
+<meta property="og:url" content="https://novaspeak.app/">
+<meta property="og:image" content="https://novaspeak.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:site_name" content="Nova">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://novaspeak.app/og.png">
+<link rel="canonical" href="https://novaspeak.app/">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#1F1F22" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#F5F5F7" media="(prefers-color-scheme: light)">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Nova",
+ "url":"https://novaspeak.app/","image":"https://novaspeak.app/og.png",
+ "operatingSystem":"Windows 10, Windows 11",
+ "applicationCategory":"ProductivityApplication",
+ "description":"Dictée vocale intelligente pour Windows. Maintenez une touche, parlez — un texte propre apparaît là où vous écriviez.",
+ "offers":[
+  {"@type":"Offer","name":"Gratuit","price":"0","priceCurrency":"EUR"},
+  {"@type":"Offer","name":"Pro","price":"9.99","priceCurrency":"EUR"},
+  {"@type":"Offer","name":"Ultra","price":"19.99","priceCurrency":"EUR"}]}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
+ {"@type":"Question","name":"Nova fonctionne-t-il sans internet ?","acceptedAnswer":{"@type":"Answer","text":"Oui. L'Intelligence privée écoute, transcrit et reformule entièrement sur votre ordinateur — sans connexion, sans compte. Seul Turbo, l'option en ligne de Nova Ultra, utilise internet ; sans connexion, Nova repasse de lui-même en Intelligence privée."}},
+ {"@type":"Question","name":"Quelle machine faut-il ?","acceptedAnswer":{"@type":"Answer","text":"Un PC sous Windows 10 ou 11 (64 bits) et un micro — celui d'un portable suffit. Nova mesure votre machine et choisit automatiquement le profil de puissance adapté : 8 Go de RAM suffisent, davantage débloque les profils de qualité supérieure."}},
+ {"@type":"Question","name":"Mes dictées sont-elles privées ?","acceptedAnswer":{"@type":"Answer","text":"Par conception. Avec l'Intelligence privée, l'audio, le texte et votre vocabulaire ne quittent jamais votre ordinateur — nous ne pouvons pas les lire. Pas de compte, pas de cookie de suivi."}},
+ {"@type":"Question","name":"Quelles langues sont prises en charge ?","acceptedAnswer":{"@type":"Answer","text":"Plus de 90 langues, détectées automatiquement. La reformulation suit la langue de votre dictée."}},
+ {"@type":"Question","name":"Puis-je annuler ? Et les remboursements ?","acceptedAnswer":{"@type":"Answer","text":"L'abonnement s'annule à tout moment, sans justification, depuis le portail de facturation — Nova reste actif jusqu'à la fin de la période. Pro s'essaie gratuitement 7 jours. Les conditions de remboursement sont détaillées dans les CGV."}},
+ {"@type":"Question","name":"Sur combien d'ordinateurs ?","acceptedAnswer":{"@type":"Answer","text":"Chaque licence active Nova sur deux ordinateurs. Un poste inutilisé pendant 30 jours libère sa place automatiquement."}}]}
+</script>
 <script>document.documentElement.classList.add("js")</script>
 <style>
   :root{
@@ -427,6 +459,88 @@
   .plansNote{margin-top:24px;color:var(--mut);font-size:12.5px}
   .plansNote a{color:var(--blue)}
 
+  /* ----------------------------------------------- développeurs ---------- */
+  .dev{position:relative;padding:130px 6vw 110px;text-align:center}
+  .dev::before{content:"";position:absolute;left:50%;top:55%;transform:translate(-50%,-50%);
+    z-index:-1;width:min(1000px,95vw);height:75%;pointer-events:none;filter:blur(85px);
+    background:radial-gradient(48% 55% at 40% 46%,rgba(156,200,240,.16),transparent 70%),
+      radial-gradient(45% 50% at 64% 56%,rgba(174,190,236,.12),transparent 72%)}
+  .dev h2{font-size:clamp(30px,5vw,52px);font-weight:700;letter-spacing:-1.4px;line-height:1.08}
+  .devsub{margin:18px auto 0;max-width:520px;color:var(--mut);font-size:15px;line-height:1.6}
+  .devsub b{color:var(--txt);font-weight:600}
+  /* la fenêtre de code reste sombre dans les deux thèmes (langage des IDE) */
+  .codewin{width:min(640px,92vw);margin:40px auto 0;background:#1A1A1D;
+    border:1px solid rgba(255,255,255,.08);border-radius:13px;overflow:hidden;
+    box-shadow:0 30px 80px rgba(0,0,0,.5);text-align:left}
+  .light .codewin{box-shadow:0 30px 80px rgba(0,0,0,.22)}
+  .codewin .cbar{display:flex;align-items:center;gap:9px;padding:12px 16px;
+    border-bottom:1px solid rgba(255,255,255,.07);font-size:12px;color:#98989F}
+  .codewin .cbar i{width:10px;height:10px;border-radius:50%;background:#3A3A3F}
+  .codewin .cbar .fsty{margin-left:auto;display:inline-flex;align-items:center;gap:6px;
+    padding:3px 10px;border-radius:999px;font-size:10.5px;font-weight:600;
+    color:var(--blue);background:rgba(10,132,255,.12);border:1px solid rgba(10,132,255,.3);
+    white-space:nowrap}
+  .codewin .cbar .fsty::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--blue)}
+  @media(max-width:420px){.codewin .cbar .fsty{display:none}}
+  .codewin .cbody{padding:18px 20px 22px}
+  .cvoice{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:999px;
+    background:#111114;border:1px solid #2B517E;margin-bottom:16px}
+  .cvoice .sbars{display:flex;gap:3px;align-items:center;height:16px;flex:none}
+  .cvoice .sbars i{width:3px;border-radius:2px;background:var(--peri);height:5px;
+    animation:eqp 1.1s ease-in-out infinite}
+  .cvoice .sbars i:nth-child(2n){background:#9CC8F0}
+  .cvoice .sbars i:nth-child(2){animation-delay:.14s}.cvoice .sbars i:nth-child(3){animation-delay:.28s}
+  .cvoice .sbars i:nth-child(4){animation-delay:.42s}.cvoice .sbars i:nth-child(5){animation-delay:.56s}
+  .cvoice .cvtx{font-size:12.5px;line-height:1.5;color:#AAB2C4;font-style:italic}
+  .cprompt{background:#111114;border:1px solid rgba(255,255,255,.07);border-radius:9px;
+    padding:14px 16px;font:400 13px/1.65 ui-monospace,Menlo,Consolas,monospace;color:#E6E9F2}
+  .cprompt code{color:#9CC8F0;font-family:inherit}
+  .devstats{display:flex;justify-content:center;align-items:stretch;gap:0;
+    margin:44px auto 0;max-width:720px;flex-wrap:wrap}
+  .dstat{flex:1;min-width:170px;padding:6px 26px;text-align:center}
+  .dstat + .dstat{border-left:1px solid var(--line)}
+  .dstat b{display:block;font-size:40px;font-weight:700;letter-spacing:-1.8px;color:var(--txt)}
+  .dstat span{display:block;margin-top:6px;font-size:12.5px;line-height:1.45;color:var(--mut)}
+  @media(max-width:640px){.dstat{min-width:100%;padding:14px 8px}
+    .dstat + .dstat{border-left:none;border-top:1px solid var(--line)}}
+
+  /* ------------------------------------------------------------ FAQ ------ */
+  .faq{position:relative;padding:40px 6vw 130px;text-align:center}
+  .faqlist{max-width:680px;margin:34px auto 0;text-align:left}
+  .faq details{border-top:1px solid var(--line)}
+  .faq details:last-child{border-bottom:1px solid var(--line)}
+  .faq summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:16px;
+    justify-content:space-between;padding:19px 4px;font-size:15px;font-weight:600;
+    letter-spacing:-.2px;color:var(--txt);transition:color .2s}
+  .faq summary::-webkit-details-marker{display:none}
+  .faq summary:hover{color:var(--blue)}
+  .faq summary svg{width:16px;height:16px;flex:none;stroke:var(--mut);fill:none;
+    stroke-width:2;stroke-linecap:round;stroke-linejoin:round;
+    transition:transform .3s var(--ease)}
+  .faq details[open] summary svg{transform:rotate(180deg)}
+  .faq details p{padding:0 4px 20px;font-size:13.5px;line-height:1.65;color:var(--mut);
+    max-width:600px}
+  .faq details p a{color:var(--blue)}
+  .faq details p b{color:var(--txt);font-weight:600}
+
+  /* ------------------------------------------------------- nouveautés ---- */
+  .wl{margin:64px auto 0;max-width:520px}
+  .wlt{font-size:12px;letter-spacing:2.5px;text-transform:uppercase;color:var(--mut);
+    font-weight:600;margin-bottom:16px}
+  .wlform{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+  .wlform[hidden]{display:none}   /* hidden doit gagner sur display:flex (cf. .billing) */
+  .wlform input[type=email]{flex:1;min-width:230px;background:var(--card);
+    border:1px solid var(--line);border-radius:10px;padding:13px 16px;font-size:14px;
+    color:var(--txt);font-family:var(--font);outline:none;transition:border-color .2s}
+  .wlform input[type=email]::placeholder{color:var(--mut)}
+  .wlform input[type=email]:focus{border-color:var(--blue)}
+  .wlform .btn{padding:13px 22px;font-size:14px}
+  .wlform .btn[disabled]{opacity:.55;cursor:default}
+  .wlnote{margin-top:12px;font-size:11.5px;color:var(--mut);line-height:1.5}
+  .wlnote.ok{color:var(--ok);font-size:14px}
+  .wlnote.ok b{font-weight:600}
+  .wlnote.err{color:#FF6B64}
+
   /* -------------------------------------------------------- fin ---------- */
   .final{padding:140px 6vw 120px;text-align:center;position:relative}
   .final h2{font-size:clamp(34px,6vw,64px);font-weight:700;letter-spacing:-.04em;line-height:1.05}
@@ -623,6 +737,33 @@
   </div>
 </section>
 
+<section class="dev" id="dev">
+  <p class="kicker rv" data-t="dev_kicker">Pour les développeurs</p>
+  <h2 class="rv" data-t="dev_h2">Vos prompts,<br>pensés à voix haute.</h2>
+  <p class="devsub rv" data-t="dev_sub">Les bonnes réponses naissent d'instructions
+    détaillées — que personne n'aime taper. Maintenez la touche, décrivez ce que
+    vous voulez : le Style <b>Prompt IA</b> livre une consigne propre, prête pour
+    Cursor ou votre assistant IA.</p>
+  <div class="codewin rv" aria-hidden="true">
+    <div class="cbar"><i></i><i></i><i></i>&nbsp;<span data-t="dev_win">Cursor — nova_core.py</span>
+      <span class="fsty" data-t="dev_sty">Style · Prompt IA</span></div>
+    <div class="cbody">
+      <div class="cvoice"><span class="sbars"><i></i><i></i><i></i><i></i><i></i></span>
+        <span class="cvtx" data-t="dev_said">« euh refactore parse_invoice… sépare la
+        validation, ajoute des tests sur les dates invalides et documente tout ça »</span></div>
+      <div class="cprompt" data-t="dev_prompt">Refactore <code>parse_invoice()</code> :
+        extrais la validation dans un module dédié, ajoute des tests unitaires couvrant
+        les dates invalides et les montants nuls, puis documente les paramètres publics.</div>
+    </div>
+  </div>
+  <div class="devstats rv">
+    <div class="dstat"><b>40</b><span data-t="dev_s1">mots/min au clavier</span></div>
+    <div class="dstat"><b>150</b><span data-t="dev_s2">mots/min à la voix</span></div>
+    <div class="dstat"><b>0</b><span data-t="dev_s3">ligne de code envoyée — tout reste
+      sur votre machine</span></div>
+  </div>
+</section>
+
 <section class="privacy">
   <span class="aura a"></span>
   <h2 class="rv" data-t="priv_h2">Tout reste chez vous.<br><em>Par conception.</em></h2>
@@ -678,6 +819,60 @@
     équipes : <a href="mailto:mailprosasha2@gmail.com">écrivez-nous</a></p>
 </section>
 
+<section class="faq" id="faq">
+  <p class="kicker rv" data-t="faq_kicker">Questions</p>
+  <h2 class="rv" data-t="faq_h2">Tout ce qu'on nous demande.</h2>
+  <div class="faqlist rv">
+    <details>
+      <summary><span data-t="faq_q1">Nova fonctionne-t-il sans internet ?</span>
+        <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></summary>
+      <p data-t="faq_a1">Oui. L'<b>Intelligence privée</b> écoute, transcrit et reformule
+        entièrement sur votre ordinateur — sans connexion, sans compte. Seul
+        <b>Turbo</b>, l'option en ligne de Nova&nbsp;Ultra, utilise internet ; et sans
+        connexion, Nova repasse de lui-même en Intelligence privée.</p>
+    </details>
+    <details>
+      <summary><span data-t="faq_q2">Quelle machine faut-il ?</span>
+        <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></summary>
+      <p data-t="faq_a2">Un PC sous <b>Windows 10 ou 11</b> (64 bits) et un micro —
+        celui d'un portable suffit. Nova mesure votre machine et choisit tout seul le
+        profil de puissance adapté : 8&nbsp;Go de RAM suffisent, davantage débloque
+        les profils de qualité supérieure.</p>
+    </details>
+    <details>
+      <summary><span data-t="faq_q3">Mes dictées sont-elles privées ?</span>
+        <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></summary>
+      <p data-t="faq_a3">Par conception. Avec l'Intelligence privée, l'audio, le texte
+        et votre vocabulaire <b>ne quittent jamais votre ordinateur</b> — nous ne
+        pouvons pas les lire. Pas de compte, pas de cookie de suivi. Les détails sont
+        dans la <a href="/confidentialite.html">politique de confidentialité</a>.</p>
+    </details>
+    <details>
+      <summary><span data-t="faq_q4">Quelles langues sont prises en charge ?</span>
+        <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></summary>
+      <p data-t="faq_a4">Plus de <b>90 langues</b>, détectées automatiquement — dictez
+        en français, poursuivez en anglais si l'envie vous prend. La reformulation
+        suit la langue de votre dictée.</p>
+    </details>
+    <details>
+      <summary><span data-t="faq_q5">Puis-je annuler ? Et les remboursements ?</span>
+        <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></summary>
+      <p data-t="faq_a5">L'abonnement s'annule <b>à tout moment</b>, sans justification,
+        depuis le portail de facturation — Nova reste actif jusqu'à la fin de la
+        période. Pro s'essaie gratuitement 7&nbsp;jours. Les conditions de
+        remboursement sont détaillées dans les
+        <a href="/conditions.html">conditions de vente</a>.</p>
+    </details>
+    <details>
+      <summary><span data-t="faq_q6">Sur combien d'ordinateurs ?</span>
+        <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></summary>
+      <p data-t="faq_a6">Chaque licence active Nova sur <b>deux ordinateurs</b>. Un
+        poste inutilisé pendant 30&nbsp;jours libère sa place automatiquement —
+        pratique quand on change de machine.</p>
+    </details>
+  </div>
+</section>
+
 <section class="final">
   <span class="aura b"></span>
   <h2 class="rv" data-t="final_h2">Votre voix tape plus vite<br>que vos doigts.</h2>
@@ -686,12 +881,25 @@
       <svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16"/></svg>
       <span data-t="final_btn">Télécharger Nova gratuitement</span></a>
   </div>
+  <div class="wl rv">
+    <p class="wlt" data-t="wl_t">Les nouveautés, sans le bruit</p>
+    <form id="wlForm" class="wlform" novalidate>
+      <input type="email" id="wlEmail" required autocomplete="email"
+        placeholder="votre@email.com" aria-label="Votre adresse e-mail">
+      <input type="text" id="wlSite" name="website" tabindex="-1" autocomplete="off"
+        aria-hidden="true" style="position:absolute;left:-5000px;width:1px;height:1px">
+      <button class="btn" type="submit" data-t="wl_btn">Me prévenir</button>
+    </form>
+    <p class="wlnote" id="wlNote" data-t="wl_note">Lancement, offres, grandes nouveautés —
+      jamais partagé, désinscription en un clic.</p>
+  </div>
 </section>
 
 <footer>
   <span class="brand" style="font-size:14px"><span class="dot" style="width:16px;height:16px"></span>Nova</span>
   <div class="links">
     <a href="#tons" data-t="foot_demo">La démo</a><a href="#tarifs" data-t="foot_pricing">Tarifs</a>
+    <a href="#faq" data-t="foot_faq">FAQ</a>
     <a href="/conditions.html" data-t="foot_terms">Conditions</a>
     <a href="/confidentialite.html" data-t="foot_privacy">Confidentialité</a>
     <a href="mailto:mailprosasha2@gmail.com">Contact</a>
@@ -1003,9 +1211,36 @@ const I18N = {
     ultra_3: "Personnalisation complète — orbe, nom, couleurs", ultra_btn: "Obtenir Ultra",
     trial_note: "7 jours offerts, sans engagement",
     plans_note: 'Annulable à tout moment · équipes : <a href="mailto:mailprosasha2@gmail.com">écrivez-nous</a>',
+    dev_kicker: "Pour les développeurs",
+    dev_h2: "Vos prompts,<br>pensés à voix haute.",
+    dev_sub: "Les bonnes réponses naissent d'instructions détaillées — que personne n'aime taper. Maintenez la touche, décrivez ce que vous voulez : le Style <b>Prompt IA</b> livre une consigne propre, prête pour Cursor ou votre assistant IA.",
+    dev_win: "Cursor — nova_core.py", dev_sty: "Style · Prompt IA",
+    dev_said: "« euh refactore parse_invoice… sépare la validation, ajoute des tests sur les dates invalides et documente tout ça »",
+    dev_prompt: "Refactore <code>parse_invoice()</code> : extrais la validation dans un module dédié, ajoute des tests unitaires couvrant les dates invalides et les montants nuls, puis documente les paramètres publics.",
+    dev_s1: "mots/min au clavier", dev_s2: "mots/min à la voix",
+    dev_s3: "ligne de code envoyée — tout reste sur votre machine",
+    faq_kicker: "Questions", faq_h2: "Tout ce qu'on nous demande.",
+    faq_q1: "Nova fonctionne-t-il sans internet ?",
+    faq_a1: "Oui. L'<b>Intelligence privée</b> écoute, transcrit et reformule entièrement sur votre ordinateur — sans connexion, sans compte. Seul <b>Turbo</b>, l'option en ligne de Nova&nbsp;Ultra, utilise internet ; et sans connexion, Nova repasse de lui-même en Intelligence privée.",
+    faq_q2: "Quelle machine faut-il ?",
+    faq_a2: "Un PC sous <b>Windows 10 ou 11</b> (64 bits) et un micro — celui d'un portable suffit. Nova mesure votre machine et choisit tout seul le profil de puissance adapté : 8&nbsp;Go de RAM suffisent, davantage débloque les profils de qualité supérieure.",
+    faq_q3: "Mes dictées sont-elles privées ?",
+    faq_a3: "Par conception. Avec l'Intelligence privée, l'audio, le texte et votre vocabulaire <b>ne quittent jamais votre ordinateur</b> — nous ne pouvons pas les lire. Pas de compte, pas de cookie de suivi. Les détails sont dans la <a href=\"/confidentialite.html\">politique de confidentialité</a>.",
+    faq_q4: "Quelles langues sont prises en charge ?",
+    faq_a4: "Plus de <b>90 langues</b>, détectées automatiquement — dictez en français, poursuivez en anglais si l'envie vous prend. La reformulation suit la langue de votre dictée.",
+    faq_q5: "Puis-je annuler ? Et les remboursements ?",
+    faq_a5: "L'abonnement s'annule <b>à tout moment</b>, sans justification, depuis le portail de facturation — Nova reste actif jusqu'à la fin de la période. Pro s'essaie gratuitement 7&nbsp;jours. Les conditions de remboursement sont détaillées dans les <a href=\"/conditions.html\">conditions de vente</a>.",
+    faq_q6: "Sur combien d'ordinateurs ?",
+    faq_a6: "Chaque licence active Nova sur <b>deux ordinateurs</b>. Un poste inutilisé pendant 30&nbsp;jours libère sa place automatiquement — pratique quand on change de machine.",
+    wl_t: "Les nouveautés, sans le bruit",
+    wl_ph: "votre@email.com", wl_btn: "Me prévenir",
+    wl_note: "Lancement, offres, grandes nouveautés — jamais partagé, désinscription en un clic.",
+    wl_ok: "<b>C'est noté.</b> À très vite.",
+    wl_bad: "Cette adresse ne semble pas valide.",
+    wl_err: "Petit souci de connexion — réessayez dans un instant.",
     final_h2: "Votre voix tape plus vite<br>que vos doigts.",
     final_btn: "Télécharger Nova gratuitement",
-    foot_demo: "La démo", foot_pricing: "Tarifs",
+    foot_demo: "La démo", foot_pricing: "Tarifs", foot_faq: "FAQ",
     foot_terms: "Conditions", foot_privacy: "Confidentialité",
     foot_copy: "© 2026 Nova — dictée vocale pour Windows"
   },
@@ -1066,9 +1301,36 @@ const I18N = {
     ultra_3: "Full personalization — orb, name, colors", ultra_btn: "Get Ultra",
     trial_note: "7 days free, cancel anytime",
     plans_note: 'Cancel anytime · teams: <a href="mailto:mailprosasha2@gmail.com">write to us</a>',
+    dev_kicker: "For developers",
+    dev_h2: "Your prompts,<br>thought out loud.",
+    dev_sub: "Great answers come from detailed instructions — which nobody enjoys typing. Hold the key, describe what you want: the <b>AI prompt</b> Style delivers a clean instruction, ready for Cursor or your AI assistant.",
+    dev_win: "Cursor — nova_core.py", dev_sty: "Style · AI prompt",
+    dev_said: "“uh refactor parse_invoice… split out the validation, add tests for invalid dates and document the whole thing”",
+    dev_prompt: "Refactor <code>parse_invoice()</code>: extract validation into a dedicated module, add unit tests covering invalid dates and zero amounts, then document the public parameters.",
+    dev_s1: "words/min typing", dev_s2: "words/min speaking",
+    dev_s3: "lines of code sent anywhere — everything stays on your machine",
+    faq_kicker: "Questions", faq_h2: "Everything we get asked.",
+    faq_q1: "Does Nova work offline?",
+    faq_a1: "Yes. <b>Private Intelligence</b> listens, transcribes and rewrites entirely on your computer — no connection, no account. Only <b>Turbo</b>, Nova&nbsp;Ultra's online option, uses the internet; and without a connection, Nova falls back to Private Intelligence on its own.",
+    faq_q2: "What machine do I need?",
+    faq_a2: "A PC running <b>Windows 10 or 11</b> (64-bit) and a microphone — a laptop's built-in mic is fine. Nova measures your machine and picks the right power profile by itself: 8&nbsp;GB of RAM is enough, more unlocks the higher-quality profiles.",
+    faq_q3: "Are my dictations private?",
+    faq_a3: "By design. With Private Intelligence, the audio, the text and your vocabulary <b>never leave your computer</b> — we cannot read them. No account, no tracking cookies. Details in the <a href=\"/confidentialite.html\">privacy policy</a>.",
+    faq_q4: "Which languages are supported?",
+    faq_a4: "More than <b>90 languages</b>, detected automatically — dictate in French, switch to English mid-thought if you like. Rewriting follows the language you speak.",
+    faq_q5: "Can I cancel? What about refunds?",
+    faq_a5: "Cancel <b>anytime</b>, no questions asked, from the billing portal — Nova stays active until the end of the period. Pro comes with a free 7-day trial. Refund terms are detailed in the <a href=\"/conditions.html\">terms of sale</a>.",
+    faq_q6: "On how many computers?",
+    faq_a6: "Each license activates Nova on <b>two computers</b>. A device unused for 30&nbsp;days frees its seat automatically — handy when you switch machines.",
+    wl_t: "The news, without the noise",
+    wl_ph: "you@email.com", wl_btn: "Keep me posted",
+    wl_note: "Launch, deals, big updates — never shared, one-click unsubscribe.",
+    wl_ok: "<b>You're on the list.</b> Talk soon.",
+    wl_bad: "That address doesn't look right.",
+    wl_err: "Small connection hiccup — try again in a moment.",
     final_h2: "Your voice types faster<br>than your fingers.",
     final_btn: "Download Nova for free",
-    foot_demo: "The demo", foot_pricing: "Pricing",
+    foot_demo: "The demo", foot_pricing: "Pricing", foot_faq: "FAQ",
     foot_terms: "Terms", foot_privacy: "Privacy",
     foot_copy: "© 2026 Nova — voice dictation for Windows"
   }
@@ -1099,6 +1361,33 @@ function syncBilling() {
 $("billM").onclick = () => { BILL = "m"; syncBilling(); };
 $("billY").onclick = () => { BILL = "y"; syncBilling(); };
 
+/* ---------- nouveautés : inscription e-mail (fonction serveur dédiée) ---------- */
+const WL_API = "https://cvpucqsxgjczkdskohte.supabase.co/functions/v1/waitlist";
+$("wlForm").onsubmit = async (e) => {
+  e.preventDefault();
+  const d = I18N[LANG], note = $("wlNote"), btn = e.target.querySelector(".btn");
+  const email = $("wlEmail").value.trim();
+  const state = (cls, key) => {           // dataset.t suit l'état → survit au changement de langue
+    note.className = "wlnote" + (cls ? " " + cls : "");
+    note.dataset.t = key; note.innerHTML = I18N[LANG][key];
+  };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { state("err", "wl_bad"); return; }
+  btn.disabled = true;
+  try {
+    const r = await fetch(WL_API, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, lang: LANG, website: $("wlSite").value }),
+    });
+    if (!r.ok) throw new Error("http " + r.status);
+    $("wlForm").hidden = true;
+    state("ok", "wl_ok");
+    sndDone();
+  } catch (_e) {
+    state("err", "wl_err");
+    btn.disabled = false;
+  }
+};
+
 function applyLang(l) {
   LANG = l;
   const d = I18N[l];
@@ -1126,6 +1415,7 @@ function applyLang(l) {
   if (!RM) splitTitle();
   $("track").innerHTML = d._track + d._track;   // dupliqué : boucle parfaite
   keycap.setAttribute("aria-label", d._key_aria);
+  $("wlEmail").placeholder = d.wl_ph;
   $("langBtn").textContent = l === "fr" ? "EN" : "FR";
   syncBilling();          // ré-applique prix/liens (la passe data-t remet le mensuel)
   const v = $("filmv");

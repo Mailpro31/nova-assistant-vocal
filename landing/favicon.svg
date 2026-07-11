@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- l'orbe « bille de verre » de Nova — identité de la marque -->
+  <defs>
+    <radialGradient id="orb" cx="34%" cy="30%" r="78%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="18%" stop-color="#DFE7FA"/>
+      <stop offset="45%" stop-color="#AEBEEC"/>
+      <stop offset="72%" stop-color="#93A6E0"/>
+      <stop offset="100%" stop-color="#7E92D6"/>
+    </radialGradient>
+    <radialGradient id="hl" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity=".9"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <circle cx="32" cy="32" r="30" fill="url(#orb)"/>
+  <ellipse cx="25" cy="19" rx="11" ry="7" fill="url(#hl)" transform="rotate(-18 25 19)"/>
+</svg>
