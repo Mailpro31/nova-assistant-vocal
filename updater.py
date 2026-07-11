@@ -17,6 +17,8 @@ import re
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 import urllib.request
 
 import core
@@ -58,19 +60,71 @@ def check_latest(timeout=10):
         return None
 
 
+# Une seule mise à jour à la fois : la vérification auto du lancement et le
+# bouton « Rechercher maintenant » peuvent se chevaucher — sans ce verrou, les
+# deux écrivaient le même fichier temporaire et le second échouait (accès
+# refusé Windows), d'où un faux « Mise à jour impossible ».
+_busy = threading.Lock()
+
+
+def _download(url, dest, timeout=30):
+    """Télécharge `url` vers `dest` par morceaux, avec délai limite par lecture
+    (urlretrieve n'a AUCUN timeout : une connexion figée bloquait pour
+    toujours). Lève en cas d'erreur ; l'appelant décide des reprises."""
+    req = urllib.request.Request(url, headers={"User-Agent": "Nova-updater"})
+    with urllib.request.urlopen(req, timeout=timeout) as r, \
+            open(dest, "wb") as f:
+        while True:
+            chunk = r.read(256 * 1024)
+            if not chunk:
+                break
+            f.write(chunk)
+
+
 def download_and_install():
     """Télécharge Nova-Setup.exe puis lance l'installation silencieuse et QUITTE
     le process (l'installateur relance Nova à la fin). Retourne False si la
-    mise à jour n'a pas pu partir — l'app continue alors normalement."""
+    mise à jour n'a pas pu partir, True si une tentative est déjà en cours —
+    l'app continue alors normalement, elle n'affiche pas d'erreur."""
     if not is_frozen():
         return False
+    if not _busy.acquire(blocking=False):
+        return True                      # déjà en cours — pas un échec
+    dest = ""
     try:
-        dest = os.path.join(tempfile.gettempdir(), "Nova-Setup.exe")
-        urllib.request.urlretrieve(SETUP_URL, dest)
-        if os.path.getsize(dest) < 5_000_000:   # page d'erreur ≠ installateur
-            raise ValueError("téléchargement incomplet")
-        subprocess.Popen([dest] + SILENT_FLAGS, close_fds=True)
+        # nom unique à chaque tentative : jamais de collision avec un
+        # téléchargement précédent (fichier verrouillé, antivirus en cours…)
+        fd, dest = tempfile.mkstemp(prefix="Nova-Setup-", suffix=".exe")
+        os.close(fd)
+        last = None
+        for wait in (0, 3, 8):           # 3 essais : les erreurs réseau et les
+            if wait:                     # relais GitHub passagers se résorbent
+                time.sleep(wait)
+            try:
+                _download(SETUP_URL, dest)
+                if os.path.getsize(dest) < 5_000_000:   # page d'erreur ≠ setup
+                    raise ValueError("téléchargement incomplet "
+                                     f"({os.path.getsize(dest)} octets)")
+                last = None
+                break
+            except Exception as e:
+                last = e
+        if last is not None:
+            core.log_err("update_dl", last)
+            return False
+        try:
+            subprocess.Popen([dest] + SILENT_FLAGS, close_fds=True)
+        except Exception as e:           # lancement bloqué (antivirus…) : on ne
+            core.log_err("update_run", e)   # re-télécharge pas, c'est inutile
+            return False
         os._exit(0)
     except Exception as e:
         core.log_err("update_install", e)
         return False
+    finally:
+        if dest and os.path.isfile(dest):
+            try:                         # atteint seulement en échec : succès
+                os.remove(dest)          # → os._exit (l'installateur a besoin
+            except OSError:              # du fichier)
+                pass
+        _busy.release()

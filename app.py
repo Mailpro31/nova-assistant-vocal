@@ -1627,8 +1627,20 @@ def _check_update(manual=True):
             pill.show("thinking", f"Mise à jour vers {info['version']}…")
             if not updater.download_and_install():   # False = rien n'est parti
                 if manual:
-                    pill.show("error", "Mise à jour impossible — réessaie plus tard")
-                    pill.hide(2.6)
+                    # plan B : l'installation silencieuse a échoué (antivirus,
+                    # réseau filtré…) — on ouvre le téléchargement direct dans
+                    # le navigateur, l'utilisateur n'est jamais coincé
+                    try:
+                        import webbrowser
+                        webbrowser.open(updater.SETUP_URL)
+                        pill.show("error",
+                                  "Installation auto impossible — "
+                                  "le téléchargement s'ouvre dans le navigateur")
+                        pill.hide(4.0)
+                    except Exception:
+                        pill.show("error",
+                                  "Mise à jour impossible — réessaie plus tard")
+                        pill.hide(2.6)
                 else:
                     pill.hide(0)
         elif manual:
