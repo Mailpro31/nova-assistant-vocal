@@ -51,6 +51,8 @@ DEFAULT_CONFIG = {
     "dock_position": "bottom-center",  # ancrage de la bulle : top/bottom × left/center/right
     "dock_scale": 1.0,        # taille de la bulle : 1.0 normale, 0.85 petite
     "dock_opacity": 1.0,      # opacité de la bulle (0.55 → 1.0)
+    "dock_ghost": False,      # invisible au repos : la bulle n'apparaît que
+                              # pendant la dictée (Nova vit dans le tray)
     "hotkey": "ctrl+alt+space",
     "note_hotkey": "ctrl+alt+n",
     "dictation_hotkey": "ctrl+alt+d",
