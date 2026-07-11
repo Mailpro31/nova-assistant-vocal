@@ -18,7 +18,7 @@ S.profiles=[{id:'normal',label:'Normal'},{id:'high',label:'Élevé',warning:''},
  {id:'ultra',label:'Ultra',locked:true,reason:'Nécessite plus de mémoire'}];
 S.hardware={ram_total_gb:16,has_gpu:true,gpu_name:'accélération graphique NVIDIA'};
 S.lic={tier:'ultra',active:true,email:'vous@exemple.fr',quota:{limit:null}};
-S.perso={orb:true,modes:true};
+S.perso={orb:true,modes:true,turbo:true};
 S.custom_modes=[
  {name:'Jira',match:['jira','sprint'],prompt:'Reformule en ticket : titre, contexte, critères d\\u2019acceptation.'},
  {name:'CRM',match:['salesforce'],prompt:'Compte-rendu d\\u2019appel : client, besoin, prochaine étape.'}];

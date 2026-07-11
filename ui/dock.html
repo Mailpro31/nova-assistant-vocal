@@ -248,8 +248,9 @@ function paneGeneral(p){
   (S.profiles||[]).forEach(pr=>{profs+='<div class="row prow'+(pr.locked?' dis':'')+(S.profile===pr.id?' sel':'')+
     '" data-id="'+pr.id+'" data-lock="'+(pr.locked?1:0)+'" style="cursor:pointer"><span class="radio"></span><div class="l"><b>'+esc(pr.label)+'</b>'+
     (pr.locked?'<small>'+esc(pr.reason)+'</small>':(pr.warning?'<small>'+esc(pr.warning)+'</small>':''))+'</div></div>';});
-  // Turbo est un privilège Ultra : sous ce palier, rangée grisée + badge
-  const canTurbo=(((S.lic&&S.lic.tier)||S.tier)==='ultra');
+  // Turbo est un privilège Ultra : capacité fournie par licensing via _state
+  // (S.perso.turbo) — le JS ne ré-encode pas la règle de palier
+  const canTurbo=!!(S.perso&&S.perso.turbo);
   p.innerHTML='<h1>Général</h1>'
    +G('Moteur'+(canTurbo?'':' <span class="badge-lock">NÉCESSITE NOVA ULTRA</span>'),
       '<div class="'+(canTurbo?'':'locked')+'">'
