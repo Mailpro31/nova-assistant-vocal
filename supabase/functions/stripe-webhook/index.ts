@@ -52,7 +52,7 @@ function newKey(): string {
 const TIER_LABEL: Record<string, string> = {
   pro: "Pro", ultra: "Ultra", business: "Business",
 };
-const SITE = "https://nova-landing-omega-ten.vercel.app";
+const SITE = "https://novaspeak.app";
 const DL = "https://github.com/Mailpro31/nova-assistant-vocal/releases/latest/download/Nova-Setup.exe";
 // capture réelle de l'app (menu des Styles), épinglée à un commit permanent
 const SHOT = "https://cdn.jsdelivr.net/gh/Mailpro31/nova-assistant-vocal@d5e06f39c1aca4c59de00634a87ea5e6b7df5ae6/landing/shots/app-menu-styles.png";
