@@ -405,9 +405,8 @@ class Pill(threading.Thread):
         # stat de valeur hebdo (rétention) — même info que le dock (« Votre semaine »)
         try:
             wk = storage.week_stats()
-            mins = round(wk.get("chars", 0) / 5 / 40)
             tk.Label(win, text=f"Cette semaine : {wk.get('count', 0)} dictées · "
-                     f"≈ {mins} min de frappe évitées",
+                     f"≈ {wk.get('minutes', 0)} min de frappe évitées",
                      bg=SET_BG, fg=SET_MUT,
                      font=("Segoe UI", 9)).pack(anchor="w", padx=16)
         except Exception:
@@ -852,7 +851,10 @@ class DockApi:
             "perso": {"orb": licensing.has("orb_customization"),
                       "name": licensing.has("custom_naming"),
                       "modes": licensing.has("custom_modes"),
-                      "best_ai": licensing.has("best_models")},
+                      "best_ai": licensing.has("best_models"),
+                      # capacité calculée ici (licensing = seule autorité de
+                      # palier) : le JS ne compare jamais un tier en dur
+                      "turbo": licensing.has("cloud_stt")},
             "orb_color": core.CFG.get("orb_color", ""),
             "custom_name": core.CFG.get("custom_name", ""),
             "custom_modes": core.CFG.get("custom_modes") or [],
@@ -931,14 +933,12 @@ class DockApi:
         return st
 
     def week_stats(self):
-        """Stat de valeur de la semaine (rétention) : dictées + minutes de
-        frappe évitées (~5 caractères/mot, ~40 mots/min au clavier)."""
+        """Stat de valeur de la semaine (rétention) — passe-plat défensif :
+        le calcul (dont minutes) vit dans storage.week_stats, source unique."""
         try:
-            st = storage.week_stats()
+            return storage.week_stats()
         except Exception:
-            st = {"count": 0, "chars": 0}
-        st["minutes"] = round(st.get("chars", 0) / 5 / 40)
-        return st
+            return {"count": 0, "chars": 0, "minutes": 0}
 
     def activate_license(self, key):
         """Active une clé saisie dans le dock. → status enrichi de `ok`."""

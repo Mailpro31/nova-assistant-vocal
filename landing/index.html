@@ -1075,8 +1075,8 @@ function syncBilling() {
   $("billY").classList.toggle("on", b === "y");
   document.querySelector('[data-t="price_pro"]').innerHTML = b === "y" ? d.price_pro_y : d.price_pro;
   document.querySelector('[data-t="price_ultra"]').innerHTML = b === "y" ? d.price_ultra_y : d.price_ultra;
-  $("buyPro").href = PAY.pro[b] || PAY.pro.m;
-  $("buyUltra").href = PAY.ultra[b] || PAY.ultra.m;
+  $("buyPro").href = PAY.pro[b];      // b==='y' implique hasY : jamais vide
+  $("buyUltra").href = PAY.ultra[b];
 }
 $("billM").onclick = () => { BILL = "m"; syncBilling(); };
 $("billY").onclick = () => { BILL = "y"; syncBilling(); };
