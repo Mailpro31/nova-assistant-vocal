@@ -23,7 +23,7 @@ import winext
 # Version de l'app — source unique. Doit rester égale au MyAppVersion de
 # installer/nova.iss (test_v3 le vérifie) ; les releases GitHub sont taguées
 # « v » + cette valeur, et updater.py s'en sert pour détecter une mise à jour.
-APP_VERSION = "3.1.8"
+APP_VERSION = "3.1.9"
 
 APP_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
 
@@ -47,7 +47,8 @@ DEFAULT_CONFIG = {
     "dock_ui": "web",         # interface : "web" = dock/fenêtres du site (défaut),
                               # "pill" = pilule tkinter (repli sans WebView2)
     "mode_hotkeys": {},       # raccourci clavier par Style : {mode_id: "ctrl+alt+e"}
-    "menu_hotkey": "",        # raccourci qui ouvre le menu des Styles ("" = aucun)
+    "menu_hotkey": "",
+    "settings_hotkey": "",    # combinaison qui ouvre la fenêtre Réglages        # raccourci qui ouvre le menu des Styles ("" = aucun)
     "dock_position": "bottom-center",  # ancrage de la bulle : top/bottom × left/center/right
     "dock_scale": 1.0,        # taille de la bulle : 1.0 normale, 0.85 petite
     "dock_opacity": 1.0,      # opacité de la bulle (0.55 → 1.0)

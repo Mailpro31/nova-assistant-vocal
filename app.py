@@ -753,7 +753,8 @@ class Pill(threading.Thread):
         # vers un Style verrouillé ne pourrait jamais fonctionner ; palier
         # calculé une fois (une vérification de signature par appel sinon)
         _tier = licensing.current_tier()
-        rows = [("__menu__", "Ouvrir le menu des Styles")] + \
+        rows = [("__menu__", "Ouvrir le menu des Styles"),
+                ("__settings__", "Ouvrir les Réglages")] + \
                [(m["id"], m["label"]) for m in modes_registry.all_modes()
                 if licensing.mode_allowed(m["id"], _tier)]
         for i, (mid, label) in enumerate(rows, start=1):
@@ -762,7 +763,8 @@ class Pill(threading.Thread):
             e = tk.Entry(hkf, width=14, bg=SET_INSET, fg=SET_FG,
                          insertbackground=SET_FG, relief="flat")
             e.insert(0, core.CFG.get("menu_hotkey", "") if mid == "__menu__"
-                     else hk_cfg.get(mid, ""))
+                     else core.CFG.get("settings_hotkey", "")
+                     if mid == "__settings__" else hk_cfg.get(mid, ""))
             e.grid(row=i, column=1, sticky="w", ipady=2, pady=1)
             hk_entries[mid] = e
 
@@ -770,6 +772,7 @@ class Pill(threading.Thread):
             vals = {m: e.get().strip().lower() for m, e in hk_entries.items()}
             core.save_config({
                 "menu_hotkey": vals.pop("__menu__", ""),
+                "settings_hotkey": vals.pop("__settings__", ""),
                 "mode_hotkeys": {m: k for m, k in vals.items() if k}})
             _rebind_style_hotkeys()
         tk.Button(hkf, text="Appliquer les raccourcis", command=save_hotkeys,
@@ -1266,6 +1269,7 @@ class DockApi:
             "stt_opts": _stt_opts(),
             "mode_hotkeys": core.CFG.get("mode_hotkeys") or {},
             "menu_hotkey": core.CFG.get("menu_hotkey", ""),
+            "settings_hotkey": core.CFG.get("settings_hotkey", ""),
             "dock_prefs": {"position": core.CFG.get("dock_position", "bottom-center"),
                            "scale": core.CFG.get("dock_scale", 1.0),
                            "opacity": core.CFG.get("dock_opacity", 1.0),
@@ -1418,6 +1422,12 @@ class DockApi:
         core.save_config({"menu_hotkey": (key or "").strip().lower()})
         _rebind_style_hotkeys()
         return core.CFG.get("menu_hotkey", "")
+
+    def set_settings_hotkey(self, key):
+        """Raccourci qui ouvre la fenêtre Réglages ; vide = désactivé."""
+        core.save_config({"settings_hotkey": (key or "").strip().lower()})
+        _rebind_style_hotkeys()
+        return core.CFG.get("settings_hotkey", "")
 
     def save_custom_vars(self, items):
         return core.save_custom_variables(items or [])
@@ -1711,6 +1721,13 @@ def _rebind_style_hotkeys():
                 menu, lambda: pill.open_modes(), suppress=False))
         except Exception as e:
             core.log_err("menu_hotkey", e)
+    sett = str(core.CFG.get("settings_hotkey") or "").strip().lower()
+    if sett:
+        try:
+            _style_hotkeys.append(keyboard.add_hotkey(
+                sett, lambda: pill.open_settings(), suppress=False))
+        except Exception as e:
+            core.log_err("settings_hotkey", e)
 
 
 def _hotkey_set_mode(mode_id):
@@ -1799,15 +1816,6 @@ def _app_display_name():
     return name if (name and licensing.has("custom_naming")) else "Nova"
 
 
-def _license_tray_label():
-    """Libellé dynamique du palier dans le menu (ouvre les Réglages au clic)."""
-    st = licensing.status()
-    if not st["active"]:
-        return "Version : complète"
-    if st["tier"] == licensing.FREE:
-        q = licensing.quota_status()
-        return f"Gratuit — {q['remaining']} car. restants… (Activer une licence)"
-    return f"Version : {st['tier'].capitalize()}"
 
 
 def _check_update(manual=True):
@@ -1897,38 +1905,17 @@ def _build_tray():
                         # ré-évalué à chaque ouverture (activation en session)
                         enabled=lambda _it: licensing.mode_allowed(mid))
 
-    def lang_item(code, label):
-        return MenuItem(label,
-                        lambda _i, _it: _set_language(code),
-                        checked=lambda _it: core.CFG.get("language") == code,
-                        radio=True)
-
-    def profile_item(ev):
-        # profil verrouillé (grisé) + raison ; sinon avertissement discret
-        pid = ev["id"]
-        suffix = (f"  — {ev['reason']}" if ev["locked"]
-                  else ("  — plus demandeur" if ev["warning"] else ""))
-        return MenuItem(ev["label"] + suffix,
-                        lambda _i, _it: _set_profile(pid),
-                        checked=lambda _it: STATE.get("profile") == pid,
-                        radio=True, enabled=not ev["locked"])
-
-    prof_items = [profile_item(ev)
-                  for ev in power_profiles.evaluate(
-                      power_profiles.detect_hardware(), _profiles_paid())]
-
+    # Menu volontairement SOBRE (il est dessiné par Windows : impossible de le
+    # styler — sa seule esthétique possible est la concision). Profil, Langue,
+    # Turbo et licence vivent dans les Réglages, pas en double ici.
     menu = Menu(
+        # élément par défaut : un DOUBLE-CLIC sur l'icône ouvre les Réglages
+        MenuItem("Ouvrir les Réglages", lambda _i, _it: pill.open_settings(),
+                 default=True),
         MenuItem("Style", Menu(*[mode_item(m) for m in modes_registry.all_modes()])),
-        MenuItem("Profil de puissance", Menu(*prof_items)),
-        MenuItem("Langue", Menu(*[lang_item(c, lbl) for c, lbl in core.LANGUAGES])),
-        MenuItem("Turbo (plus rapide, via le réseau)", lambda _i, _it: _toggle_cloud(),
-                 checked=lambda _it: bool(core.CFG.get("stt", {}).get("cloud_enabled"))),
         Menu.SEPARATOR,
-        MenuItem(lambda _it: _license_tray_label(),
-                 lambda _i, _it: pill.open_settings()),
-        MenuItem("Réglages…", lambda _i, _it: pill.open_settings()),
         MenuItem("Vérifier les mises à jour", lambda _i, _it: _check_update()),
-        MenuItem("Quitter", lambda icon, _it: _request_quit(icon)),
+        MenuItem("Quitter Nova", lambda icon, _it: _request_quit(icon)),
     )
     return pystray.Icon(APP_NAME, img, f"{_app_display_name()} — dictée vocale", menu)
 
