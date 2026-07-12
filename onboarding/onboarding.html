@@ -361,9 +361,14 @@ function init(){
     show(0);
   });
 }
+// Démarrage robuste (même course qu'au dock) : l'événement pywebviewready
+// peut être manqué et le pont peut s'injecter APRÈS 600 ms au tout premier
+// démarrage de WebView2 — on scrute donc le pont avant de se rabattre sur
+// l'aperçu navigateur (init sans pont = assistant aux valeurs par défaut).
 window.addEventListener('pywebviewready',init);
-// aperçu hors pywebview : démarre quand même après un court instant
-setTimeout(()=>{if(!_inited)init();},600);
+const _initPoll=setInterval(()=>{if(_inited){clearInterval(_initPoll);return;}
+  if(window.pywebview&&window.pywebview.api)init();},120);
+setTimeout(()=>{clearInterval(_initPoll);if(!_inited)init();},8000);
 </script>
 </body>
 </html>

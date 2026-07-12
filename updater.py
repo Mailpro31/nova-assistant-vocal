@@ -116,6 +116,26 @@ def _download(url, dest, timeout=30):
     return total
 
 
+def _fetch_setup():
+    """Un essai de téléchargement : fichier temporaire NEUF (un reste partiel
+    encore scanné par l'antivirus ne condamne pas les essais suivants),
+    contrôle de taille, et nettoyage de SON fichier en cas d'échec. → chemin
+    de l'installateur prêt à lancer."""
+    fd, dest = tempfile.mkstemp(prefix="Nova-Setup-", suffix=".exe")
+    os.close(fd)
+    try:
+        size = _download(SETUP_URL, dest)
+        if size < 5_000_000:             # page d'erreur ≠ installateur
+            raise ValueError(f"téléchargement incomplet ({size} octets)")
+        return dest
+    except Exception:
+        try:
+            os.remove(dest)
+        except OSError:
+            pass
+        raise
+
+
 def download_and_install():
     """Télécharge Nova-Setup.exe puis lance l'installation silencieuse et QUITTE
     le process (l'installateur relance Nova à la fin). Ne retourne que sur
@@ -129,30 +149,17 @@ def download_and_install():
     dest = ""
     try:
         _sweep_old()                     # les installateurs des MàJ passées
-        last = None
+        err = None
         for wait in (0, 3, 8):           # 3 essais : les erreurs réseau et les
             if wait:                     # relais GitHub passagers se résorbent
                 time.sleep(wait)
             try:
-                # fichier NEUF à chaque essai : un reste partiel encore scanné
-                # par l'antivirus ne condamne pas les essais suivants
-                if dest:
-                    try:
-                        os.remove(dest)
-                    except OSError:
-                        pass
-                fd, dest = tempfile.mkstemp(prefix="Nova-Setup-",
-                                            suffix=".exe")
-                os.close(fd)
-                size = _download(SETUP_URL, dest)
-                if size < 5_000_000:     # page d'erreur ≠ installateur
-                    raise ValueError(f"téléchargement incomplet ({size} octets)")
-                last = None
+                dest = _fetch_setup()
                 break
             except Exception as e:
-                last = e
-        if last is not None:
-            core.log_err("update_dl", last)
+                err = e
+        else:
+            core.log_err("update_dl", err)
             return FAILED
         # l'antivirus peut tenir le .exe fraîchement écrit 1-2 s : une reprise
         # du seul LANCEMENT suffit, re-télécharger serait inutile

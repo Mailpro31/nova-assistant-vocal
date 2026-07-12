@@ -215,6 +215,28 @@ def log_err(context, err):
         pass
 
 
+def install_crash_logging():
+    """Boîte noire — en .exe fenêtré il n'y a AUCUNE console, c'est la seule
+    trace d'un plantage. Deux étages : faulthandler → nova-crash.log (piles de
+    tous les threads, même sur un plantage NATIF WebView2/pythonnet qui ne
+    passe par aucun try/except Python) ; excepthooks → nova.log pour les
+    exceptions Python non rattrapées (threads compris). Dans core : chaque
+    point d'entrée (app, --preload-models, onboarding) en profite."""
+    try:
+        import faulthandler
+        f = open(_path("nova-crash.log"), "a", encoding="utf-8",
+                 errors="replace")
+        faulthandler.enable(f)
+    except Exception:
+        pass
+    try:
+        import threading
+        sys.excepthook = lambda t, v, tb: log_err("crash", v)
+        threading.excepthook = lambda a: log_err("crash_thread", a.exc_value)
+    except Exception:
+        pass
+
+
 # ------------------------------------------------------------------ config --
 
 CFG = _merge(DEFAULT_CONFIG, _load("config.json", {}))
