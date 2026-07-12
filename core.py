@@ -1490,6 +1490,12 @@ def _complete_one(provider, system, user, timeout):
         r = requests.post(ollama_url() + "/api/chat", timeout=timeout, json={
             "model": model, "stream": False,
             "keep_alive": _llm_keep_alive(),
+            # Reformuler n'est pas créer : température basse = sortie FIDÈLE au
+            # texte dicté (moins de dérive, meilleure « qualité métier ») ET
+            # décodage plus court/déterministe (le modèle converge vite vers la
+            # fin sur un PC sans GPU). Gain temps ET qualité, aucun compromis —
+            # exactement le point d'équilibre visé pour la reformulation locale.
+            "options": {"temperature": 0.3, "top_p": 0.9},
             "messages": [{"role": "system", "content": system},
                          {"role": "user", "content": user}]})
         r.raise_for_status()
