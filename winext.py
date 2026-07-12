@@ -57,7 +57,12 @@ SECRET_KEYS = ("anthropic", "openai", "gemini", "deepseek", "groq",
                "graph_client_id", "graph_refresh_token",
                "google_client_id", "google_client_secret", "google_refresh",
                "spotify_client_id", "spotify_refresh", "ha_token",
-               "youtube", "serpapi", "mobile_token")
+               "youtube", "serpapi", "mobile_token",
+               # « usage » n'est pas une clé API : c'est le compteur de quota
+               # hebdo de licensing, chiffré ici pour survivre à l'édition de
+               # config.json. Son absence faisait lever set_secret → le quota
+               # restait à 0/2500 et ne bloquait jamais.
+               "usage")
 
 _secrets_file = os.path.join(APP_DIR, "secrets.json")
 _secrets_lock = threading.Lock()

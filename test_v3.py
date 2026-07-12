@@ -487,6 +487,39 @@ def test_licensing():
         core.CFG.pop("usage", None)
     else:
         core.CFG["usage"] = _saved
+    # v3.1.24 : la persistance du quota passe par winext.set_secret("usage").
+    # « usage » DOIT figurer dans SECRET_KEYS du vrai winext.py, sinon
+    # set_secret lève ValueError — avalée par _usage_write → compteur figé à
+    # 0/2500 et plafond jamais bloquant (bug ≤ v3.1.23, invisible avec un stub
+    # no-op). winext étant Windows-only, on lit ses clés par AST et on rejoue
+    # l'aller-retour écriture → relecture avec un coffre simulé qui REPRODUIT
+    # le contrat réel (clé inconnue → ValueError).
+    import ast
+    import os
+    _src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             "winext.py"), encoding="utf-8").read()
+    _keys = ()
+    for _n in ast.walk(ast.parse(_src)):
+        if isinstance(_n, ast.Assign) and any(
+                isinstance(t, ast.Name) and t.id == "SECRET_KEYS"
+                for t in _n.targets):
+            _keys = tuple(ast.literal_eval(_n.value))
+    check("winext : « usage » présent dans SECRET_KEYS", "usage" in _keys, True)
+    _w, _store = sys.modules["winext"], {}
+
+    def _vault_set(k, v):
+        if k not in _keys:
+            raise ValueError(f"secret inconnu : {k}")
+        _store[k] = v
+        return True
+    _w.set_secret, _w.get_secret = _vault_set, lambda k: _store.get(k, "")
+    try:
+        L._usage_write(L._week_key(), 123)
+        check("quota : écrit puis relu via le coffre chiffré",
+              L._usage_used(), 123)
+    finally:
+        del _w.set_secret                        # retour au repli __getattr__
+        _w.get_secret = lambda *_a, **_k: ""
     # aller-retour cryptographique si `cryptography` est présent. Le backend
     # Rust exige l'entropie de l'OS pour generate() : indisponible dans certains
     # bacs à sable (panic pyo3) — on saute alors proprement ; ça tourne en CI

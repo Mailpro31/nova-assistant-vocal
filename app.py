@@ -76,13 +76,17 @@ except Exception:
 
 resource_path = core.resource_path
 
-# Dossier de travail = dossier de l'app, TOUJOURS. Quand Nova est relancée par
-# l'installateur de mise à jour (ou par le démarrage automatique de Windows),
-# le process hérite d'un autre dossier — et le serveur interne de pywebview,
-# qui résout les fichiers relativement au dossier courant, répondait alors
-# « 404 ui/dock.html » jusqu'au prochain lancement normal.
+# Dossier de travail = racine des RESSOURCES embarquées (là où vit ui/), PAS le
+# dossier de l'exe. Le serveur interne de pywebview résout « ui/dock.html »
+# relativement au dossier courant : depuis PyInstaller 6 les données embarquées
+# sont sous _internal/ (= sys._MEIPASS) alors que l'exe est un cran au-dessus →
+# chdir vers le dossier de l'exe renvoyait « 404 ui/dock.html ». En dev, _MEIPASS
+# est absent → APP_DIR (qui contient déjà ui/). Fige aussi un cwd CONNU quand
+# l'updater ou le démarrage automatique de Windows relance Nova depuis un autre
+# dossier. Les données inscriptibles (config.json, journaux) passent par des
+# chemins ABSOLUS basés sur APP_DIR (core._path) → indépendantes du cwd.
 try:
-    os.chdir(core.APP_DIR)
+    os.chdir(getattr(sys, "_MEIPASS", core.APP_DIR))
 except Exception:
     pass
 
@@ -1033,6 +1037,13 @@ class WebDock:
 
     # ---- API compatible Pill ----
     def show(self, state, text="", sub=""):
+        # « Invisible au repos » a pu masquer la fenêtre native (SW_HIDE dans
+        # _apply_shape_locked). Or une fenêtre WebView2 cachée SUSPEND son
+        # rendu (requestAnimationFrame gelé) : le reportShape déclenché par
+        # novaShow ne partirait jamais et la bulle ne réapparaîtrait PLUS.
+        # On rallume donc côté Python AVANT de déléguer au JS — le rendu
+        # repart, la forme est re-postée, la bulle revient toujours.
+        self._ensure_native_visible()
         self._js("window.novaShow", state, text or "", sub or "")
 
     def hide(self, delay=0.0):
@@ -1046,6 +1057,7 @@ class WebDock:
             self._js("window.novaLevel", float(rms))
 
     def open_settings(self):
+        self._ensure_native_visible()   # sinon réglages invisibles après ghost
         self._set_panel("settings")
         self._js("__openSettings")
 
@@ -1053,7 +1065,22 @@ class WebDock:
         """Ouvre le menu déroulant des Styles du dock (raccourci clavier).
         Le clic simulé côté JS passe par le protocole `panel` habituel, qui
         redimensionne la fenêtre — un seul mécanisme."""
+        self._ensure_native_visible()   # même piège que show() en mode ghost
         self._js("window.novaOpenModes")
+
+    def _ensure_native_visible(self):
+        """Ré-affiche la fenêtre native SANS voler le focus (SW_SHOWNOACTIVATE,
+        idempotent si déjà visible). Indispensable après le SW_HIDE du mode
+        « invisible au repos » : cachée, la fenêtre WebView2 gèle son rendu et
+        le JS ne peut plus rapporter de forme — seul Python peut la rallumer.
+        La région précédente (dernière forme non vide) reste appliquée le temps
+        que reportShape re-découpe : jamais de rectangle nu."""
+        try:
+            hwnd = self._get_hwnd()
+            if hwnd:
+                ctypes.windll.user32.ShowWindow(hwnd, 4)  # SW_SHOWNOACTIVATE
+        except Exception:
+            pass
 
     # ---- pont Python → JS ----
     def _js(self, fn, *args):
@@ -1122,6 +1149,19 @@ class WebDock:
             except Exception:
                 hwnd = 0
         if hwnd:
+            # native.Handle peut être la VUE WebView2 (fenêtre ENFANT hébergée
+            # en mode fenêtré), pas la Form frameless de plus haut niveau :
+            # SetWindowRgn sur l'enfant découpe le contenu mais laisse la
+            # fenêtre-hôte en rectangle opaque à fond BLANC tout autour — le
+            # « carré blanc ». On remonte à la racine top-level (GA_ROOT) ;
+            # no-op strict si hwnd est déjà le sommet (repli FindWindowW, ou
+            # versions pywebview où Handle est déjà la Form).
+            try:
+                root = ctypes.windll.user32.GetAncestor(hwnd, 2)  # GA_ROOT
+                if root:
+                    hwnd = int(root)
+            except Exception:
+                pass
             self._hwnd = hwnd
             try:  # tray uniquement : ni barre des tâches, ni Alt-Tab
                 u = ctypes.windll.user32
