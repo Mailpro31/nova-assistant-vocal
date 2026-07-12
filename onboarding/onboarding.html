@@ -230,8 +230,11 @@ function pick(v){S.ptt_key=v;keys();api('set_ptt_key',v);}
 // même capture que les Réglages : les modificateurs TENUS se préfixent à la
 // touche pressée (Ctrl maintenu + Espace → « ctrl+space ») — les combinaisons
 // marchent donc dès le premier écran, pas seulement dans les Réglages
-document.getElementById('capInput').addEventListener('keydown',e=>{e.preventDefault();
+document.getElementById('capInput').addEventListener('keydown',e=>{
+  // Tab/Échap AVANT preventDefault : la navigation clavier doit pouvoir
+  // SORTIR du champ (sinon, piège de focus — le dock fait pareil)
   const raw=e.key||'';if(raw==='Tab'||raw==='Escape')return;
+  e.preventDefault();
   const MAP={'arrowleft':'left','arrowright':'right','arrowup':'up','arrowdown':'down',
     ' ':'space','spacebar':'space','control':'ctrl','pageup':'page up','pagedown':'page down',
     'meta':'windows','os':'windows','contextmenu':'menu'};

@@ -8,7 +8,7 @@ Nova transcrit en local (faster-whisper), n'envoie aux fournisseurs d'IA que ce
 que vous demandez explicitement, et chiffre toutes les clés avec DPAPI. Aucune
 donnée personnelle n'est stockée en clair.
 
-![version](https://img.shields.io/badge/version-3.1.10-0A84FF) ![Windows](https://img.shields.io/badge/Windows-10%2F11-2B517E) ![Python](https://img.shields.io/badge/Python-3.11%E2%80%933.13-3FA9FF)
+![version](https://img.shields.io/badge/version-3.1.11-0A84FF) ![Windows](https://img.shields.io/badge/Windows-10%2F11-2B517E) ![Python](https://img.shields.io/badge/Python-3.11%E2%80%933.13-3FA9FF)
 
 ---
 
@@ -146,7 +146,7 @@ privée de l'éditeur).
 |---|---|---|---|---|
 | Dictée locale (Whisper) | ✅ | ✅ | ✅ | ✅ |
 | Transcription / semaine | **~2 500 car.** | illimitée | illimitée | illimitée |
-| Modes de reformulation | 3 | les 7 | les 7 | les 7 |
+| Styles | 3 | les 7 | les 7 | les 7 |
 | STT Cloud (Groq) + langues | ❌ | ✅ | ✅ | ✅ |
 | Custom Variables · profils de puissance | ❌ | ✅ | ✅ | ✅ |
 | **Meilleure IA / qualité** | ❌ | ❌ | ❌ | ✅ |

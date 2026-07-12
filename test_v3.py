@@ -588,7 +588,7 @@ def test_free_offer_sync():
     check("landing : toutes les mentions = len(FREE_MODES) - auto",
           sorted(set(counts)), [str(nb)])
     readme = open(os.path.join(base, "README.md"), encoding="utf-8").read()
-    m = _re.search(r"\|\s*Modes de reformulation\s*\|\s*(\d+)\s*\|", readme)
+    m = _re.search(r"\|\s*Styles\s*\|\s*(\d+)\s*\|", readme)   # lexique produit
     check("README : la colonne Free du tableau des paliers est à jour",
           m.group(1) if m else "", str(nb))
 
@@ -627,8 +627,10 @@ def test_stt_latency():
     frames.extend([loud] * 8)
     out = lt.finish()
     check("live : texte final = tranches + traîne", out, "seg1 seg2")
+    # l'amorce se termine par le texte committé (le lexique utilisateur, s'il
+    # existe, la PRÉCÈDE — il ne doit jamais disparaître après la 1re tranche)
     check("live : la traîne reçoit l'amorce du committé",
-          calls[1][1], "seg1")
+          (calls[1][1] or "").endswith("seg1"), True)
     # fil cassé → None (l'appelant repart sur la transcription intégrale)
     lt2 = core.LiveTranscriber([], _th.Lock())
     lt2._transcribe = fake_tx
@@ -636,12 +638,35 @@ def test_stt_latency():
     check("live : cassé → None (repli intégral)", lt2.finish(), None)
     # tampon RÉTRÉCI (record_audio l'a vidé sur reprise micro) : le texte
     # committé décrit de l'audio disparu → cassé, repli intégral
-    f3 = [quiet] * 40
+    f3 = [loud] * 34 + [quiet] * 6
     lt3 = core.LiveTranscriber(f3, _th.Lock())
     lt3._transcribe = fake_tx
     lt3._commit(final=False)                  # committe le tampon initial
     del f3[:]                                 # reprise micro : tampon vidé
     check("live : tampon vidé → cassé, repli intégral", lt3.finish(), None)
+    # reprise micro signalée par l'ÉPOQUE : même si le tampon a regrossi
+    # au-delà du curseur avant le poll suivant (commit lent en vol), le texte
+    # committé décrit toujours de l'audio jeté → cassé, repli intégral
+    f5 = [loud] * 34 + [quiet] * 6
+    lt5 = core.LiveTranscriber(f5, _th.Lock())
+    lt5._transcribe = fake_tx
+    lt5._commit(final=False)
+    core._MIC_EPOCH["n"] += 1                 # record_audio a vidé + rerempli
+    f5.extend([loud] * 20)                    # regrossi au-delà du curseur
+    try:
+        check("live : reprise micro (époque) → cassé, repli intégral",
+              lt5.finish(), None)
+    finally:
+        core._MIC_EPOCH["n"] -= 1             # état module restauré
+    # tranche de silence pur (touche tenue en réfléchissant) : AUCUNE
+    # inférence — le curseur avance sans amorcer d'écho-hallucination
+    calls4 = []
+    f4 = [quiet] * 40
+    lt4 = core.LiveTranscriber(f4, _th.Lock())
+    lt4._transcribe = lambda a, p: calls4.append(p) or "écho"
+    lt4._commit(final=False)
+    check("live : tranche silencieuse → zéro inférence", calls4, [])
+    check("live : le curseur avance quand même", lt4._done, 40)
 
     # --- keep_warm : explicite > auto ---
     old_stt = dict(core.CFG.get("stt") or {})
@@ -653,6 +678,28 @@ def test_stt_latency():
         core.CFG["stt"] = dict(old_stt, keep_warm="auto")
         check("keep_warm : auto → booléen",
               core.stt_keep_warm() in (True, False), True)
+        # auto proportionné au modèle : le grand moteur multilingue (~1,5 Go)
+        # n'est gardé chaud qu'avec une vraie marge RAM ; Apex jamais —
+        # l'invariant seq_memory « jamais les deux gros modèles » prime
+        _rr = core._ram_total_gb
+        _wm = core.CFG.get("whisper_model")
+        try:
+            core._ram_total_gb = lambda: 8.0
+            core.CFG["whisper_model"] = "small"
+            check("keep_warm auto : standard dès 8 Go",
+                  core.stt_keep_warm(), True)
+            core.CFG["whisper_model"] = "large-v3-turbo"
+            check("keep_warm auto : grand moteur à 8 Go → séquentiel",
+                  core.stt_keep_warm(), False)
+            core._ram_total_gb = lambda: 16.0
+            check("keep_warm auto : grand moteur dès 12 Go",
+                  core.stt_keep_warm(), True)
+            core.CFG["whisper_model"] = "large-v3"
+            check("keep_warm auto : Apex jamais gardé chaud",
+                  core.stt_keep_warm(), False)
+        finally:
+            core._ram_total_gb = _rr
+            core.CFG["whisper_model"] = _wm
 
         # --- beam adaptatif (CPU en CI) ---
         core.CFG["stt"] = dict(old_stt, precision_max=False)
@@ -660,12 +707,21 @@ def test_stt_latency():
         core.CFG["stt"] = dict(old_stt, precision_max=True)
         check("beam : précision maximale → 5", core._stt_beam(), 5)
 
-        # --- qualité maximale : relève small, respecte large-v3 ---
+        # --- qualité maximale : relève small (si la RAM suit), respecte
+        # large-v3, et ne contourne JAMAIS le garde-fou RAM des profils ---
+        _rr2 = core._ram_total_gb
         core.CFG["stt"] = dict(old_stt, quality_max=True)
-        check("qualité max : small → grand moteur multilingue",
-              core.effective_stt_model("small"), "large-v3-turbo")
-        check("qualité max : large-v3 (Apex) inchangé",
-              core.effective_stt_model("large-v3"), "large-v3")
+        try:
+            core._ram_total_gb = lambda: 16.0
+            check("qualité max : small → grand moteur multilingue",
+                  core.effective_stt_model("small"), "large-v3-turbo")
+            check("qualité max : large-v3 (Apex) inchangé",
+                  core.effective_stt_model("large-v3"), "large-v3")
+            core._ram_total_gb = lambda: 4.0
+            check("qualité max : 4 Go → garde-fou RAM, pas de relèvement",
+                  core.effective_stt_model("small"), "small")
+        finally:
+            core._ram_total_gb = _rr2
         core.CFG["stt"] = dict(old_stt, quality_max=False)
         check("qualité off : le profil décide",
               core.effective_stt_model("small"), "small")
@@ -699,6 +755,28 @@ def test_stt_latency():
         core.NOISE["floor"] = 0.0
 
 
+def test_hotkey_removal():
+    """Supprimer un raccourci de Style doit VRAIMENT le supprimer :
+    save_config REMPLACE les dictionnaires de _REPLACE_KEYS au lieu de les
+    fusionner — la fusion récursive de _merge ne sait pas retirer une clé
+    (le raccourci « supprimé » réapparaissait à la sauvegarde suivante)."""
+    print("Config — suppression d'un raccourci de Style")
+    real_cfg = core.CFG
+    try:
+        core.save_config({"mode_hotkeys": {"email": "ctrl+alt+e",
+                                           "todo": "ctrl+alt+t"}})
+        core.save_config({"mode_hotkeys": {"email": "ctrl+alt+e"}})
+        check("raccourci retiré → absent après sauvegarde",
+              "todo" in (core.CFG.get("mode_hotkeys") or {}), False)
+        check("raccourci conservé → toujours là",
+              (core.CFG.get("mode_hotkeys") or {}).get("email"), "ctrl+alt+e")
+        core.save_config({"stt": {"live": False}})
+        check("les autres dictionnaires fusionnent toujours (pas de perte)",
+              isinstance(core.CFG.get("providers"), dict), True)
+    finally:
+        core.CFG = real_cfg          # _save est neutralisé en tête de fichier
+
+
 def test_web_dock_default():
     """L'interface web (dock.html) est l'UI par défaut pour TOUS : décision
     produit — la pilule tkinter n'est que le repli WebView2-absent. Une
@@ -724,6 +802,7 @@ if __name__ == "__main__":
     test_version_sync()
     test_free_offer_sync()
     test_stt_latency()
+    test_hotkey_removal()
     test_web_dock_default()
     print()
     if _fails:

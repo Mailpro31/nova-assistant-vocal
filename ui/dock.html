@@ -640,7 +640,7 @@ function sttRows(){
       '<div class="sw'+(o.keep_warm_on?' on':'')+'" id="swWarm"></div>')
     +R('Précision maximale','Plus lent sur processeur — sans effet avec une carte NVIDIA (déjà au maximum)',
       '<div class="sw'+(o.precision_max?' on':'')+'" id="swPrec"></div>')
-    +R('Qualité maximale','Le grand moteur multilingue local remplace le standard (téléchargement unique ~1,5 Go)',
+    +R('Qualité maximale','Le grand moteur multilingue local remplace le standard (téléchargement unique ~1,5 Go — appliqué dès ~8 Go de mémoire)',
       '<div class="sw'+(o.quality_max?' on':'')+'" id="swQual"></div>')
     +R('Collage éclair (Style Normal)','Colle immédiatement le texte nettoyé par règles, sans reformulation par l\'IA — hésitations conservées',
       '<div class="sw'+(o.instant_normal?' on':'')+'" id="swInstant"></div>');
@@ -795,14 +795,17 @@ function init(){api('state').then(st=>{if(st){S=Object.assign(S,st);if(S.orb_col
 });}
 // Démarrage robuste : l'événement pywebviewready peut être MANQUÉ (course
 // d'injection WebView2 observée sur certaines machines) — sans init, aucun
-// clic ne remonte et le détourage ne part jamais. Triple déclencheur :
-// événement + chargement du DOM + scrutation courte de window.pywebview.
+// clic ne remonte et le détourage ne part jamais. Trois filets : événement
+// + scrutation courte du pont + dernier recours à 20 s SANS pont (pont
+// jamais injecté, aperçu navigateur) : api() dégrade proprement en null,
+// l'UI s'initialise avec ses défauts au lieu de rester vide, et l'écouteur
+// pywebviewready reste armé pour une injection très tardive.
 let __inited=false;
 function __tryInit(){if(__inited)return;
   if(window.pywebview&&window.pywebview.api){__inited=true;init();}}
 window.addEventListener('pywebviewready',__tryInit);
 const __initPoll=setInterval(()=>{__tryInit();if(__inited)clearInterval(__initPoll);},120);
-setTimeout(()=>clearInterval(__initPoll),20000);
+setTimeout(()=>{clearInterval(__initPoll);if(!__inited)init();},20000);
 
 </script>
 </body>
