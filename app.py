@@ -829,8 +829,15 @@ class Pill(threading.Thread):
             # même logique que le dock (_apply_stt_opts) : fusion, synchro du
             # modèle et pré-téléchargement — aucune dérive entre les écrans.
             opts = {"live": v_live.get(), "precision_max": v_prec.get(),
-                    "quality_max": v_qual.get(),
                     "instant_normal": v_inst.get()}
+            # « Qualité maximale » : n'est renvoyée QUE si la machine la
+            # supporte (case active). Sinon la case est grisée et sa valeur
+            # masquée à False : la renvoyer inconditionnellement écraserait un
+            # quality_max=true importé d'une machine ≥12 Go — le dock, lui, ne
+            # touche jamais cette clé sur un PC non supporté. On préserve donc
+            # la préférence de l'utilisateur, comme le dock.
+            if core.quality_max_supported():
+                opts["quality_max"] = v_qual.get()
             # keep_warm « auto » (résolu selon la RAM et le modèle) : épinglé
             # en booléen SEULEMENT si cette case diffère de l'état résolu —
             # sinon cocher n'importe quelle AUTRE case figeait l'automatisme
