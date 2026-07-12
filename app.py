@@ -843,7 +843,7 @@ class Pill(threading.Thread):
         for var, label in ((v_live, "Pendant la dictée (recommandé)"),
                            (v_warm, "Moteur gardé en mémoire (~0,7 Go de RAM)"),
                            (v_prec, "Précision maximale (3-5× plus lent sur CPU)"),
-                           (v_qual, "Qualité maximale (~1,5 Go, dès ~8 Go de RAM)"),
+                           (v_qual, "Qualité maximale (~1,5 Go, nécessite ~12 Go de RAM)"),
                            (v_inst, "Collage éclair pour le Style Normal (sans IA)")):
             tk.Checkbutton(sf, text=label, variable=var, command=save_stt,
                            bg=SET_BG, fg=SET_FG, selectcolor=SET_INSET,
@@ -956,6 +956,9 @@ class WebDock:
         self._shown = False
         self._got_shape = False
         self._last_shape_n = 0     # n° de la dernière forme appliquée (dédup)
+        self._shape_epoch = 0      # id du CHARGEMENT de page courant : à chaque
+                                   # reload WebView2 le compteur JS repart de 0,
+                                   # l'epoch change → on remet _last_shape_n à 0
         self._shape_lock = threading.Lock()   # poste js_api ‖ watchdog :
                                               # jamais entrelacés (régression)
         self._push_ok = False      # un poste js_api est arrivé : pont prouvé
@@ -1077,10 +1080,18 @@ class WebDock:
 
     def _apply_shape_locked(self, payload):
         n = int(payload.get("n") or 0)
-        # garde MONOTONE (pas une simple égalité) : le poste js_api et le
-        # watchdog arrivent par des fils différents — sans elle, une forme
-        # PÉRIMÉE lue avant un poste plus récent pouvait être appliquée
-        # après lui et faire régresser la région (retour du « carré »)
+        ep = int(payload.get("epoch") or 0)
+        # nouveau CHARGEMENT de page (reload WebView2 après crash du renderer,
+        # re-navigation) : le compteur JS __shapeN repart de 0, l'epoch change.
+        # Sans ce reset, la garde monotone rejetait toutes les formes du
+        # nouveau document (n=1,2,3 ≤ ancien 50) → région figée pour toujours.
+        if ep and ep != self._shape_epoch:
+            self._shape_epoch = ep
+            self._last_shape_n = 0
+        # garde MONOTONE (pas une simple égalité) : DANS un même chargement, le
+        # poste js_api et le watchdog arrivent par des fils différents — sans
+        # elle, une forme PÉRIMÉE lue avant un poste plus récent pouvait être
+        # appliquée après lui et faire régresser la région (retour du « carré »)
         if n and n <= self._last_shape_n:
             return
         hwnd = self._get_hwnd()
@@ -1211,15 +1222,23 @@ class WebDock:
         a changé ; et dès qu'UN poste arrive (_push_ok), le pont est prouvé sur
         cette machine — la boucle s'arrête, le régime de croisière n'a qu'un
         seul chemin."""
+        sig_prev = None
         while not self._push_ok:
             time.sleep(0.4)
             w = self._win
             if w is None:
                 continue
             try:
-                n = int(w.evaluate_js("(window.__novaShapes||{n:0}).n") or 0)
-                if not n or n <= self._last_shape_n:
+                # signature légère (epoch/n) : ne relit le paquet complet que
+                # s'il a changé. L'epoch fait repérer un reload de page (n
+                # repart de 0) — _apply_shape_locked remet alors le compteur à
+                # zéro, sinon la garde monotone bloquerait le nouveau document.
+                sig = w.evaluate_js(
+                    "(function(s){s=window.__novaShapes;"
+                    "return s?((s.epoch||0)+'/'+s.n):'';})()")
+                if not sig or sig == sig_prev:
                     continue
+                sig_prev = sig
                 payload = json.loads(
                     w.evaluate_js("JSON.stringify(window.__novaShapes)"))
                 self.apply_shape(payload)
@@ -1268,16 +1287,30 @@ def _apply_stt_opts(opts):
     en arrière-plan quand « qualité maximale » vient d'être activée (pour que
     la prochaine dictée n'attende pas ~1,5 Go)."""
     opts = opts or {}
+    refused_quality = False
     with _stt_opts_lock:
         stt = dict(core.CFG.get("stt") or {})
         was_max = bool(stt.get("quality_max"))
         for k in ("live", "keep_warm", "precision_max", "quality_max"):
             if k in opts:
                 stt[k] = bool(opts[k])
+        # « Qualité maximale » demandée sur une machine qui ne peut pas tenir le
+        # grand moteur (~1,5 Go + LLM) : refus SYNCHRONE et honnête plutôt que
+        # de cocher la case, ne rien relever, puis annoncer « moteur amélioré
+        # prêt » (l'UI mentait). La case revient à False, reflétée au retour.
+        if stt.get("quality_max") and not was_max \
+                and not core.quality_max_supported():
+            stt["quality_max"] = False
+            refused_quality = True
         patch = {"stt": stt}
         if "instant_normal" in opts:  # option de reformulation, hors bloc stt
             patch["instant_normal"] = bool(opts["instant_normal"])
         core.save_config(patch)
+    if refused_quality:
+        pill.show("error", "Mémoire insuffisante",
+                  "Le moteur amélioré demande environ 12 Go de mémoire")
+        pill.hide(2.8)
+        return _stt_opts()
     if bool(stt.get("quality_max")) != was_max:
         # JAMAIS sur le fil d'appel (pont js_api ou fenêtre tkinter) : la
         # synchro et le déchargement attendent le verrou du modèle, qu'un

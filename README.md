@@ -4,11 +4,11 @@
 compréhension du langage naturel, domotique, médias, fichiers, vision d'écran,
 multi-IA — le tout **offline-first** et respectueux de la vie privée.
 
-Nova transcrit en local (faster-whisper), n'envoie aux fournisseurs d'IA que ce
-que vous demandez explicitement, et chiffre toutes les clés avec DPAPI. Aucune
-donnée personnelle n'est stockée en clair.
+Nova transcrit en local (Intelligence privée), n'envoie aux fournisseurs d'IA
+que ce que vous demandez explicitement, et chiffre toutes les clés avec DPAPI.
+Aucune donnée personnelle n'est stockée en clair.
 
-![version](https://img.shields.io/badge/version-3.1.11-0A84FF) ![Windows](https://img.shields.io/badge/Windows-10%2F11-2B517E) ![Python](https://img.shields.io/badge/Python-3.11%E2%80%933.13-3FA9FF)
+![version](https://img.shields.io/badge/version-3.1.12-0A84FF) ![Windows](https://img.shields.io/badge/Windows-10%2F11-2B517E) ![Python](https://img.shields.io/badge/Python-3.11%E2%80%933.13-3FA9FF)
 
 ---
 
@@ -54,7 +54,7 @@ démarrage automatique facultatif, désinstallateur) :
 | Déclencheur | Effet |
 |---|---|
 | **« Nova, ouvre YouTube »** d'une traite | Mot d'éveil + commande : exécution directe |
-| **« Nova »** seul (écoute continue) | Ouvre l'écoute (Whisper local ou Porcupine) |
+| **« Nova »** seul (écoute continue) | Ouvre l'écoute (Intelligence privée ou mot d'éveil dédié) |
 | **`Ctrl + Alt + Espace`** | Commande vocale |
 | **`Ctrl + Alt + N`** | Note vocale |
 | **`Ctrl + Alt + D`** | Dictée : le texte s'écrit au curseur pendant que vous parlez |
@@ -91,7 +91,7 @@ le nom du process — préférez donc un terme distinctif propre à votre app.
 
 ## Ce que Nova comprend
 
-**Voix & voix de synthèse** — Whisper local ou cloud Groq (opt-in), voix
+**Voix & voix de synthèse** — Intelligence privée (locale) ou Turbo (en ligne, opt-in), voix
 neuronale Edge ou SAPI hors ligne, choix du micro, bip d'accusé, double
 applaudissement.
 
@@ -144,10 +144,10 @@ privée de l'éditeur).
 
 | | 🆓 **Free** | 💼 **Pro** | 🏢 **Business** | 🚀 **Ultra** |
 |---|---|---|---|---|
-| Dictée locale (Whisper) | ✅ | ✅ | ✅ | ✅ |
+| Dictée locale (Intelligence privée) | ✅ | ✅ | ✅ | ✅ |
 | Transcription / semaine | **~2 500 car.** | illimitée | illimitée | illimitée |
 | Styles | 3 | les 7 | les 7 | les 7 |
-| STT Cloud (Groq) + langues | ❌ | ✅ | ✅ | ✅ |
+| Turbo (en ligne) + langues | ❌ | ✅ | ✅ | ✅ |
 | Custom Variables · profils de puissance | ❌ | ✅ | ✅ | ✅ |
 | **Meilleure IA / qualité** | ❌ | ❌ | ❌ | ✅ |
 | **Personnalisation** (couleurs de l'orbe, noms, modes sur mesure, `auto_rules`) | ❌ | ❌ | ❌ | ✅ |

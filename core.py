@@ -23,7 +23,7 @@ import winext
 # Version de l'app — source unique. Doit rester égale au MyAppVersion de
 # installer/nova.iss (test_v3 le vérifie) ; les releases GitHub sont taguées
 # « v » + cette valeur, et updater.py s'en sert pour détecter une mise à jour.
-APP_VERSION = "3.1.11"
+APP_VERSION = "3.1.12"
 
 APP_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
 
@@ -586,15 +586,24 @@ def _stt_beam():
     return 5 if (CFG.get("stt") or {}).get("precision_max") else 1
 
 
+def quality_max_supported():
+    """La machine peut-elle tenir le grand moteur multilingue (~1,5 Go) EN PLUS
+    du LLM de reformulation ? MÊME seuil que keep_warm pour ce modèle (12 Go) :
+    sinon « qualité maximale » relèverait le modèle sans pouvoir le garder
+    chaud → rechargement de 1,5 Go à chaque dictée (thrash) et promesse UI
+    trompeuse. Le garde-fou RAM des profils ne doit pas être contournable par
+    une simple case."""
+    return _ram_total_gb() >= 12.0
+
+
 def effective_stt_model(profile_stt):
     """Modèle STT réellement chargé : celui du profil de puissance, RELEVÉ au
     grand moteur multilingue local (large-v3-turbo) si « qualité maximale »
     est coché — sauf si le profil embarque déjà un modèle au moins aussi bon,
-    ou si la machine n'a pas la mémoire pour le tenir (~1,5 Go) : le garde-fou
-    RAM des profils ne doit pas être contournable par une simple case."""
+    ou si la machine n'a pas la mémoire pour le tenir (quality_max_supported)."""
     if ((CFG.get("stt") or {}).get("quality_max")
             and profile_stt in ("tiny", "base", "small")
-            and _ram_total_gb() >= 7.5):
+            and quality_max_supported()):
         return "large-v3-turbo"
     return profile_stt
 
@@ -1947,6 +1956,10 @@ class LiveTranscriber:
         self._transcribe = transcribe     # les tests shadowent cet attribut
         self._done = 0                    # nb de blocs déjà committés
         self._epoch = _MIC_EPOCH["n"]     # détecte une reprise micro (tampon jeté)
+        # lexique figé UNE fois pour la session (noms propres, contacts,
+        # automations) : invariant pendant la dictée → inutile de relire
+        # commands.json + la base profil à chaque tranche (~3 s) sous verrou
+        self._lex = (stt_prompt() or "").strip()[:128]
         self._parts = []
         self.broken = False
         self._stop = threading.Event()
@@ -1985,31 +1998,35 @@ class LiveTranscriber:
         pending, total = self._pending()
         if not pending:
             return
+        # trop court pour un commit intermédiaire : on rend la main sans même
+        # calculer les RMS (le commit final, lui, n'a pas de minimum)
+        if not final and (0.1 * len(pending)
+                          < self.MIN_COMMIT_S + 0.1 * self.PAUSE_BLOCKS):
+            return
         thr = effective_threshold()
-        if not final:
-            # assez de matière ET la voix s'est tue sur les derniers blocs —
-            # sinon on couperait un mot en plein milieu
-            if 0.1 * len(pending) < self.MIN_COMMIT_S + 0.1 * self.PAUSE_BLOCKS:
-                return
-            for b in pending[-self.PAUSE_BLOCKS:]:
-                if _rms(b) > thr:
-                    return
-        if not any(_rms(b) > thr for b in pending):
-            # tranche SANS voix (touche tenue en réfléchissant) : rien à
-            # transcrire — on avance le curseur sans payer d'inférence toutes
-            # les ~3 s ni risquer l'écho-hallucination (amorcé par le texte
-            # committé, le moteur le répète volontiers sur du souffle, et ce
-            # faux texte serait re-committé puis re-amorcé en boule de neige)
+        rms = [_rms(b) for b in pending]        # calculé UNE fois (deux gardes)
+        # commit intermédiaire : la voix doit s'être tue sur les derniers blocs
+        # (sinon on couperait un mot en plein milieu)
+        if not final and any(r > thr for r in rms[-self.PAUSE_BLOCKS:]):
+            return
+        # tranche SANS aucune voix (touche tenue en réfléchissant) : sur un
+        # commit intermédiaire on avance le curseur sans payer d'inférence
+        # toutes les ~3 s ni risquer l'écho-hallucination (amorcé par le texte
+        # committé, le moteur le répète volontiers sur du souffle → re-committé
+        # en boule de neige). Le commit FINAL, lui, transcrit toujours la
+        # traîne : une fin de phrase murmurée (sous le seuil) ne doit pas être
+        # jetée SANS repli, car finish() rendrait alors un texte non vide et
+        # l'appelant ne repasserait pas par la transcription intégrale.
+        if not final and not any(r > thr for r in rms):
             self._done = total
             return
         audio = np.concatenate(pending).flatten()
-        # amorce : le lexique utilisateur d'abord (noms propres, contacts,
-        # automations — il ne doit JAMAIS disparaître après la 1re tranche),
-        # puis le texte déjà committé (ponctuation et contexte). ~450
-        # caractères ≈ la moitié du plafond de 224 tokens : les deux tiennent.
-        lex = (stt_prompt() or "").strip()[:128]
+        # amorce : le lexique utilisateur d'abord (figé en session, il ne doit
+        # JAMAIS disparaître après la 1re tranche), puis le texte déjà committé
+        # (ponctuation et contexte). Whisper conserve la QUEUE de l'amorce : le
+        # lexique en tête + le contexte récent en fin tiennent dans les 224 tk.
         ctx = " ".join(self._parts)[-320:]
-        prompt = (lex + " " + ctx).strip() or None
+        prompt = (self._lex + " " + ctx).strip() or None
         txt = self._transcribe(audio, prompt)
         self._done = total
         if txt:
@@ -2069,7 +2086,10 @@ def stt_live_enabled():
             if integrations.is_online():
                 return False
         except Exception:
-            return False
+            # sonde de connectivité indisponible : on NE désactive PAS le live
+            # (la docstring l'exige — hors ligne, le local sert de toute façon).
+            # On retombe sur la décision par device juste en dessous.
+            pass
     try:
         if not _DEVICE["device"]:
             # device pas encore résolu (tout début de session) : on suppose
@@ -2151,5 +2171,14 @@ def transcribe_routed(audio, fast=False):
                 return t, "local-rapide"
         except Exception as e:
             log_err("stt_wake", e)
-    return transcribe(audio), "local"
+    # chemin local principal sous garde : transcribe() peut lever (TimeoutError
+    # si un worker de fond tient le verrou > 120 s, modèle corrompu…). Sans ce
+    # try, l'exception remontait à _ptt_session → « Erreur — réessaie » et tout
+    # l'audio était jeté. On rend un texte vide → l'appelant affiche « Je n'ai
+    # pas compris » (dégradé propre), sans perdre le contrôle.
+    try:
+        return transcribe(audio), "local"
+    except Exception as e:
+        log_err("stt_local", e)
+        return "", "local"
 

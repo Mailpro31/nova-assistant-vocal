@@ -235,6 +235,11 @@ window.novaOpenModes=function(){const m=document.getElementById('modes');
 // à chaque changement visuel (bulle, menu, réglages, resize). Double rAF pour
 // mesurer APRÈS la mise en page.
 let __shapeN=0;
+// epoch = identité du CHARGEMENT de page. À chaque (re)chargement WebView2, ce
+// script re-tourne et __shapeN repart de 0 ; l'epoch (fixé une fois par
+// chargement) change → Python remet sa garde monotone à zéro au lieu de
+// rejeter à jamais les formes du nouveau document (sinon la bulle reste figée).
+const __shapeEpoch=Date.now();
 function reportShape(){requestAnimationFrame(()=>requestAnimationFrame(()=>{
   try{
     const shapes=[];
@@ -253,7 +258,7 @@ function reportShape(){requestAnimationFrame(()=>requestAnimationFrame(()=>{
       const cm=document.querySelector('.cmask .cbox');
       if(cm){shapes.length=0;shapes.push({x:0,y:0,w:innerWidth,h:innerHeight,r:13});}
     }
-    const payload={vw:innerWidth,vh:innerHeight,n:++__shapeN,shapes:shapes};
+    const payload={vw:innerWidth,vh:innerHeight,n:++__shapeN,epoch:__shapeEpoch,shapes:shapes};
     // canal de SECOURS : Python vient relire cette variable via evaluate_js
     // (sens Python→JS→retour) si le pont js_api ne s'est pas injecté — le
     // détourage ne dépend plus d'un seul mécanisme
@@ -640,7 +645,7 @@ function sttRows(){
       '<div class="sw'+(o.keep_warm_on?' on':'')+'" id="swWarm"></div>')
     +R('Précision maximale','Plus lent sur processeur — sans effet avec une carte NVIDIA (déjà au maximum)',
       '<div class="sw'+(o.precision_max?' on':'')+'" id="swPrec"></div>')
-    +R('Qualité maximale','Le grand moteur multilingue local remplace le standard (téléchargement unique ~1,5 Go — appliqué dès ~8 Go de mémoire)',
+    +R('Qualité maximale','Le grand moteur multilingue local remplace le standard (téléchargement unique ~1,5 Go — nécessite environ 12 Go de mémoire)',
       '<div class="sw'+(o.quality_max?' on':'')+'" id="swQual"></div>')
     +R('Collage éclair (Style Normal)','Colle immédiatement le texte nettoyé par règles, sans reformulation par l\'IA — hésitations conservées',
       '<div class="sw'+(o.instant_normal?' on':'')+'" id="swInstant"></div>');

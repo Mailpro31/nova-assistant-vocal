@@ -667,6 +667,15 @@ def test_stt_latency():
     lt4._commit(final=False)
     check("live : tranche silencieuse → zéro inférence", calls4, [])
     check("live : le curseur avance quand même", lt4._done, 40)
+    # …mais le commit FINAL transcrit TOUJOURS la traîne, même murmurée (sous
+    # le seuil) : sinon finish() rendrait un texte non vide sans elle et
+    # l'appelant ne repasserait pas par le repli intégral → mots de fin perdus
+    calls4b = []
+    lt4b = core.LiveTranscriber([quiet] * 40, _th.Lock())
+    lt4b._transcribe = lambda a, p: calls4b.append(1) or "traîne"
+    lt4b._commit(final=True)
+    check("live : commit final transcrit même une traîne murmurée",
+          len(calls4b), 1)
 
     # --- keep_warm : explicite > auto ---
     old_stt = dict(core.CFG.get("stt") or {})
@@ -717,6 +726,16 @@ def test_stt_latency():
                   core.effective_stt_model("small"), "large-v3-turbo")
             check("qualité max : large-v3 (Apex) inchangé",
                   core.effective_stt_model("large-v3"), "large-v3")
+            check("qualité max : supportée dès 12 Go",
+                  core.quality_max_supported(), True)
+            core._ram_total_gb = lambda: 10.0
+            # 8–11,9 Go : le grand moteur ne pourrait pas rester chaud (keep_warm
+            # exige 12) → il thrasherait à chaque dictée. On aligne les deux
+            # seuils : quality_max ne s'engage que là où keep_warm le tient.
+            check("qualité max : 10 Go → refusée (aligné sur keep_warm)",
+                  core.effective_stt_model("small"), "small")
+            check("qualité max : 10 Go → non supportée",
+                  core.quality_max_supported(), False)
             core._ram_total_gb = lambda: 4.0
             check("qualité max : 4 Go → garde-fou RAM, pas de relèvement",
                   core.effective_stt_model("small"), "small")
