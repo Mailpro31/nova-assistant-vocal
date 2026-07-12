@@ -790,19 +790,22 @@ class Pill(threading.Thread):
         v_warm = tk.BooleanVar(value=_o["keep_warm_on"])
         v_prec = tk.BooleanVar(value=_o["precision_max"])
         v_qual = tk.BooleanVar(value=_o["quality_max"])
+        v_inst = tk.BooleanVar(value=_o["instant_normal"])
 
         def save_stt():
             # même logique que le dock (_apply_stt_opts) : fusion, synchro du
             # modèle et pré-téléchargement — aucune dérive entre les écrans
             _apply_stt_opts({"live": v_live.get(), "keep_warm": v_warm.get(),
                              "precision_max": v_prec.get(),
-                             "quality_max": v_qual.get()})
+                             "quality_max": v_qual.get(),
+                             "instant_normal": v_inst.get()})
         sf = tk.Frame(win, bg=SET_BG)
         sf.pack(fill="x", padx=16, pady=4)
         for var, label in ((v_live, "Pendant la dictée (recommandé)"),
                            (v_warm, "Moteur gardé en mémoire (~0,7 Go de RAM)"),
                            (v_prec, "Précision maximale (3-5× plus lent sur CPU)"),
-                           (v_qual, "Qualité maximale (téléchargement ~1,5 Go)")):
+                           (v_qual, "Qualité maximale (téléchargement ~1,5 Go)"),
+                           (v_inst, "Collage éclair pour le Style Normal (sans IA)")):
             tk.Checkbutton(sf, text=label, variable=var, command=save_stt,
                            bg=SET_BG, fg=SET_FG, selectcolor=SET_INSET,
                            activebackground=SET_BG, activeforeground=SET_FG,
@@ -1199,7 +1202,8 @@ def _stt_opts():
     return {"live": stt.get("live", True) is not False,
             "keep_warm_on": core.stt_keep_warm(),
             "precision_max": bool(stt.get("precision_max")),
-            "quality_max": bool(stt.get("quality_max"))}
+            "quality_max": bool(stt.get("quality_max")),
+            "instant_normal": bool(core.CFG.get("instant_normal"))}
 
 
 def _apply_stt_opts(opts):
@@ -1213,7 +1217,10 @@ def _apply_stt_opts(opts):
     for k in ("live", "keep_warm", "precision_max", "quality_max"):
         if k in opts:
             stt[k] = bool(opts[k])
-    core.save_config({"stt": stt})
+    patch = {"stt": stt}
+    if "instant_normal" in opts:      # option de reformulation, hors bloc stt
+        patch["instant_normal"] = bool(opts["instant_normal"])
+    core.save_config(patch)
     if bool(stt.get("quality_max")) != was_max:
         core.sync_stt_model()
         if stt.get("quality_max"):
@@ -1595,16 +1602,23 @@ def _ptt_session():
         if core.CFG.get("seq_memory") and not core.stt_keep_warm():
             core.unload_whisper()
         prompt, concrete = _resolve_prompt(STATE["mode"])
-        # cascade de repli universelle : IA → format_rules → texte brut. Chaque
-        # étage est protégé : jamais de plantage, jamais de curseur vide.
-        styled = False
-        try:
-            out, styled = core.format_message_ex(text, prompt)
-        except Exception as e:
-            core.log_err("reformulate", e)
-            out = ""
-        if not out:
-            out = core.format_rules(text) or text
+        if concrete == "voice_to_text" and core.CFG.get("instant_normal"):
+            # collage éclair (réglage, off par défaut) : le Style Normal par
+            # règles pures, SANS IA — latence quasi nulle, choix explicite de
+            # l'utilisateur, donc styled=True (c'est le résultat demandé)
+            out, styled = core.format_rules(text) or text, True
+        else:
+            # cascade de repli universelle : IA → format_rules → texte brut.
+            # Chaque étage est protégé : jamais de plantage, jamais de
+            # curseur vide.
+            styled = False
+            try:
+                out, styled = core.format_message_ex(text, prompt)
+            except Exception as e:
+                core.log_err("reformulate", e)
+                out = ""
+            if not out:
+                out = core.format_rules(text) or text
         pasted = winext.paste_into_active_app(out)
         dt = time.time() - t_release
         if pasted and not styled:
@@ -1880,6 +1894,16 @@ def _auto_update_check():
     threading.Thread(target=work, daemon=True).start()
 
 
+def _warmup_engines():
+    """Au lancement : précharge les moteurs en arrière-plan (10 s de délai —
+    priorité au démarrage de l'interface et à la vérification de mise à jour).
+    La PREMIÈRE dictée de la session devient aussi rapide que les suivantes."""
+    def work():
+        time.sleep(10)
+        core.warmup_engines()
+    threading.Thread(target=work, daemon=True).start()
+
+
 def _build_tray():
     from PIL import Image
     import pystray
@@ -1939,6 +1963,7 @@ def main():
 
     integrations.start_connectivity_loop()   # sonde en ligne (active le STT cloud)
     _auto_update_check()                      # MàJ auto en fond (jamais bloquant)
+    _warmup_engines()                         # moteurs prêts pour la 1re dictée
 
     # abonnement : renouvelle le jeton de licence s'il approche de l'expiration
     # (best-effort, en fond — hors ligne, la période de grâce du jeton suffit)

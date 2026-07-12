@@ -23,7 +23,7 @@ import winext
 # Version de l'app — source unique. Doit rester égale au MyAppVersion de
 # installer/nova.iss (test_v3 le vérifie) ; les releases GitHub sont taguées
 # « v » + cette valeur, et updater.py s'en sert pour détecter une mise à jour.
-APP_VERSION = "3.1.9"
+APP_VERSION = "3.1.10"
 
 APP_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
 
@@ -42,6 +42,7 @@ DEFAULT_CONFIG = {
     "custom_vars": [],         # Custom Variables : [{"trigger","value"}], 100 % local
     "profile": "normal",      # profil de puissance : normal | eleve | ultra (power_profiles)
     "seq_memory": True,       # décharge le STT avant le LLM (petites configs)
+    "instant_normal": False,  # Style Normal collé par règles pures, sans IA
     "onboarding_done": False, # assistant de bienvenue affiché une seule fois
     "auto_update": True,      # mise à jour silencieuse au lancement (updater.py)
     "dock_ui": "web",         # interface : "web" = dock/fenêtres du site (défaut),
@@ -429,9 +430,55 @@ def _setup_cuda_dll_path():
                 pass
 
 
+def _gpu_vram_gb():
+    """VRAM totale du premier GPU NVIDIA (Go), 0.0 si indéterminable.
+    nvidia-smi est livré avec tout pilote NVIDIA — best-effort, jamais
+    bloquant (délai court, aucune fenêtre)."""
+    try:
+        import subprocess
+        out = subprocess.run(
+            ["nvidia-smi", "--query-gpu=memory.total",
+             "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=5,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        return float(out.stdout.strip().splitlines()[0]) / 1024.0
+    except Exception:
+        return 0.0
+
+
+def _pick_gpu_compute(vram_gb):
+    """PURE (testable sans GPU) : type de calcul selon la VRAM. Les vieilles
+    cartes à peu de mémoire ne sont plus du tout-ou-rien :
+      • inconnue (0) → float16, comportement historique + repli à l'exécution ;
+      • < 1,5 Go     → None : CPU d'emblée (le modèle ne tiendra pas — mieux
+                       vaut choisir AVANT que planter le chargement) ;
+      • 1,5-3,5 Go   → int8_float16 : moitié moins de mémoire, souvent PLUS
+                       rapide sur les anciennes générations ;
+      • ≥ 3,5 Go     → float16, pleine précision de calcul."""
+    if vram_gb <= 0:
+        return "float16"
+    if vram_gb < 1.5:
+        return None
+    if vram_gb < 3.5:
+        return "int8_float16"
+    return "float16"
+
+
+def _cpu_threads():
+    """Fils de calcul du STT sur CPU : cœurs logiques − 2, borné à [2, 8] —
+    la valeur par défaut du moteur est prudente et laisse 20-40 % de vitesse
+    sur la table sur un 4-8 cœurs, sans affamer le reste du système."""
+    try:
+        n = os.cpu_count() or 4
+    except Exception:
+        n = 4
+    return max(2, min(8, n - 2))
+
+
 def _resolve_device():
     """(device, compute_type), mémorisé. Préférence via CFG['stt']['device'] :
-    'auto' (défaut) / 'cuda' / 'cpu'. 'auto' prend le GPU s'il est présent."""
+    'auto' (défaut) / 'cuda' / 'cpu'. 'auto' prend le GPU s'il est présent ET
+    que sa VRAM suffit (choix du format par _pick_gpu_compute)."""
     if _DEVICE["device"]:
         return _DEVICE["device"], _DEVICE["compute"]
     pref = (CFG.get("stt", {}) or {}).get("device", "auto")
@@ -440,8 +487,11 @@ def _resolve_device():
         try:
             import ctranslate2
             if ctranslate2.get_cuda_device_count() > 0:
-                _DEVICE.update(device="cuda", compute="float16")
-                return _DEVICE["device"], _DEVICE["compute"]
+                comp = _pick_gpu_compute(_gpu_vram_gb())
+                if comp:
+                    _DEVICE.update(device="cuda", compute=comp)
+                    return _DEVICE["device"], _DEVICE["compute"]
+                log_err("gpu_detect", "VRAM insuffisante → CPU d'emblée")
         except Exception as e:
             log_err("gpu_detect", e)
     _DEVICE.update(device="cpu", compute="int8")
@@ -464,7 +514,8 @@ def _load_whisper(name):
         except Exception as e:
             log_err("gpu_load", e)
             _DEVICE.update(device="cpu", compute="int8")   # bascule CPU pour de bon
-    return WhisperModel(name, device="cpu", compute_type="int8")
+    return WhisperModel(name, device="cpu", compute_type="int8",
+                        cpu_threads=_cpu_threads())
 
 
 def _ram_total_gb():
@@ -475,6 +526,15 @@ def _ram_total_gb():
         return psutil.virtual_memory().total / 1e9
     except Exception:
         return 8.0
+
+
+def _llm_keep_alive():
+    """Durée pendant laquelle Ollama garde le modèle de reformulation chargé
+    après usage. Son défaut (~5 min) faisait payer plusieurs secondes de
+    rechargement à la première dictée après chaque pause — le pendant LLM du
+    problème réglé côté transcription par keep_warm. Dès ~8 Go de RAM : 30 min
+    (une session de travail) ; en dessous : comportement d'origine."""
+    return "30m" if _ram_total_gb() >= 7.5 else "5m"
 
 
 def stt_keep_warm():
@@ -1190,6 +1250,7 @@ def _ask_one(provider, text, context=None, image=None):
             raise RuntimeError("Aucun modèle Ollama installé")
         r = requests.post(ollama_url() + "/api/chat", timeout=90, json={
             "model": model, "stream": False, "format": "json",
+            "keep_alive": _llm_keep_alive(),
             "messages": [{"role": "system", "content": sys_txt}] + user_msgs,
         })
         r.raise_for_status()
@@ -1330,6 +1391,7 @@ def _complete_one(provider, system, user, timeout):
             return None
         r = requests.post(ollama_url() + "/api/chat", timeout=timeout, json={
             "model": model, "stream": False,
+            "keep_alive": _llm_keep_alive(),
             "messages": [{"role": "system", "content": system},
                          {"role": "user", "content": user}]})
         r.raise_for_status()
@@ -1902,6 +1964,29 @@ def stt_live_enabled():
         return not gpu_active()
     except Exception:
         return True
+
+
+def warmup_engines():
+    """Préchauffe ce que la PREMIÈRE dictée de la session utilisera : le
+    moteur de transcription (si « gardé en mémoire ») et le modèle de
+    reformulation local (chargé dans Ollama, même keep_alive que l'usage
+    réel). Appelé en arrière-plan au démarrage : la première dictée devient
+    aussi rapide que les suivantes. Best-effort, jamais bloquant."""
+    try:
+        if stt_keep_warm():
+            get_model()
+    except Exception as e:
+        log_err("warmup_stt", e)
+    try:
+        import requests
+        model = (CFG.get("providers") or {}).get("ollama", {}).get("model") or ""
+        if model:
+            # prompt vide = charge le modèle sans générer (contrat Ollama)
+            requests.post(ollama_url() + "/api/generate", timeout=180, json={
+                "model": model, "prompt": "",
+                "keep_alive": _llm_keep_alive()})
+    except Exception as e:
+        log_err("warmup_llm", e)
 
 
 def transcribe_routed(audio, fast=False):
