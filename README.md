@@ -8,7 +8,7 @@ Nova transcrit en local (Intelligence privée), n'envoie aux fournisseurs d'IA
 que ce que vous demandez explicitement, et chiffre toutes les clés avec DPAPI.
 Aucune donnée personnelle n'est stockée en clair.
 
-![version](https://img.shields.io/badge/version-3.1.22-0A84FF) ![Windows](https://img.shields.io/badge/Windows-10%2F11-2B517E) ![Python](https://img.shields.io/badge/Python-3.11%E2%80%933.13-3FA9FF)
+![version](https://img.shields.io/badge/version-3.1.23-0A84FF) ![Windows](https://img.shields.io/badge/Windows-10%2F11-2B517E) ![Python](https://img.shields.io/badge/Python-3.11%E2%80%933.13-3FA9FF)
 
 ---
 

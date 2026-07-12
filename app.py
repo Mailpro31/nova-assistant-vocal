@@ -54,7 +54,7 @@ SET_INSET = "#1A1A1D"     # champs / listes / séparateurs discrets
 SET_LINE = "#2E2E30"      # hairline (rgba(255,255,255,.065) composé sur SET_BG)
 SET_ACCENT = "#0A84FF"    # accent unique (boutons d'action)
 SET_WHITE = "#FFFFFF"     # texte sur accent
-SET_OK = "#8FE7B0"        # état succès
+SET_OK = "#30D158"        # état succès (palette CLAUDE.md)
 SET_ERR = "#E7A08F"       # état erreur
 SET_DANGER_BG, SET_DANGER_FG = "#3A2620", "#E7C9BF"   # bouton destructif
 
@@ -430,19 +430,26 @@ class Pill(threading.Thread):
         _canvas.bind("<Configure>",
                      lambda e: _canvas.itemconfigure(_body_id, width=e.width))
 
-        # molette : active UNIQUEMENT quand le pointeur survole la fenêtre —
-        # jamais de capture globale qui volerait la molette aux autres apps.
+        # molette : liée tant que la fenêtre est ouverte (déliée dans on_close).
+        # PAS de <Enter>/<Leave> sur le canvas — le frame `body` couvre tout le
+        # viewport, donc le canvas reçoit un <Leave> (NotifyInferior) dès qu'on
+        # survole le contenu → la molette mourrait PILE là où il faut défiler.
+        # bind_all ne capte que les fenêtres Tk (la pilule n'est pas défilable) →
+        # aucune molette volée à une autre application.
         def _on_wheel(e):
+            # laisser un widget déjà défilable (Listbox des variables/Styles,
+            # Text du Style sur mesure) gérer SA molette — sinon il défile ET la
+            # page défile en même temps (double défilement désorientant)
+            if isinstance(e.widget, (tk.Listbox, tk.Text)):
+                return
             _canvas.yview_scroll(int(-(e.delta or 0) / 120), "units")
-        _canvas.bind("<Enter>",
-                     lambda _e: _canvas.bind_all("<MouseWheel>", _on_wheel))
-        _canvas.bind("<Leave>", lambda _e: _canvas.unbind_all("<MouseWheel>"))
+        _canvas.bind_all("<MouseWheel>", _on_wheel)
 
         def on_close():
             self._settings_win = None
-            try:                                 # libère la molette (Leave peut
-                _canvas.unbind_all("<MouseWheel>")   # ne pas tirer à la fermeture)
-            except Exception:
+            try:
+                _canvas.unbind_all("<MouseWheel>")   # sinon la molette resterait
+            except Exception:                        # liée après la fermeture
                 pass
             win.destroy()
         win.protocol("WM_DELETE_WINDOW", on_close)
@@ -1137,7 +1144,13 @@ class WebDock:
                 self._apply_shape_locked(payload)
         except Exception as e:
             core.log_err("dock_shape", e)
-        self._reveal()
+        # PAS de self._reveal() ici : sur le chemin de succès, _apply_shape_locked
+        # révèle la fenêtre DÉCOUPÉE lui-même (ShowWindow). Appeler _reveal()
+        # inconditionnellement révélait la fenêtre NON découpée (carré sombre)
+        # quand _apply_shape_locked sortait tôt sur « if not hwnd » (handle
+        # WebView2 pas encore résolu au démarrage, sans poser _got_shape) — le
+        # flash de rectangle nu que l'architecture doit empêcher. Le secours
+        # « page cassée » reste porté par le Timer 10 s (voir serve()).
 
     def _apply_shape_locked(self, payload):
         n = int(payload.get("n") or 0)

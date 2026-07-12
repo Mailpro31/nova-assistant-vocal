@@ -23,7 +23,7 @@ import winext
 # Version de l'app — source unique. Doit rester égale au MyAppVersion de
 # installer/nova.iss (test_v3 le vérifie) ; les releases GitHub sont taguées
 # « v » + cette valeur, et updater.py s'en sert pour détecter une mise à jour.
-APP_VERSION = "3.1.22"
+APP_VERSION = "3.1.23"
 
 APP_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
 
@@ -1513,6 +1513,49 @@ def _ollama_warm_model():
     return _reform_model("ollama") or ((ollama_models() or [""])[0])
 
 
+def _llm_num_ctx():
+    """Fenêtre de contexte du LLM de reformulation. Assez GRANDE pour que le
+    PRÉFIXE système (COMMON_RULES = garde-fous absolus « reformule / ne réponds
+    JAMAIS », « zéro invention ») ne soit JAMAIS tronqué : Ollama coupe
+    silencieusement l'entrée > num_ctx EN PARTANT DU DÉBUT (défaut ~2048) — il
+    supprimerait donc justement ces règles sur une dictée longue, laissant le
+    modèle RÉPONDRE à une question dictée ou inventer. Le prefill ne coûte que
+    les tokens RÉELS (pas la taille allouée) → latence inchangée ; seul le
+    KV-cache grandit, d'où le bornage par la RAM. Valeur PARTAGÉE
+    _complete_one/warmup (via le builder) : un num_ctx différent ferait charger
+    un runner distinct côté Ollama et perdrait le KV-cache préchauffé."""
+    gb = _ram_total_gb()
+    if gb >= 16:
+        return 8192
+    if gb >= 7.5:
+        return 4096
+    return 3072            # plancher ~4 Go : large pour garde-fous + dictée
+    #                        longue, KV modéré (~0,18 Go pour un 3B)
+
+
+def _ollama_chat_request(system, user, options, timeout):
+    """Requête de reformulation Ollama /api/chat — builder UNIQUE partagé par la
+    reformulation réelle (_complete_one) ET le préchauffage (warmup_engines) :
+    même endpoint, même modèle (_ollama_warm_model), même keep_alive, même
+    num_ctx, même structure de messages. Le KV-cache amorcé au warmup correspond
+    ainsi PAR CONSTRUCTION au préfixe que la dictée enverra — plus de dérive
+    silencieuse possible si l'endpoint ou la structure évolue. Seul `options`
+    varie : reformulation {temperature, top_p} ; warmup {num_predict:1}. Retourne
+    l'objet réponse requests brut (ou None si aucun modèle disponible)."""
+    import requests
+    model = _ollama_warm_model()
+    if not model:
+        return None
+    opts = {"num_ctx": _llm_num_ctx()}
+    opts.update(options)
+    return requests.post(ollama_url() + "/api/chat", timeout=timeout, json={
+        "model": model, "stream": False,
+        "keep_alive": _llm_keep_alive(),
+        "options": opts,
+        "messages": [{"role": "system", "content": system},
+                     {"role": "user", "content": user}]})
+
+
 def _complete_one(provider, system, user, timeout):
     if provider == "anthropic":
         from anthropic import Anthropic
@@ -1524,20 +1567,15 @@ def _complete_one(provider, system, user, timeout):
         return next((b.text for b in msg.content if b.type == "text"), "").strip() or None
     import requests
     if provider == "ollama":
-        model = _ollama_warm_model()
-        if not model:
+        # Reformuler n'est pas créer : température basse = sortie FIDÈLE au texte
+        # dicté (moins de dérive, meilleure « qualité métier ») ET décodage plus
+        # court/déterministe (convergence rapide vers la fin sur CPU sans GPU).
+        # Gain temps ET qualité, aucun compromis. Requête via le builder PARTAGÉ
+        # (mêmes octets que le préchauffage → KV-cache du préfixe système réutilisé).
+        r = _ollama_chat_request(system, user,
+                                 {"temperature": 0.3, "top_p": 0.9}, timeout)
+        if r is None:
             return None
-        r = requests.post(ollama_url() + "/api/chat", timeout=timeout, json={
-            "model": model, "stream": False,
-            "keep_alive": _llm_keep_alive(),
-            # Reformuler n'est pas créer : température basse = sortie FIDÈLE au
-            # texte dicté (moins de dérive, meilleure « qualité métier ») ET
-            # décodage plus court/déterministe (le modèle converge vite vers la
-            # fin sur un PC sans GPU). Gain temps ET qualité, aucun compromis —
-            # exactement le point d'équilibre visé pour la reformulation locale.
-            "options": {"temperature": 0.3, "top_p": 0.9},
-            "messages": [{"role": "system", "content": system},
-                         {"role": "user", "content": user}]})
         r.raise_for_status()
         return (r.json()["message"]["content"] or "").strip() or None
     if provider in OPENAI_COMPAT:
@@ -2217,24 +2255,14 @@ def warmup_engines():
         log_err("warmup_stt", e)
     try:
         if _should_warm_llm():
-            import requests
-            model = _ollama_warm_model()
-            if model:
-                # Préchauffe via /api/chat avec le VRAI prompt système de
-                # reformulation (COMMON_RULES + Style par défaut) : charge le
-                # modèle ET amorce le KV-cache du préfixe système constant
-                # (~250 tokens). Ollama réutilise ce préfixe (plus-long-préfixe-
-                # commun, tant que keep_alive tient), donc la 1re dictée saute son
-                # pré-remplissage (~0,5-1 s gagnées sur CPU). num_predict=1 : on ne
-                # génère rien d'utile (réponse jetée) ; le vrai appel de
-                # reformulation reste inchangé → texte STRICTEMENT identique.
-                requests.post(ollama_url() + "/api/chat", timeout=180, json={
-                    "model": model, "stream": False,
-                    "keep_alive": _llm_keep_alive(),
-                    "options": {"num_predict": 1},
-                    "messages": [
-                        {"role": "system", "content": _reform_system()},
-                        {"role": "user", "content": "ok"}]})
+            # Préchauffe via le builder PARTAGÉ (mêmes endpoint/modèle/keep_alive/
+            # num_ctx/préfixe système que la reformulation réelle) : charge le
+            # modèle ET amorce le KV-cache du préfixe système constant (~250
+            # tokens). Ollama réutilise ce préfixe (plus-long-préfixe-commun, tant
+            # que keep_alive tient), donc la 1re dictée saute son pré-remplissage
+            # (~0,5-1 s gagnées sur CPU). num_predict=1 : réponse jetée, le vrai
+            # appel de reformulation reste inchangé → texte STRICTEMENT identique.
+            _ollama_chat_request(_reform_system(), "ok", {"num_predict": 1}, 180)
     except Exception as e:
         log_err("warmup_llm", e)
 

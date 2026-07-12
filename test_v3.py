@@ -871,6 +871,30 @@ def test_warmup_llm_gate():
         core.CFG = real_cfg
 
 
+def test_llm_num_ctx():
+    """Fenêtre de contexte du LLM de reformulation : assez grande pour que le
+    préfixe système (COMMON_RULES = garde-fous « ne réponds jamais / zéro
+    invention ») ne soit JAMAIS tronqué (Ollama coupe l'entrée > num_ctx en
+    partant du DÉBUT = les règles). Bornée par la RAM (le KV-cache grandit avec
+    num_ctx) — plancher sûr sur 4 Go, plus large si la RAM le permet. Latence
+    inchangée (le prefill ne coûte que les tokens réels)."""
+    print("Reformulation — fenêtre de contexte LLM bornée par la RAM")
+    _rr = core._ram_total_gb
+    try:
+        core._ram_total_gb = lambda: 4.0
+        check("4 Go → num_ctx plancher 3072 (garde-fous tiennent, KV modéré)",
+              core._llm_num_ctx(), 3072)
+        core._ram_total_gb = lambda: 8.0
+        check("8 Go → num_ctx 4096", core._llm_num_ctx(), 4096)
+        core._ram_total_gb = lambda: 16.0
+        check("16 Go → num_ctx 8192", core._llm_num_ctx(), 8192)
+        core._ram_total_gb = lambda: 3.0
+        check("num_ctx toujours ≥ 2048 (jamais sous le défaut Ollama, "
+              "garde-fous jamais tronqués)", core._llm_num_ctx() >= 2048, True)
+    finally:
+        core._ram_total_gb = _rr
+
+
 def test_web_dock_default():
     """L'interface web (dock.html) est l'UI par défaut pour TOUS : décision
     produit — la pilule tkinter n'est que le repli WebView2-absent. Une
@@ -900,6 +924,7 @@ if __name__ == "__main__":
     test_save_config_atomic()
     test_partial_stt_merge()
     test_warmup_llm_gate()
+    test_llm_num_ctx()
     test_web_dock_default()
     print()
     if _fails:
