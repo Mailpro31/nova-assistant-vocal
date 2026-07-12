@@ -849,6 +849,28 @@ def test_partial_stt_merge():
         core.CFG = real_cfg          # _save est neutralisé en tête de fichier
 
 
+def test_warmup_llm_gate():
+    """Préchauffage LLM : JAMAIS en mémoire séquentielle sur petite RAM
+    (seq_memory + STT non gardé chaud). Sinon la 1re dictée chargerait le STT
+    alors que le LLM (~2 Go) est encore résident → STT+LLM coexistants → swap/OOM
+    sur 4 Go, l'inverse du but du préchauffage. Le garde-fou court-circuite avant
+    toute résolution de fournisseur (déterministe, sans réseau)."""
+    print("Préchauffage — LLM non épinglé en mémoire séquentielle (petite RAM)")
+    real_ram = core._RAM_TOTAL["gb"]
+    real_cfg = core.CFG
+    try:
+        core._RAM_TOTAL["gb"] = 4.0
+        core.CFG = core._merge(real_cfg, {"seq_memory": True,
+                                          "whisper_model": "small",
+                                          "stt": {"keep_warm": "auto"}})
+        check("seq_memory + 4 Go → STT non gardé chaud", core.stt_keep_warm(), False)
+        check("seq_memory + 4 Go → LLM NON préchauffé (anti coexistence STT+LLM)",
+              core._should_warm_llm(), False)
+    finally:
+        core._RAM_TOTAL["gb"] = real_ram
+        core.CFG = real_cfg
+
+
 def test_web_dock_default():
     """L'interface web (dock.html) est l'UI par défaut pour TOUS : décision
     produit — la pilule tkinter n'est que le repli WebView2-absent. Une
@@ -877,6 +899,7 @@ if __name__ == "__main__":
     test_hotkey_removal()
     test_save_config_atomic()
     test_partial_stt_merge()
+    test_warmup_llm_gate()
     test_web_dock_default()
     print()
     if _fails:

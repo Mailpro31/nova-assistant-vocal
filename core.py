@@ -23,7 +23,7 @@ import winext
 # Version de l'app — source unique. Doit rester égale au MyAppVersion de
 # installer/nova.iss (test_v3 le vérifie) ; les releases GitHub sont taguées
 # « v » + cette valeur, et updater.py s'en sert pour détecter une mise à jour.
-APP_VERSION = "3.1.20"
+APP_VERSION = "3.1.21"
 
 APP_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
 
@@ -2168,6 +2168,19 @@ def stt_live_enabled():
         return True
 
 
+def _should_warm_llm():
+    """Faut-il préchauffer le LLM de reformulation au démarrage ? OUI seulement
+    là où il peut rester résident sans danger. En mémoire séquentielle sur petite
+    RAM (seq_memory ET STT non gardé chaud, ~4-7 Go), la dictée décharge le STT
+    AVANT de solliciter le LLM pour ne JAMAIS tenir les deux gros modèles
+    ensemble : y épingler le LLM au démarrage romprait l'invariant — la 1re
+    transcription chargerait le STT alors que le LLM (~2 Go) est encore résident
+    (keep_alive) → risque de swap/OOM, l'exact inverse du but du préchauffage."""
+    if bool(CFG.get("seq_memory")) and not stt_keep_warm():
+        return False
+    return resolve_provider() == "ollama"
+
+
 def warmup_engines():
     """Préchauffe ce que la PREMIÈRE dictée de la session utilisera : le choix
     GPU/CPU (memoïsé — il ne doit jamais rester à faire à l'appui de touche),
@@ -2188,7 +2201,7 @@ def warmup_engines():
     except Exception as e:
         log_err("warmup_stt", e)
     try:
-        if resolve_provider() == "ollama":
+        if _should_warm_llm():
             import requests
             model = _ollama_warm_model()
             if model:
