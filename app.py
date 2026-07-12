@@ -840,13 +840,20 @@ class Pill(threading.Thread):
             _apply_stt_opts(opts)
         sf = tk.Frame(win, bg=SET_BG)
         sf.pack(fill="x", padx=16, pady=4)
-        for var, label in ((v_live, "Pendant la dictée (recommandé)"),
-                           (v_warm, "Moteur gardé en mémoire (~0,7 Go de RAM)"),
-                           (v_prec, "Précision maximale (3-5× plus lent sur CPU)"),
-                           (v_qual, "Qualité maximale (~1,5 Go, nécessite ~12 Go de RAM)"),
-                           (v_inst, "Collage éclair pour le Style Normal (sans IA)")):
+        # « Qualité maximale » grisée si la machine ne peut pas tenir le grand
+        # moteur (~12 Go) — même gating que le dock, parité CLAUDE.md.
+        q_ok = core.quality_max_supported()
+        for var, label, dis in (
+                (v_live, "Pendant la dictée (recommandé)", False),
+                (v_warm, "Moteur gardé en mémoire (~0,7 Go de RAM)", False),
+                (v_prec, "Précision maximale (3-5× plus lent sur CPU)", False),
+                (v_qual, "Qualité maximale (~1,5 Go, nécessite ~12 Go de RAM)",
+                 not q_ok),
+                (v_inst, "Collage éclair pour le Style Normal (sans IA)", False)):
             tk.Checkbutton(sf, text=label, variable=var, command=save_stt,
+                           state=("disabled" if dis else "normal"),
                            bg=SET_BG, fg=SET_FG, selectcolor=SET_INSET,
+                           disabledforeground=SET_MUT,
                            activebackground=SET_BG, activeforeground=SET_FG,
                            anchor="w").pack(anchor="w")
 
@@ -1274,6 +1281,12 @@ def _stt_opts():
             "keep_warm_on": core.stt_keep_warm(),
             "precision_max": bool(stt.get("precision_max")),
             "quality_max": bool(stt.get("quality_max")),
+            # résolu ici (comme keep_warm_on) : le JS ne connaît pas la RAM.
+            # Faux → l'interrupteur « Qualité maximale » est grisé EN AMONT
+            # (règle CLAUDE.md « griser les contrôles ») au lieu de basculer
+            # puis se rétracter ; le refus synchrone de _apply_stt_opts reste
+            # le filet défensif si un état d'UI périmé le rappelait quand même.
+            "quality_supported": core.quality_max_supported(),
             "instant_normal": bool(core.CFG.get("instant_normal"))}
 
 
