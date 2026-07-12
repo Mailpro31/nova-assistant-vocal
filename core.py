@@ -23,7 +23,7 @@ import winext
 # Version de l'app — source unique. Doit rester égale au MyAppVersion de
 # installer/nova.iss (test_v3 le vérifie) ; les releases GitHub sont taguées
 # « v » + cette valeur, et updater.py s'en sert pour détecter une mise à jour.
-APP_VERSION = "3.1.18"
+APP_VERSION = "3.1.19"
 
 APP_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
 
@@ -1643,6 +1643,17 @@ _DEFAULT_REFORMULATE = (
     "respectant son ton et son niveau de langue, sans structure imposée.")
 
 
+def _reform_system(system_prompt=None):
+    """Prompt système de reformulation : COMMON_RULES (garde-fous) + consigne du
+    Style + vocabulaire utilisateur + « réponds uniquement… ». Extrait pour être
+    partagé par format_message_ex ET le préchauffage : le KV-cache amorcé au
+    warmup correspond alors EXACTEMENT au préfixe que la reformulation enverra."""
+    vocab = active_vocabulary()
+    system = COMMON_RULES + (system_prompt or _DEFAULT_REFORMULATE) + " " + (
+        f"Vocabulaire propre à l'utilisateur : {', '.join(vocab)}. " if vocab else "")
+    return system + "Réponds UNIQUEMENT avec le texte reformulé, rien d'autre."
+
+
 def format_message(text, system_prompt=None):
     """Moteur de reformulation générique, partagé par tous les modes du registre.
 
@@ -1661,11 +1672,7 @@ def format_message_ex(text, system_prompt=None):
     appliqué : → (texte, ia_ok). Quand l'IA échoue (modèle absent, hors ligne,
     panne), l'appelant peut l'annoncer honnêtement au lieu d'afficher le Style
     comme si tout allait bien — le texte collé, lui, n'est jamais vide."""
-    vocab = active_vocabulary()
-    system = COMMON_RULES + (system_prompt or _DEFAULT_REFORMULATE) + " " + (
-        f"Vocabulaire propre à l'utilisateur : {', '.join(vocab)}. " if vocab else "")
-    system += "Réponds UNIQUEMENT avec le texte reformulé, rien d'autre."
-    out = llm_complete(system, text)
+    out = llm_complete(_reform_system(system_prompt), text)
     if out:
         return out, True
     log_err("style_fallback", "IA indisponible → collage format_rules (le "
@@ -2185,10 +2192,21 @@ def warmup_engines():
             import requests
             model = _ollama_warm_model()
             if model:
-                # prompt vide = charge le modèle sans générer (contrat Ollama)
-                requests.post(ollama_url() + "/api/generate", timeout=180, json={
-                    "model": model, "prompt": "",
-                    "keep_alive": _llm_keep_alive()})
+                # Préchauffe via /api/chat avec le VRAI prompt système de
+                # reformulation (COMMON_RULES + Style par défaut) : charge le
+                # modèle ET amorce le KV-cache du préfixe système constant
+                # (~250 tokens). Ollama réutilise ce préfixe (plus-long-préfixe-
+                # commun, tant que keep_alive tient), donc la 1re dictée saute son
+                # pré-remplissage (~0,5-1 s gagnées sur CPU). num_predict=1 : on ne
+                # génère rien d'utile (réponse jetée) ; le vrai appel de
+                # reformulation reste inchangé → texte STRICTEMENT identique.
+                requests.post(ollama_url() + "/api/chat", timeout=180, json={
+                    "model": model, "stream": False,
+                    "keep_alive": _llm_keep_alive(),
+                    "options": {"num_predict": 1},
+                    "messages": [
+                        {"role": "system", "content": _reform_system()},
+                        {"role": "user", "content": "ok"}]})
     except Exception as e:
         log_err("warmup_llm", e)
 
