@@ -450,17 +450,16 @@ def test_licensing():
           True)
     check("business : pas la perso Ultra", L.has("custom_modes", L.BUSINESS),
           False)
-    # modes offerts en Free : les Styles vitrines (décision produit) —
-    # E-mail, To-do list, Prompt IA — plus Normal ; Messages et Prise de
-    # notes restent côté Pro.
+    # modes offerts en Free : le quotidien (décision produit) — Normal,
+    # E-mail, Messages ; To-do, Prompt IA et Prise de notes restent Pro.
     check("free : mode email autorisé", L.mode_allowed("email", L.FREE), True)
-    check("free : mode todo autorisé", L.mode_allowed("todo", L.FREE), True)
-    check("free : mode prompt IA autorisé",
-          L.mode_allowed("prompt_engineer", L.FREE), True)
-    check("free : mode messages bloqué",
-          L.mode_allowed("messages", L.FREE), False)
+    check("free : mode messages autorisé",
+          L.mode_allowed("messages", L.FREE), True)
+    check("free : mode todo bloqué", L.mode_allowed("todo", L.FREE), False)
+    check("free : mode prompt IA bloqué",
+          L.mode_allowed("prompt_engineer", L.FREE), False)
     check("free : mode notes bloqué", L.mode_allowed("notes", L.FREE), False)
-    check("pro : tous les modes", L.mode_allowed("messages", L.PRO), True)
+    check("pro : tous les modes", L.mode_allowed("todo", L.PRO), True)
     check("free : « auto » (mode par défaut) autorisé",
           L.mode_allowed("auto", L.FREE), True)
     check("free : best_models bloqué", L.has("best_models", L.FREE), False)
