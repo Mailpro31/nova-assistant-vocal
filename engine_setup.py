@@ -76,23 +76,38 @@ def _fail(msg):
     _state.update({"phase": "error", "error": msg})
 
 
+def snapshot():
+    """Copie de l'état SANS aucun aller-retour HTTP — utilisable depuis le fil
+    UI tkinter pendant une installation (le poll ne doit pas bloquer)."""
+    return dict(_state)
+
+
 def _run():
     try:
         if ready():                              # déjà en place (autre install)
             _state.update({"phase": "done", "progress": 1.0})
             return
-        if not service_up():
-            tmp = tempfile.gettempdir()
-            if shutil.disk_usage(tmp).free / 1e9 < _MIN_FREE_GB:
-                return _fail("Espace disque insuffisant "
-                             f"({_MIN_FREE_GB} Go nécessaires)")
-            dest = os.path.join(tmp, "NovaEngineSetup.exe")
+        svc = service_up()
+        # espace disque vérifié dans les DEUX cas : installateur+modèle (~6 Go)
+        # ou modèle seul (~3 Go, service déjà là mais aucun modèle)
+        need = _MIN_FREE_GB if not svc else 3
+        if shutil.disk_usage(tempfile.gettempdir()).free / 1e9 < need:
+            return _fail(f"Espace disque insuffisant ({need} Go nécessaires)")
+        if not svc:
+            dest = os.path.join(tempfile.gettempdir(), "NovaEngineSetup.exe")
             _download_setup(dest)                            # 0 → 45 %
             _state.update({"phase": "install", "progress": .45})
-            # installateur officiel (Inno Setup) : silencieux, sans redémarrage
+            # installateur officiel (Inno Setup) : silencieux, sans redémarrage.
+            # 30 min de plafond : un disque lent/antivirus peut être TRÈS long,
+            # et tuer l'installateur en plein vol laisserait une installation
+            # corrompue — le dépassement a donc son propre message honnête.
             kw = {"creationflags": _CREATE_NO_WINDOW} if sys.platform == "win32" else {}
-            subprocess.run([dest, "/VERYSILENT", "/SUPPRESSMSGBOXES",
-                            "/NORESTART"], check=True, timeout=900, **kw)
+            try:
+                subprocess.run([dest, "/VERYSILENT", "/SUPPRESSMSGBOXES",
+                                "/NORESTART"], check=True, timeout=1800, **kw)
+            except subprocess.TimeoutExpired:
+                raise RuntimeError("Installation du composant trop longue — "
+                                   "redémarrez le PC puis réessayez")
             _state.update({"phase": "service", "progress": .55})
             _wait_service()
         _state.update({"phase": "model", "progress": .6})
@@ -104,8 +119,11 @@ def _run():
             pass
     except Exception as e:
         core.log_err("engine_setup", e)
-        _fail("L'installation a échoué — vérifiez la connexion "
-              "internet puis réessayez")
+        # message précis quand on en a un (RuntimeError posé par nous),
+        # générique sinon
+        msg = str(e) if isinstance(e, RuntimeError) and str(e) else \
+            "L'installation a échoué — vérifiez la connexion internet puis réessayez"
+        _fail(msg)
 
 
 def _download_setup(dest):
@@ -170,5 +188,12 @@ def _pull_model():
             done = int(d.get("completed") or 0)
             if total:
                 _state["progress"] = .6 + .4 * min(1.0, done / total)
-    if not core.ollama_models():
-        raise RuntimeError("modèle absent après téléchargement")
+    # vérification tolérante : juste après un pull de ~2 Go le service peut
+    # être occupé à vérifier le blob et rater le timeout court de /api/tags —
+    # quelques tentatives espacées avant de déclarer l'échec
+    for _ in range(10):
+        if core.ollama_models():
+            return
+        time.sleep(2)
+    raise RuntimeError("Le modèle n'est pas visible après téléchargement — "
+                       "réessayez")

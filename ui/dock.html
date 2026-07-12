@@ -278,7 +278,13 @@ window.novaOpenModes=function(){closeTray(true);
 let _tmT=null,_tmAuto=null;
 window.novaOpenTray=function(){
   clearTimeout(_tmT);clearTimeout(_tmAuto);   // jamais fermé par un timer périmé
-  if(document.getElementById('settings').classList.contains('on'))return;
+  if(document.getElementById('settings').classList.contains('on')){
+    // réglages visibles : si Python a déjà redimensionné vers le menu tray
+    // (ouverture optimiste : son garde _panel n'avait pas encore vu
+    // « settings »), on ré-demande la géométrie réglages au lieu de laisser
+    // la fenêtre écrasée en 290×240
+    api('panel',setMax?'settings_max':'settings',true).then(reportShape);
+    return;}
   document.getElementById('modes').classList.remove('on');   // panneaux exclusifs
   document.getElementById('traymenu').classList.add('on');reportShape();
   _tmAuto=setTimeout(closeTray,10000);};
@@ -578,7 +584,9 @@ function paneGeneral(p){
       el.textContent=({download:'Téléchargement…',install:'Installation…',
         service:'Démarrage…',model:'Préparation de l\'intelligence…'})[st.phase]
         +' '+Math.round((st.progress||0)*100)+' %';
-      setTimeout(engPoll,1200);return;}
+      // UN SEUL fil de poll quelle que soit la vie du pane : chaque
+      // reconstruction/clic relance engPoll, le timer global est écrasé
+      clearTimeout(window.__engT);window.__engT=setTimeout(engPoll,1200);return;}
     el.innerHTML=(st.phase==='error'
         ?'<span style="color:#FF453A">'+esc(st.error||'Échec')+'</span> '
         :'Non installée ')

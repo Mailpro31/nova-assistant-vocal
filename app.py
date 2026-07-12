@@ -712,64 +712,79 @@ class Pill(threading.Thread):
         _lock(can_turbo, cb_cloud)
 
         # reformulation locale : état + installation en un clic (parité avec la
-        # rangée « Reformulation hors ligne » du dock — règle CLAUDE.md)
-        eng_row = tk.Frame(eng, bg=SET_BG)
-        eng_row.pack(anchor="w", pady=(2, 0))
-        eng_lbl = tk.Label(eng_row, text="Reformulation hors ligne : …",
-                           bg=SET_BG, fg=SET_MUT)
-        eng_lbl.pack(side="left")
-        eng_btn = tk.Button(eng_row, text="Installer (≈ 2,5 Go)",
-                            bg=SET_INSET, fg=SET_FG, relief="flat",
-                            activebackground=SET_INSET,
-                            activeforeground=SET_FG)
-        import engine_setup as _es
+        # rangée « Reformulation hors ligne » du dock — règle CLAUDE.md).
+        # Défensif de bout en bout : un échec d'import ou de sondage ne doit
+        # jamais casser le reste de la fenêtre de réglages.
+        try:
+            import engine_setup as _es
+            eng_row = tk.Frame(eng, bg=SET_BG)
+            eng_row.pack(anchor="w", pady=(2, 0))
+            eng_lbl = tk.Label(eng_row, text="Reformulation hors ligne : …",
+                               bg=SET_BG, fg=SET_MUT)
+            eng_lbl.pack(side="left")
+            eng_btn = tk.Button(eng_row, text="Installer (≈ 2,5 Go)",
+                                bg=SET_INSET, fg=SET_FG, relief="flat",
+                                activebackground=SET_INSET,
+                                activeforeground=SET_FG)
+            # AUCUN appel tkinter depuis un fil de fond : le sondage HTTP (état
+            # au repos, ≤1,5 s) tourne en fil de fond et dépose son résultat
+            # dans une boîte ; la boucle after() du fil UI consomme la boîte.
+            # Pendant une installation, snapshot() (simple dict, zéro HTTP)
+            # suffit — le fil UI boucle directement dessus.
+            _eng_box = []
 
-        def _eng_refresh():
-            # l'état réel demande un aller-retour HTTP local (≤1,5 s) : sondé
-            # HORS du fil UI, résultat appliqué via after() (fil UI, widgets)
-            def work():
+            def _eng_probe():
                 try:
-                    st = _es.status()
-                except Exception:
-                    return
-
-                def apply():
-                    try:
-                        if not eng_lbl.winfo_exists():
-                            return
-                        if st.get("ready"):
-                            eng_lbl.config(fg=SET_OK,
-                                           text="Reformulation hors ligne : prête")
-                            eng_btn.pack_forget()
-                        elif st["phase"] in ("download", "install",
-                                             "service", "model"):
-                            pct = int((st.get("progress") or 0) * 100)
-                            eng_lbl.config(fg=SET_MUT, text={
-                                "download": "Téléchargement…",
-                                "install": "Installation…",
-                                "service": "Démarrage…",
-                                "model": "Préparation de l'intelligence…",
-                            }[st["phase"]] + f" {pct} %")
-                            eng_btn.pack_forget()
-                            win.after(1200, _eng_refresh)
-                        else:
-                            eng_lbl.config(fg=SET_MUT,
-                                           text="Reformulation hors ligne : "
-                                           + (st.get("error") or "non installée"))
-                            eng_btn.pack(side="left", padx=(8, 0))
-                    except Exception:
-                        pass
-                try:
-                    win.after(0, apply)
+                    _eng_box.append(_es.status())
                 except Exception:
                     pass
-            threading.Thread(target=work, daemon=True).start()
 
-        def _eng_install():
-            _es.start()
-            win.after(300, _eng_refresh)
-        eng_btn.config(command=_eng_install)
-        _eng_refresh()
+            def _eng_apply(st):
+                if st.get("ready"):
+                    eng_lbl.config(fg=SET_OK,
+                                   text="Reformulation hors ligne : prête")
+                    eng_btn.pack_forget()
+                elif st["phase"] in ("download", "install", "service", "model"):
+                    pct = int((st.get("progress") or 0) * 100)
+                    eng_lbl.config(fg=SET_MUT, text={
+                        "download": "Téléchargement…",
+                        "install": "Installation…",
+                        "service": "Démarrage…",
+                        "model": "Préparation de l'intelligence…",
+                    }[st["phase"]] + f" {pct} %")
+                    eng_btn.pack_forget()
+                    win.after(1200, _eng_tick)
+                else:
+                    eng_lbl.config(fg=SET_MUT,
+                                   text="Reformulation hors ligne : "
+                                   + (st.get("error") or "non installée"))
+                    eng_btn.pack(side="left", padx=(8, 0))
+
+            def _eng_tick():
+                try:
+                    if not eng_lbl.winfo_exists():
+                        return
+                    snap = _es.snapshot()
+                    if snap["phase"] in ("download", "install",
+                                         "service", "model"):
+                        snap["ready"] = False
+                        _eng_apply(snap)             # zéro HTTP : direct
+                    elif _eng_box:
+                        _eng_apply(_eng_box.pop())   # résultat du sondage
+                    else:
+                        threading.Thread(target=_eng_probe,
+                                         daemon=True).start()
+                        win.after(700, _eng_tick)
+                except Exception:
+                    pass
+
+            def _eng_install():
+                _es.start()
+                win.after(300, _eng_tick)
+            eng_btn.config(command=_eng_install)
+            _eng_tick()
+        except Exception as e:
+            core.log_err("engine_setup_tk", e)
 
         # démarrage avec Windows : lit et écrit directement la clé Run (même
         # entrée que la case de l'installeur) — pas de copie dans config.json
@@ -2307,9 +2322,15 @@ def _warmup_engines():
         try:
             # reformulation locale absente (service pas installé) : le dire UNE
             # fois, avec la marche à suivre — sinon chaque Style retombe en
-            # silence sur le collage brut et l'utilisateur croit à une panne
+            # silence sur le collage brut et l'utilisateur croit à une panne.
+            # JAMAIS par-dessus une dictée en cours (la bulle « Je t'écoute… »
+            # ne doit pas être remplacée), ni pendant qu'une installation
+            # tourne déjà (l'indice serait faux).
             import engine_setup
-            if core.resolve_provider() == "ollama" and not engine_setup.ready():
+            st = engine_setup.status()
+            if (core.resolve_provider() == "ollama"
+                    and st["phase"] == "idle" and not st["ready"]
+                    and not _ptt_active.is_set()):
                 pill.show("error", "Intelligence privée à terminer",
                           "Réglages → Installer la reformulation locale")
                 pill.hide(5.0)
