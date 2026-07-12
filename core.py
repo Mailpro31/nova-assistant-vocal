@@ -559,6 +559,14 @@ def _llm_keep_alive():
     return "30m" if _ram_total_gb() >= 7.5 else "5m"
 
 
+# RAM minimale pour tenir le grand moteur multilingue (large-v3-turbo, ~1,5 Go)
+# EN PLUS du LLM de reformulation. UN SEUL littéral partagé par stt_keep_warm()
+# (le garder chaud) et quality_max_supported() (autoriser son relèvement) : les
+# deux encodent le MÊME invariant — ne jamais relever le modèle là où il ne
+# pourrait pas rester chaud (sinon rechargement de ~1,5 Go à chaque dictée).
+_RAM_TURBO_WARM_GB = 12.0
+
+
 def stt_keep_warm():
     """Garder le moteur STT en mémoire entre les dictées ? Sans ça, chaque
     dictée commençait par RECHARGER le modèle depuis le disque (2-4 s perdues
@@ -573,7 +581,7 @@ def stt_keep_warm():
     model = CFG.get("whisper_model") or ""
     if model == "large-v3":
         return False
-    need = 12.0 if model == "large-v3-turbo" else 7.5
+    need = _RAM_TURBO_WARM_GB if model == "large-v3-turbo" else 7.5
     return _ram_total_gb() >= need
 
 
@@ -588,12 +596,12 @@ def _stt_beam():
 
 def quality_max_supported():
     """La machine peut-elle tenir le grand moteur multilingue (~1,5 Go) EN PLUS
-    du LLM de reformulation ? MÊME seuil que keep_warm pour ce modèle (12 Go) :
-    sinon « qualité maximale » relèverait le modèle sans pouvoir le garder
-    chaud → rechargement de 1,5 Go à chaque dictée (thrash) et promesse UI
-    trompeuse. Le garde-fou RAM des profils ne doit pas être contournable par
-    une simple case."""
-    return _ram_total_gb() >= 12.0
+    du LLM de reformulation ? MÊME seuil que keep_warm pour ce modèle
+    (_RAM_TURBO_WARM_GB) : sinon « qualité maximale » relèverait le modèle sans
+    pouvoir le garder chaud → rechargement de 1,5 Go à chaque dictée (thrash) et
+    promesse UI trompeuse. Le garde-fou RAM des profils ne doit pas être
+    contournable par une simple case."""
+    return _ram_total_gb() >= _RAM_TURBO_WARM_GB
 
 
 def effective_stt_model(profile_stt):
@@ -1998,28 +2006,29 @@ class LiveTranscriber:
         pending, total = self._pending()
         if not pending:
             return
-        # trop court pour un commit intermédiaire : on rend la main sans même
-        # calculer les RMS (le commit final, lui, n'a pas de minimum)
-        if not final and (0.1 * len(pending)
-                          < self.MIN_COMMIT_S + 0.1 * self.PAUSE_BLOCKS):
-            return
-        thr = effective_threshold()
-        rms = [_rms(b) for b in pending]        # calculé UNE fois (deux gardes)
-        # commit intermédiaire : la voix doit s'être tue sur les derniers blocs
-        # (sinon on couperait un mot en plein milieu)
-        if not final and any(r > thr for r in rms[-self.PAUSE_BLOCKS:]):
-            return
-        # tranche SANS aucune voix (touche tenue en réfléchissant) : sur un
-        # commit intermédiaire on avance le curseur sans payer d'inférence
-        # toutes les ~3 s ni risquer l'écho-hallucination (amorcé par le texte
-        # committé, le moteur le répète volontiers sur du souffle → re-committé
-        # en boule de neige). Le commit FINAL, lui, transcrit toujours la
-        # traîne : une fin de phrase murmurée (sous le seuil) ne doit pas être
-        # jetée SANS repli, car finish() rendrait alors un texte non vide et
-        # l'appelant ne repasserait pas par la transcription intégrale.
-        if not final and not any(r > thr for r in rms):
-            self._done = total
-            return
+        # Le commit FINAL transcrit TOUJOURS la traîne : aucun minimum, aucune
+        # garde de silence. Une fin de phrase murmurée (sous le seuil) ne doit
+        # pas être jetée sans repli, car finish() rendrait alors un texte non
+        # vide et l'appelant ne repasserait pas par la transcription intégrale.
+        # Les gardes ci-dessous ne concernent donc QUE les commits intermédiaires
+        # (calcul de seuil et de RMS au court-circuit, jamais sur le final).
+        if not final:
+            # trop court : on rend la main sans même calculer les RMS
+            if 0.1 * len(pending) < self.MIN_COMMIT_S + 0.1 * self.PAUSE_BLOCKS:
+                return
+            thr = effective_threshold()
+            # la voix doit s'être tue sur les derniers blocs (sinon on
+            # couperait un mot) — court-circuit dès le premier bloc encore voisé
+            if any(_rms(b) > thr for b in pending[-self.PAUSE_BLOCKS:]):
+                return
+            # tranche SANS aucune voix (touche tenue en réfléchissant) : on
+            # avance le curseur sans payer d'inférence toutes les ~3 s ni
+            # risquer l'écho-hallucination (le moteur, amorcé par le texte
+            # committé, le répète volontiers sur du souffle → re-committé en
+            # boule de neige)
+            if not any(_rms(b) > thr for b in pending):
+                self._done = total
+                return
         audio = np.concatenate(pending).flatten()
         # amorce : le lexique utilisateur d'abord (figé en session, il ne doit
         # JAMAIS disparaître après la 1re tranche), puis le texte déjà committé
