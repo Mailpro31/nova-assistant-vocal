@@ -13,7 +13,7 @@
 #define MyAppName "Nova"
 ; Doit rester égal à core.APP_VERSION (test_v3 le vérifie) — c'est ce que
 ; l'updater intégré compare au tag de la release GitHub.
-#define MyAppVersion "3.1.5"
+#define MyAppVersion "3.1.6"
 #define MyAppPublisher "Nova"
 #define MyAppExeName "Nova.exe"
 
@@ -76,4 +76,6 @@ Filename: "{app}\{#MyAppExeName}"; Description: "Lancer Nova"; \
   Flags: nowait postinstall skipifsilent
 ; Mise à jour silencieuse (updater intégré) : Nova a quitté avant l'installation,
 ; on le relance automatiquement à la fin — l'utilisateur ne perd pas son app.
-Filename: "{app}\{#MyAppExeName}"; Flags: nowait; Check: WizardSilent
+; WorkingDir explicite : relancée par l'installateur, l'app doit démarrer dans
+; SON dossier — sinon le serveur interne de l'interface répondait 404.
+Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Flags: nowait; Check: WizardSilent

@@ -76,6 +76,38 @@ except Exception:
 
 resource_path = core.resource_path
 
+# Dossier de travail = dossier de l'app, TOUJOURS. Quand Nova est relancée par
+# l'installateur de mise à jour (ou par le démarrage automatique de Windows),
+# le process hérite d'un autre dossier — et le serveur interne de pywebview,
+# qui résout les fichiers relativement au dossier courant, répondait alors
+# « 404 ui/dock.html » jusqu'au prochain lancement normal.
+try:
+    os.chdir(core.APP_DIR)
+except Exception:
+    pass
+
+# Boîte noire : un plantage DUR (code natif WebView2/pythonnet) ne passe par
+# aucun try/except Python — faulthandler écrit alors la pile de chaque thread
+# dans nova-crash.log ; les exceptions Python non rattrapées (thread compris)
+# partent dans nova.log. Sans ça, « l'app crash » reste indiagnosticable à
+# distance.
+try:
+    import faulthandler
+    _crash_log = open(os.path.join(core.APP_DIR, "nova-crash.log"), "a",
+                      encoding="utf-8", errors="replace")
+    faulthandler.enable(_crash_log)
+except Exception:
+    pass
+try:
+    def _log_uncaught(exc_type, exc, tb):
+        core.log_err("crash", exc if isinstance(exc, BaseException)
+                     else f"{exc_type}: {exc}")
+    sys.excepthook = _log_uncaught
+    threading.excepthook = lambda a: core.log_err(
+        "crash_thread", a.exc_value or f"{a.exc_type}")
+except Exception:
+    pass
+
 
 def _ph(entry, text):
     """Texte indicatif gris dans un champ tkinter vide (effacé au focus).
@@ -866,6 +898,7 @@ class WebDock:
         self._hwnd = None
         self._shown = False
         self._got_shape = False
+        self._last_shape_n = 0     # n° de la dernière forme appliquée (dédup)
 
     # ---- API compatible Pill ----
     def show(self, state, text="", sub=""):
@@ -976,12 +1009,17 @@ class WebDock:
         zone cliquable fantôme. À la première forme, la fenêtre (créée cachée)
         est révélée — l'utilisateur ne voit jamais le rectangle nu."""
         try:
+            n = int(payload.get("n") or 0)
+            if n and n == self._last_shape_n:
+                return                      # déjà appliquée (poussée + relue)
             hwnd = self._get_hwnd()
             if not hwnd:
                 return
             import ctypes.wintypes as wt
             u, g = ctypes.windll.user32, ctypes.windll.gdi32
             self._got_shape = True          # le JS est vivant : plus de secours
+            if n:
+                self._last_shape_n = n
             shapes = payload.get("shapes") or []
             if not shapes:
                 # rien à montrer : en mode « invisible au repos », la fenêtre
@@ -1077,7 +1115,7 @@ class WebDock:
         y = 24 if vert == "top" else sh - h - 56
         # Fenêtre OPAQUE créée CACHÉE : le JS rapporte les formes visibles,
         # apply_shape découpe la région native puis révèle la fenêtre. Si le
-        # JS ne répond pas (page cassée), on révèle quand même après 5 s —
+        # JS ne répond pas (page cassée), on révèle quand même après 10 s —
         # jamais d'app invisible.
         # focus=False : la bulle ne vole JAMAIS le focus clavier — la fenêtre
         # active reste celle de l'utilisateur (détection auto + collage fiables)
@@ -1086,8 +1124,35 @@ class WebDock:
             frameless=True, easy_drag=False, on_top=True, hidden=True,
             focus=False, background_color=self.BG, resizable=False,
             js_api=DockApi(self))
-        threading.Timer(5.0, self._reveal).start()
+        # 10 s : après une mise à jour, le premier démarrage de WebView2 peut
+        # être lent — révéler trop tôt montrerait le rectangle nu.
+        threading.Timer(10.0, self._reveal).start()
+        threading.Thread(target=self._shape_watchdog, daemon=True).start()
         webview.start()
+
+    def _shape_watchdog(self):
+        """Canal de secours du détourage. Le chemin normal est le POSTE : le JS
+        appelle api('shape') via le pont js_api. Sur certaines machines ce pont
+        ne s'injecte pas (course WebView2) — l'interface vivait mais la fenêtre
+        restait un rectangle nu (« carré noir »). Ici Python vient RELIRE les
+        formes lui-même par evaluate_js (sens Python→JS→retour, indépendant du
+        pont) : tant que la page vit, le détourage finit toujours par
+        s'appliquer. Dédup par n° de forme — quand le poste fonctionne, cette
+        boucle ne refait rien."""
+        while True:
+            time.sleep(0.4)
+            w = self._win
+            if w is None:
+                continue
+            try:
+                raw = w.evaluate_js("JSON.stringify(window.__novaShapes||null)")
+                if not raw or raw == "null":
+                    continue
+                payload = json.loads(raw)
+                if int(payload.get("n") or 0) != self._last_shape_n:
+                    self.apply_shape(payload)
+            except Exception:
+                pass                    # page pas encore prête / en fermeture
 
     def destroy(self):
         try:
