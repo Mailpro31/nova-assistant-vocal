@@ -234,6 +234,7 @@ window.novaOpenModes=function(){const m=document.getElementById('modes');
 // La fenêtre est opaque : Python la découpe aux formes rapportées ici. Appelé
 // à chaque changement visuel (bulle, menu, réglages, resize). Double rAF pour
 // mesurer APRÈS la mise en page.
+let __shapeN=0;
 function reportShape(){requestAnimationFrame(()=>requestAnimationFrame(()=>{
   try{
     const shapes=[];
@@ -252,10 +253,16 @@ function reportShape(){requestAnimationFrame(()=>requestAnimationFrame(()=>{
       const cm=document.querySelector('.cmask .cbox');
       if(cm){shapes.length=0;shapes.push({x:0,y:0,w:innerWidth,h:innerHeight,r:13});}
     }
-    api('shape',{vw:innerWidth,vh:innerHeight,shapes:shapes});
+    const payload={vw:innerWidth,vh:innerHeight,n:++__shapeN,shapes:shapes};
+    // canal de SECOURS : Python vient relire cette variable via evaluate_js
+    // (sens Python→JS→retour) si le pont js_api ne s'est pas injecté — le
+    // détourage ne dépend plus d'un seul mécanisme
+    window.__novaShapes=payload;
+    api('shape',payload);
   }catch(_e){}
 }));}
 addEventListener('resize',reportShape);
+reportShape();   // formes initiales disponibles même si l'init tarde
 
 // ---------- préférences de la bulle : ancrage / taille appliqués côté page ----------
 function applyDockPrefs(){
@@ -760,7 +767,17 @@ function applyOrbColor(h){ORB.setAccent(hexToRgb(h));}
 function init(){api('state').then(st=>{if(st){S=Object.assign(S,st);if(S.orb_color)applyOrbColor(S.orb_color);}
   applyDockPrefs();   // ancrage + taille + PREMIER rapport de formes → révèle la fenêtre
 });}
-window.addEventListener('pywebviewready',init);
+// Démarrage robuste : l'événement pywebviewready peut être MANQUÉ (course
+// d'injection WebView2 observée sur certaines machines) — sans init, aucun
+// clic ne remonte et le détourage ne part jamais. Triple déclencheur :
+// événement + chargement du DOM + scrutation courte de window.pywebview.
+let __inited=false;
+function __tryInit(){if(__inited)return;
+  if(window.pywebview&&window.pywebview.api){__inited=true;init();reportShape();}}
+window.addEventListener('pywebviewready',__tryInit);
+document.addEventListener('DOMContentLoaded',__tryInit);
+const __initPoll=setInterval(()=>{__tryInit();if(__inited)clearInterval(__initPoll);},120);
+setTimeout(()=>clearInterval(__initPoll),20000);
 setTimeout(()=>{init();},500);
 </script>
 </body>
