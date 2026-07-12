@@ -67,12 +67,12 @@ FEATURES = {
     "priority_updates":  ULTRA,   # nouveautés en avant-première
 }
 
-# Modes de reformulation offerts en Free (décision produit : les Styles
-# vitrines — E-mail, To-do list, Prompt IA — sont essayables gratuitement ;
-# Messages et Prise de notes restent côté Pro). « auto » est inclus : c'est le
-# mode PAR DÉFAUT — il se résout ensuite vers un mode concret, downgradé sur
-# voice_to_text si l'app détectée est réservée à un palier payant.
-FREE_MODES = ("auto", "voice_to_text", "email", "todo", "prompt_engineer")
+# Modes de reformulation offerts en Free (décision produit : le quotidien —
+# Normal, E-mail, Messages — est gratuit ; To-do, Prompt IA et Prise de notes
+# restent côté Pro). « auto » est inclus : c'est le mode PAR DÉFAUT — il se
+# résout ensuite vers un mode concret, downgradé sur voice_to_text si l'app
+# détectée est réservée à un palier payant.
+FREE_MODES = ("auto", "voice_to_text", "email", "messages")
 
 try:
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
