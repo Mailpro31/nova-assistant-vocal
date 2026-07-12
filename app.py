@@ -1277,16 +1277,24 @@ def _stt_opts():
     le dock ET l'écran tkinter. `keep_warm_on` est résolu ici : le JS ne peut
     pas connaître la RAM de la machine."""
     stt = core.CFG.get("stt") or {}
+    q_ok = core.quality_max_supported()
     return {"live": stt.get("live", True) is not False,
             "keep_warm_on": core.stt_keep_warm(),
             "precision_max": bool(stt.get("precision_max")),
-            "quality_max": bool(stt.get("quality_max")),
+            # affiché = état EN EFFET : sur une machine qui ne peut pas tenir le
+            # grand moteur, quality_max est ignoré par le moteur
+            # (effective_stt_model re-vérifie la RAM) → l'UI le montre OFF. Sinon
+            # un quality_max=true persisté PUIS une RAM devenue insuffisante
+            # (import de config d'une machine ≥12 Go, psutil en échec →
+            # _ram_total_gb=0) laissait l'interrupteur « ON + grisé + inerte »,
+            # sans aucun moyen de le désactiver depuis les deux écrans.
+            "quality_max": bool(stt.get("quality_max")) and q_ok,
             # résolu ici (comme keep_warm_on) : le JS ne connaît pas la RAM.
             # Faux → l'interrupteur « Qualité maximale » est grisé EN AMONT
             # (règle CLAUDE.md « griser les contrôles ») au lieu de basculer
             # puis se rétracter ; le refus synchrone de _apply_stt_opts reste
             # le filet défensif si un état d'UI périmé le rappelait quand même.
-            "quality_supported": core.quality_max_supported(),
+            "quality_supported": q_ok,
             "instant_normal": bool(core.CFG.get("instant_normal"))}
 
 
