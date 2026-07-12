@@ -76,13 +76,17 @@ except Exception:
 
 resource_path = core.resource_path
 
-# Dossier de travail = dossier de l'app, TOUJOURS. Quand Nova est relancée par
-# l'installateur de mise à jour (ou par le démarrage automatique de Windows),
-# le process hérite d'un autre dossier — et le serveur interne de pywebview,
-# qui résout les fichiers relativement au dossier courant, répondait alors
-# « 404 ui/dock.html » jusqu'au prochain lancement normal.
+# Dossier de travail = racine des RESSOURCES embarquées (là où vit ui/), PAS le
+# dossier de l'exe. Le serveur interne de pywebview résout « ui/dock.html »
+# relativement au dossier courant : depuis PyInstaller 6 les données embarquées
+# sont sous _internal/ (= sys._MEIPASS) alors que l'exe est un cran au-dessus →
+# chdir vers le dossier de l'exe renvoyait « 404 ui/dock.html ». En dev, _MEIPASS
+# est absent → APP_DIR (qui contient déjà ui/). Fige aussi un cwd CONNU quand
+# l'updater ou le démarrage automatique de Windows relance Nova depuis un autre
+# dossier. Les données inscriptibles (config.json, journaux) passent par des
+# chemins ABSOLUS basés sur APP_DIR (core._path) → indépendantes du cwd.
 try:
-    os.chdir(core.APP_DIR)
+    os.chdir(getattr(sys, "_MEIPASS", core.APP_DIR))
 except Exception:
     pass
 
