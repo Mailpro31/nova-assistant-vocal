@@ -938,19 +938,27 @@ def test_web_dock_default():
     import licensing as _lic
     check("licensing : web_dock offert en Free",
           _lic.FEATURES.get("web_dock"), _lic.FREE)
-    # clé de couleur : dock.html DOIT peindre exactement WebDock.KEY (app.py) —
-    # si l'un des deux dévie, la clé ne matche plus aucun pixel et le « carré »
-    # revient. app.py n'est pas importable ici (Win32) → comparaison SOURCE.
+    # transparence RÉELLE : le « carré » autour de la bulle ne disparaît de façon
+    # fiable qu'avec transparent=True (WebView2 compose en alpha) + un fond de
+    # page alpha 0. La clé de couleur et la découpe par région échouent sur la
+    # vue WebView2 (DirectComposition). Les DEUX moitiés doivent tenir ensemble,
+    # sinon le rectangle revient. app.py n'est pas importable ici (Win32) →
+    # comparaison SOURCE.
     import os
     import re
     _here = os.path.dirname(os.path.abspath(__file__))
     _app = open(os.path.join(_here, "app.py"), encoding="utf-8").read()
     _dock = open(os.path.join(_here, "ui", "dock.html"), encoding="utf-8").read()
-    _mk = re.search(r'KEY\s*=\s*"(#[0-9A-Fa-f]{6})"', _app)
-    _key = _mk.group(1) if _mk else "(introuvable)"
-    check("clé de couleur : WebDock.KEY définie", bool(_mk), True)
-    check("clé de couleur : dock.html peint la même valeur",
-          f"background:{_key}" in _dock, True)
+    # 1) la fenêtre du dock est créée transparente
+    check("transparence : create_window(transparent=True)",
+          bool(re.search(r"transparent\s*=\s*True", _app)), True)
+    # 2) la page peint un fond TRANSPARENT (html,body), jamais une couleur opaque
+    check("transparence : dock.html html,body en background:transparent",
+          bool(re.search(r"html,body\{[^}]*background:transparent", _dock)), True)
+    # 3) plus AUCUNE clé de couleur (LWA_COLORKEY) : elle créait des trous
+    #    cliquables et ne marchait pas avec WebView2
+    check("transparence : plus de LWA_COLORKEY dans app.py",
+          "LWA_COLORKEY" not in _app, True)
 
 
 if __name__ == "__main__":

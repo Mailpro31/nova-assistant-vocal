@@ -276,8 +276,9 @@ function langs(){const sel=document.getElementById('lang');sel.innerHTML='';
     if(l.code===S.language)o.selected=true;sel.appendChild(o);});}
 function chooseCloud(on){
   // FAIL-CLOSED : tant que l'état réel n'a pas dit turbo_allowed===true, la
-  // carte Turbo est inerte (undefined = verrouillé, pas déverrouillé)
-  if(on&&S.turbo_allowed!==true)return;
+  // carte Turbo est inerte (undefined/null/S absent = verrouillé). !S protège
+  // le clic AVANT que api('state') ait résolu (pont lent/muet → S encore null)
+  if(on&&(!S||S.turbo_allowed!==true))return;
   Promise.resolve(api('set_cloud',on)).then(ok=>{
     const en=on&&ok===true;                  // null (pont muet) ≠ succès
     document.getElementById('optLocal').classList.toggle('sel',!en);

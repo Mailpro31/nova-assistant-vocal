@@ -10,14 +10,22 @@ installation en un clic, pilotée depuis les Réglages (dock ET tkinter) :
   téléchargement de l'installateur officiel → installation silencieuse →
   attente du service → téléchargement du modèle adapté au profil de puissance.
 
+Point CLÉ : le modèle téléchargé est EXACTEMENT celui que la reformulation
+chargera ensuite (même résolution que core — profil de puissance + « Meilleure
+IA »). Sans cela l'installation pouvait réussir en téléchargeant un modèle,
+pendant que les Styles en demandaient un autre → collage brut malgré un
+« installé » affiché.
+
 Tout est défensif (« jamais de plantage ») : échec → état `error` avec un
-message sobre, l'app continue de fonctionner comme avant (collage brut).
-Aucun nom de modèle n'est jamais montré à l'utilisateur (lexique produit :
+message sobre EN FRANÇAIS (jamais un message technique brut ni un nom de
+modèle), l'app continue de fonctionner comme avant (collage brut). Aucun nom de
+modèle n'est jamais montré à l'utilisateur (lexique produit :
 « Intelligence privée »).
 """
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -30,7 +38,6 @@ import requests
 import core
 
 SETUP_URL = "https://ollama.com/download/OllamaSetup.exe"
-_MIN_FREE_GB = 6                  # installateur ~700 Mo + modèle ~2 Go + marge
 _CREATE_NO_WINDOW = 0x08000000    # jamais de console visible
 
 _lock = threading.Lock()
@@ -47,9 +54,35 @@ def service_up(timeout=1.5):
         return False
 
 
+def _installed():
+    """Modèles présents localement ([] si service absent/éteint)."""
+    return core.ollama_models() or []
+
+
+def _target():
+    """Le modèle que la reformulation chargera RÉELLEMENT — MÊME résolution que
+    core (`_reform_model` : profil de puissance + « Meilleure IA »). On installe
+    donc précisément ce que les Styles demanderont, jamais un autre."""
+    try:
+        m = core._reform_model("ollama")
+        if m:
+            return m
+    except Exception:
+        pass
+    return "qwen2.5:3b"
+
+
+def _have_target():
+    """Le modèle CIBLE (pas n'importe lequel) est-il déjà présent ? Un autre
+    modèle installé ne suffit PAS : la reformulation chargerait la cible absente
+    et retomberait sur le collage brut."""
+    return _target() in _installed()
+
+
 def ready():
-    """Reformulation locale UTILISABLE : service en marche ET ≥1 modèle."""
-    return service_up() and bool(core.ollama_models())
+    """Reformulation locale UTILISABLE : service en marche ET le modèle CIBLE
+    présent (celui que les Styles vont vraiment charger)."""
+    return service_up() and _have_target()
 
 
 def status():
@@ -82,17 +115,59 @@ def snapshot():
     return dict(_state)
 
 
+def _model_gb(name):
+    """Estimation PRUDENTE de l'espace disque du modèle (Go) d'après le nombre
+    de paramètres du tag (3b≈2 Go, 7b≈4,7 Go, 14b≈9 Go réels) — marge incluse
+    pour ne pas tomber en panne de disque en plein téléchargement."""
+    m = re.search(r"(\d+(?:\.\d+)?)\s*b", name.lower())
+    p = float(m.group(1)) if m else 3.0
+    return max(2.5, p * 0.75 + 1.5)      # 3b→3,75 ; 7b→6,75 ; 14b→12
+
+
+def _models_dir():
+    """Là où le service stocke les modèles (%OLLAMA_MODELS% sinon
+    %USERPROFILE%\\.ollama\\models) — PAS le dossier temp : c'est ce volume qui
+    doit avoir la place, il peut différer de celui de TEMP."""
+    d = os.environ.get("OLLAMA_MODELS")
+    if d:
+        return d
+    home = os.environ.get("USERPROFILE") or os.path.expanduser("~")
+    return os.path.join(home, ".ollama", "models")
+
+
+def _existing_ancestor(path):
+    """Premier dossier existant en remontant `path` (le dossier .ollama n'existe
+    pas encore sur une machine neuve — shutil.disk_usage exige un chemin réel)."""
+    p = os.path.abspath(path)
+    while p and not os.path.isdir(p):
+        parent = os.path.dirname(p)
+        if parent == p:
+            break
+        p = parent
+    return p or tempfile.gettempdir()
+
+
+def _free_gb(path):
+    try:
+        return shutil.disk_usage(_existing_ancestor(path)).free / 1e9
+    except Exception:
+        return 1e9               # illisible : on ne bloque pas l'utilisateur
+
+
 def _run():
     try:
-        if ready():                              # déjà en place (autre install)
+        if ready():                              # cible déjà en place
             _state.update({"phase": "done", "progress": 1.0})
             return
         svc = service_up()
-        # espace disque vérifié dans les DEUX cas : installateur+modèle (~6 Go)
-        # ou modèle seul (~3 Go, service déjà là mais aucun modèle)
-        need = _MIN_FREE_GB if not svc else 3
-        if shutil.disk_usage(tempfile.gettempdir()).free / 1e9 < need:
-            return _fail(f"Espace disque insuffisant ({need} Go nécessaires)")
+        target = _target()
+        # espace pour le MODÈLE là où le service le stocke (pas TEMP), + ~1 Go
+        # pour l'installateur quand le service est absent
+        if _free_gb(_models_dir()) < _model_gb(target):
+            return _fail(f"Espace disque insuffisant "
+                         f"({round(_model_gb(target))} Go nécessaires)")
+        if not svc and _free_gb(tempfile.gettempdir()) < 1.2:
+            return _fail("Espace disque insuffisant pour l'installateur")
         if not svc:
             dest = os.path.join(tempfile.gettempdir(), "NovaEngineSetup.exe")
             _download_setup(dest)                            # 0 → 45 %
@@ -108,10 +183,15 @@ def _run():
             except subprocess.TimeoutExpired:
                 raise RuntimeError("Installation du composant trop longue — "
                                    "redémarrez le PC puis réessayez")
+            except subprocess.CalledProcessError:
+                # échec LOCAL de l'installateur (antivirus, exécutable corrompu) :
+                # ne PAS accuser la connexion internet
+                raise RuntimeError("L'installation du composant a échoué — "
+                                   "réessayez (antivirus ? redémarrage ?)")
             _state.update({"phase": "service", "progress": .55})
             _wait_service()
         _state.update({"phase": "model", "progress": .6})
-        _pull_model()                                        # 60 → 100 %
+        _pull_model(target)                                  # 60 → 100 %
         _state.update({"phase": "done", "progress": 1.0})
         try:
             core.warmup_engines()      # 1re dictée reformulée sans attente
@@ -119,7 +199,7 @@ def _run():
             pass
     except Exception as e:
         core.log_err("engine_setup", e)
-        # message précis quand on en a un (RuntimeError posé par nous),
+        # message précis quand on en a un (RuntimeError sobre posé par nous),
         # générique sinon
         msg = str(e) if isinstance(e, RuntimeError) and str(e) else \
             "L'installation a échoué — vérifiez la connexion internet puis réessayez"
@@ -137,6 +217,11 @@ def _download_setup(dest):
                 got += len(chunk)
                 if total:
                     _state["progress"] = .45 * got / total
+                else:
+                    # taille inconnue (transfert « chunked ») : courbe
+                    # asymptotique vers .45 pour que la barre AVANCE toujours
+                    # (~700 Mo attendus) au lieu de rester figée à 0
+                    _state["progress"] = .45 * (1 - 7e8 / (7e8 + got))
 
 
 def _wait_service():
@@ -153,26 +238,24 @@ def _wait_service():
             except Exception:
                 pass
         time.sleep(2)
-    raise RuntimeError("service local injoignable après installation")
+    raise RuntimeError("Service local injoignable après installation — "
+                       "redémarrez le PC puis réessayez")
 
 
-def _model_name():
-    """Modèle du profil de puissance courant (posé par apply_profile dans
-    providers.ollama.model) ; repli = le modèle du profil le plus léger."""
-    try:
-        m = (core.CFG.get("providers") or {}).get("ollama", {}).get("model")
-        if m:
-            return m
-    except Exception:
-        pass
-    return "qwen2.5:3b"
+def _pull_model(target):
+    """Téléchargement du modèle CIBLE via l'API locale (NDJSON streamé).
+    Pas de dépendance au PATH : tout passe par le service HTTP.
 
-
-def _pull_model():
-    """Téléchargement du modèle via l'API locale (NDJSON streamé → progrès).
-    Pas de dépendance au PATH : tout passe par le service HTTP."""
+    Progrès : Ollama émet des lignes PAR COUCHE (chacune avec son propre
+    total/completed) ; suivre une seule couche ferait reculer la barre quand la
+    couche suivante démarre. On agrège donc les OCTETS CUMULÉS de toutes les
+    couches (monotone) et on projette une courbe asymptotique .6 → .98 —
+    toujours en avant, jamais bloquée à 100 % avant la fin."""
+    scale = max(1e9, _model_gb(target) * 0.6e9)   # échelle ≈ taille réelle
+    got = 0
+    seen = {}                                     # digest -> dernier `completed`
     with requests.post(core.ollama_url() + "/api/pull",
-                       json={"name": _model_name()},
+                       json={"name": target},
                        stream=True, timeout=3600) as r:
         r.raise_for_status()
         for line in r.iter_lines():
@@ -183,17 +266,23 @@ def _pull_model():
             except Exception:
                 continue
             if d.get("error"):
-                raise RuntimeError(d["error"])
-            total = int(d.get("total") or 0)
+                # jamais de message technique brut ni de nom de modèle à
+                # l'utilisateur : le détail va au journal, l'UI voit du français
+                core.log_err("engine_setup_pull", str(d["error"]))
+                raise RuntimeError("Le téléchargement de l'intelligence a "
+                                   "échoué — réessayez")
+            dig = d.get("digest")
             done = int(d.get("completed") or 0)
-            if total:
-                _state["progress"] = .6 + .4 * min(1.0, done / total)
-    # vérification tolérante : juste après un pull de ~2 Go le service peut
-    # être occupé à vérifier le blob et rater le timeout court de /api/tags —
-    # quelques tentatives espacées avant de déclarer l'échec
+            if dig:
+                got += max(0, done - seen.get(dig, 0))   # somme des deltas ≥ 0
+                seen[dig] = done
+                _state["progress"] = .6 + .38 * (1 - scale / (scale + got))
+    # vérification tolérante : le modèle qu'on VIENT de télécharger doit
+    # apparaître (juste après un gros pull le service peut tarder à le lister) —
+    # un AUTRE modèle ne compte pas, la reformulation chargerait la cible absente
     for _ in range(10):
-        if core.ollama_models():
+        if target in _installed():
             return
         time.sleep(2)
-    raise RuntimeError("Le modèle n'est pas visible après téléchargement — "
-                       "réessayez")
+    raise RuntimeError("L'intelligence n'est pas disponible après "
+                       "téléchargement — réessayez")
