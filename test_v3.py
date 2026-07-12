@@ -556,22 +556,42 @@ def test_version_sync():
     check("updater : version identique → pas plus récente",
           _upd._vtuple(f"v{core.APP_VERSION}") > _upd._vtuple(core.APP_VERSION),
           False)
-    # Robustesse « Mise à jour impossible » : en développement (non gelé)
-    # l'installation est un no-op qui répond False sans toucher au réseau.
-    check("updater : non gelé → no-op (False)",
-          _upd.download_and_install(), False)
-    # Anti-chevauchement : si une tentative est déjà en cours (vérif auto du
-    # lancement), un clic « Rechercher maintenant » répond True (en cours),
-    # PAS False — sinon l'app affichait un faux « Mise à jour impossible ».
+    # Robustesse « Mise à jour impossible » : les trois issues non-succès sont
+    # des statuts EXPLICITES — l'app distingue « échec » (plan B navigateur),
+    # « déjà en cours » (pas une erreur) et « développement » (no-op).
+    check("updater : non gelé → UNSUPPORTED (no-op, pas d'erreur)",
+          _upd.download_and_install(), _upd.UNSUPPORTED)
     real_frozen = _upd.is_frozen
     _upd.is_frozen = lambda: True
     _upd._busy.acquire()
     try:
-        check("updater : tentative déjà en cours → True (pas d'erreur)",
-              _upd.download_and_install(), True)
+        check("updater : tentative déjà en cours → BUSY (pas d'erreur)",
+              _upd.download_and_install(), _upd.BUSY)
     finally:
         _upd._busy.release()
         _upd.is_frozen = real_frozen
+
+
+def test_free_offer_sync():
+    """Le nombre de Styles annoncé (site + README) doit suivre
+    licensing.FREE_MODES (moins « auto », qui est un sélecteur, pas un Style) :
+    cette dérive est déjà arrivée — même principe que test_version_sync."""
+    print("Offre Gratuit — nombre de Styles annoncé ↔ FREE_MODES")
+    import os
+    import re as _re
+    nb = len([m for m in licensing.FREE_MODES if m != "auto"])
+    base = os.path.dirname(__file__)
+    html = open(os.path.join(base, "landing", "index.html"),
+                encoding="utf-8").read()
+    counts = _re.findall(r"(\d+)\s+(?:writing\s+)?Styles\b", html)
+    check("landing : au moins une mention du compte de Styles",
+          bool(counts), True)
+    check("landing : toutes les mentions = len(FREE_MODES) - auto",
+          sorted(set(counts)), [str(nb)])
+    readme = open(os.path.join(base, "README.md"), encoding="utf-8").read()
+    m = _re.search(r"\|\s*Modes de reformulation\s*\|\s*(\d+)\s*\|", readme)
+    check("README : la colonne Free du tableau des paliers est à jour",
+          m.group(1) if m else "", str(nb))
 
 
 def test_web_dock_default():
@@ -597,6 +617,7 @@ if __name__ == "__main__":
     test_format_rules()
     test_licensing()
     test_version_sync()
+    test_free_offer_sync()
     test_web_dock_default()
     print()
     if _fails:

@@ -30,6 +30,12 @@ SETUP_URL = ("https://github.com/Mailpro31/nova-assistant-vocal/"
 # /MERGETASKS=!preload : pas de re-téléchargement du modèle pendant une MàJ
 SILENT_FLAGS = ["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART",
                 "/MERGETASKS=!preload"]
+_UA = "Nova-updater"
+# Plafonds du téléchargement : au-delà, quelque chose ne va pas (le timeout
+# d'urlopen ne borne que CHAQUE lecture socket — un serveur au goutte-à-goutte
+# resterait sinon bloquant pour toujours, verrou tenu).
+_MAX_BYTES = 500 * 1024 * 1024
+_MAX_SECONDS = 15 * 60
 
 
 def is_frozen():
@@ -48,7 +54,7 @@ def check_latest(timeout=10):
     try:
         req = urllib.request.Request(
             RELEASES_API, headers={"Accept": "application/vnd.github+json",
-                                   "User-Agent": "Nova-updater"})
+                                   "User-Agent": _UA})
         with urllib.request.urlopen(req, timeout=timeout) as r:
             tag = str(json.load(r).get("tag_name") or "")
         if not tag:
@@ -66,61 +72,102 @@ def check_latest(timeout=10):
 # refusé Windows), d'où un faux « Mise à jour impossible ».
 _busy = threading.Lock()
 
+# Résultats possibles de download_and_install (le succès ne « retourne »
+# jamais : le process se termine pour laisser place à l'installateur).
+FAILED, BUSY, UNSUPPORTED = "failed", "busy", "unsupported"
+
+
+def _sweep_old():
+    """Supprime les installateurs des mises à jour PRÉCÉDENTES (%TEMP% —
+    l'installateur d'une mise à jour réussie ne peut pas se nettoyer lui-même :
+    le process quitte pour le laisser tourner). Best-effort : un fichier encore
+    verrouillé (installation en cours) est simplement laissé en place."""
+    try:
+        tmp = tempfile.gettempdir()
+        for name in os.listdir(tmp):
+            if name.startswith("Nova-Setup-") and name.endswith(".exe"):
+                try:
+                    os.remove(os.path.join(tmp, name))
+                except OSError:
+                    pass
+    except Exception:
+        pass
+
 
 def _download(url, dest, timeout=30):
-    """Télécharge `url` vers `dest` par morceaux, avec délai limite par lecture
-    (urlretrieve n'a AUCUN timeout : une connexion figée bloquait pour
-    toujours). Lève en cas d'erreur ; l'appelant décide des reprises."""
-    req = urllib.request.Request(url, headers={"User-Agent": "Nova-updater"})
+    """Télécharge `url` vers `dest` par morceaux. Triple garde-fou : délai par
+    lecture socket (urlretrieve n'en avait AUCUN), durée totale et taille
+    totale plafonnées — le timeout d'urlopen ne borne que chaque lecture, un
+    serveur au goutte-à-goutte serait sinon infini. Lève en cas d'erreur ;
+    l'appelant décide des reprises."""
+    req = urllib.request.Request(url, headers={"User-Agent": _UA})
+    t0, total = time.monotonic(), 0
     with urllib.request.urlopen(req, timeout=timeout) as r, \
             open(dest, "wb") as f:
         while True:
             chunk = r.read(256 * 1024)
             if not chunk:
                 break
+            total += len(chunk)
+            if total > _MAX_BYTES or time.monotonic() - t0 > _MAX_SECONDS:
+                raise ValueError(f"téléchargement anormal ({total} octets, "
+                                 f"{int(time.monotonic() - t0)} s)")
             f.write(chunk)
+    return total
 
 
 def download_and_install():
     """Télécharge Nova-Setup.exe puis lance l'installation silencieuse et QUITTE
-    le process (l'installateur relance Nova à la fin). Retourne False si la
-    mise à jour n'a pas pu partir, True si une tentative est déjà en cours —
-    l'app continue alors normalement, elle n'affiche pas d'erreur."""
+    le process (l'installateur relance Nova à la fin). Ne retourne que sur
+    non-succès : BUSY (une tentative tourne déjà — pas un échec), UNSUPPORTED
+    (pas un .exe gelé : développement), FAILED (téléchargement ou lancement
+    impossibles) — l'app continue alors normalement."""
     if not is_frozen():
-        return False
+        return UNSUPPORTED
     if not _busy.acquire(blocking=False):
-        return True                      # déjà en cours — pas un échec
+        return BUSY
     dest = ""
     try:
-        # nom unique à chaque tentative : jamais de collision avec un
-        # téléchargement précédent (fichier verrouillé, antivirus en cours…)
-        fd, dest = tempfile.mkstemp(prefix="Nova-Setup-", suffix=".exe")
-        os.close(fd)
+        _sweep_old()                     # les installateurs des MàJ passées
         last = None
         for wait in (0, 3, 8):           # 3 essais : les erreurs réseau et les
             if wait:                     # relais GitHub passagers se résorbent
                 time.sleep(wait)
             try:
-                _download(SETUP_URL, dest)
-                if os.path.getsize(dest) < 5_000_000:   # page d'erreur ≠ setup
-                    raise ValueError("téléchargement incomplet "
-                                     f"({os.path.getsize(dest)} octets)")
+                # fichier NEUF à chaque essai : un reste partiel encore scanné
+                # par l'antivirus ne condamne pas les essais suivants
+                if dest:
+                    try:
+                        os.remove(dest)
+                    except OSError:
+                        pass
+                fd, dest = tempfile.mkstemp(prefix="Nova-Setup-",
+                                            suffix=".exe")
+                os.close(fd)
+                size = _download(SETUP_URL, dest)
+                if size < 5_000_000:     # page d'erreur ≠ installateur
+                    raise ValueError(f"téléchargement incomplet ({size} octets)")
                 last = None
                 break
             except Exception as e:
                 last = e
         if last is not None:
             core.log_err("update_dl", last)
-            return False
-        try:
-            subprocess.Popen([dest] + SILENT_FLAGS, close_fds=True)
-        except Exception as e:           # lancement bloqué (antivirus…) : on ne
-            core.log_err("update_run", e)   # re-télécharge pas, c'est inutile
-            return False
-        os._exit(0)
+            return FAILED
+        # l'antivirus peut tenir le .exe fraîchement écrit 1-2 s : une reprise
+        # du seul LANCEMENT suffit, re-télécharger serait inutile
+        for wait in (0, 2):
+            if wait:
+                time.sleep(wait)
+            try:
+                subprocess.Popen([dest] + SILENT_FLAGS, close_fds=True)
+                os._exit(0)
+            except Exception as e:
+                core.log_err("update_run", e)
+        return FAILED
     except Exception as e:
         core.log_err("update_install", e)
-        return False
+        return FAILED
     finally:
         if dest and os.path.isfile(dest):
             try:                         # atteint seulement en échec : succès

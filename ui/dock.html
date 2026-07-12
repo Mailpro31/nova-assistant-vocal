@@ -63,8 +63,9 @@
   .mrow:hover{background:rgba(255,255,255,.06)}
   .mrow.act{background:rgba(174,190,236,.14);box-shadow:0 0 0 1px rgba(174,190,236,.3) inset}
   .mrow.lock .mg,.mrow.lock>span:first-of-type{opacity:.38}
-  .mbadge{margin-left:auto;font-size:9px;font-weight:700;letter-spacing:.06em;color:#c9b6f0;
-    background:rgba(150,120,220,.16);border-radius:999px;padding:3px 8px;flex:none}
+  /* variante compacte du badge canonique .badge-lock pour les rangées de menu */
+  .badge-lock.mbadge{margin-left:auto;flex:none;white-space:nowrap;
+    font-size:8.5px;padding:2.5px 7px;letter-spacing:.04em}
   .mg{width:30px;height:30px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:none}
   .mg svg{width:16px;height:16px;stroke:#11131c;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
   .chk{margin-left:auto;color:var(--mint-d);display:flex}
@@ -319,9 +320,13 @@ function renderModes(){const box=document.getElementById('modes');box.innerHTML=
     r.innerHTML='<div class="mg" style="background:'+(MC[m.id]||'#AEBEEC')+'"><svg viewBox="0 0 24 24">'+
       (MI[m.id]||'<circle cx="12" cy="12" r="4"/>')+'</svg></div><span>'+esc(m.label)+'</span>'+
       (ok?(S.mode===m.id?'<span class="chk">'+CHK+'</span>':'')
-         :'<span class="mbadge">NOVA&nbsp;PRO</span>');
+         // libellé fourni par Python (suit le palier requis), badge canonique
+         :'<span class="badge-lock mbadge">'+esc(m.lock||'NÉCESSITE NOVA PRO')+'</span>');
     r.onclick=ok
-      ?()=>{S.mode=m.id;api('set_mode',m.id);box.classList.remove('on');api('panel','modes',false);renderModes();}
+      ?()=>{S.mode=m.id;box.classList.remove('on');api('panel','modes',false);renderModes();
+            // Python fait autorité : si le changement est refusé (licence
+            // expirée en cours de session…), on réaligne l'affichage
+            api('set_mode',m.id).then(v=>{if(v&&v!==S.mode){S.mode=v;renderModes();}});}
       :()=>api('open_upgrade');                     // Style verrouillé → page tarifs
     box.appendChild(r);});}
 
@@ -414,7 +419,9 @@ function paneGeneral(p){
   const canTurbo=!!(S.perso&&S.perso.turbo);
   // un raccourci direct par Style : bascule sans ouvrir le menu
   let styleRows='';
-  (S.modes||[]).forEach(m=>{styleRows+=R('Style · '+esc(m.label),'',
+  // seuls les Styles du palier : un raccourci vers un Style verrouillé ne
+  // pourrait jamais fonctionner (Python le refuse aussi côté sauvegarde)
+  (S.modes||[]).filter(m=>m.allowed!==false).forEach(m=>{styleRows+=R('Style · '+esc(m.label),'',
     '<input class="fieldc mono stylehk" data-id="'+esc(m.id)+'" style="width:110px;text-align:center" readonly placeholder="—" value="'+esc((S.mode_hotkeys||{})[m.id]||'')+'">');});
   p.innerHTML='<h1>Général</h1>'
    +G('Moteur'+(canTurbo?'':' <span class="badge-lock">NÉCESSITE NOVA ULTRA</span>'),
@@ -496,7 +503,8 @@ function paneAbo(p){
   const q=lic.quota||{};const unlim=(q.limit==null);
   const name='Nova '+(TIERS[tier]||'Gratuit');
   let hero;
-  if(free){hero=R(name,'2 500 caractères par semaine · 3 Styles',
+  if(free){const nb=(S.modes||[]).filter(m=>m.allowed!==false&&m.id!=='auto').length||4;
+    hero=R(name,'2 500 caractères par semaine · '+nb+' Styles',
     '<button class="btn" id="goUltra">Passer à Pro…</button>');}
   else{const exp=lic.expiry?new Date(lic.expiry*1000).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}):null;
     hero='<div class="row"><span class="check"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span>'+
@@ -537,7 +545,12 @@ function paneAbo(p){
       if(r&&r.ok){api('license_status').then(ls=>{
         // rafraîchit palier ET capacités → l'UI se déverrouille sans redémarrage
         if(ls){S.lic=ls;S.tier=ls.tier||S.tier;if(ls.perso)S.perso=ls.perso;}
-        buildSidebar();buildPane();});}
+        buildSidebar();buildPane();});
+        // les verrous par Style et par profil viennent de state(), pas de
+        // license_status : sans ce re-fetch, le menu des Styles resterait
+        // badgé « NÉCESSITE NOVA PRO » après l'achat, jusqu'au redémarrage
+        api('state').then(st=>{if(st){if(st.modes)S.modes=st.modes;
+          if(st.profiles)S.profiles=st.profiles;}});}
       else{const e=document.getElementById('licErr');if(e){e.style.display='';e.textContent=(r&&r.error)||'Clé invalide.';}}});};
 }
 
