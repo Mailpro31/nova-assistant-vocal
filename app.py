@@ -86,27 +86,9 @@ try:
 except Exception:
     pass
 
-# Boîte noire : un plantage DUR (code natif WebView2/pythonnet) ne passe par
-# aucun try/except Python — faulthandler écrit alors la pile de chaque thread
-# dans nova-crash.log ; les exceptions Python non rattrapées (thread compris)
-# partent dans nova.log. Sans ça, « l'app crash » reste indiagnosticable à
-# distance.
-try:
-    import faulthandler
-    _crash_log = open(os.path.join(core.APP_DIR, "nova-crash.log"), "a",
-                      encoding="utf-8", errors="replace")
-    faulthandler.enable(_crash_log)
-except Exception:
-    pass
-try:
-    def _log_uncaught(exc_type, exc, tb):
-        core.log_err("crash", exc if isinstance(exc, BaseException)
-                     else f"{exc_type}: {exc}")
-    sys.excepthook = _log_uncaught
-    threading.excepthook = lambda a: core.log_err(
-        "crash_thread", a.exc_value or f"{a.exc_type}")
-except Exception:
-    pass
+# Boîte noire (nova-crash.log + nova.log) : installée dès l'import pour couvrir
+# TOUS les points d'entrée, y compris --preload-models qui n'atteint pas main().
+core.install_crash_logging()
 
 
 def _ph(entry, text):
@@ -768,10 +750,12 @@ class Pill(threading.Thread):
         hk_entries = {}
         hk_cfg = core.CFG.get("mode_hotkeys") or {}
         # seuls les Styles du palier (même règle que le dock) : un raccourci
-        # vers un Style verrouillé ne pourrait jamais fonctionner
+        # vers un Style verrouillé ne pourrait jamais fonctionner ; palier
+        # calculé une fois (une vérification de signature par appel sinon)
+        _tier = licensing.current_tier()
         rows = [("__menu__", "Ouvrir le menu des Styles")] + \
                [(m["id"], m["label"]) for m in modes_registry.all_modes()
-                if licensing.mode_allowed(m["id"])]
+                if licensing.mode_allowed(m["id"], _tier)]
         for i, (mid, label) in enumerate(rows, start=1):
             tk.Label(hkf, text=label, bg=SET_BG, fg=SET_MUT, width=24,
                      anchor="w").grid(row=i, column=0, sticky="w", pady=1)
@@ -899,6 +883,7 @@ class WebDock:
         self._shown = False
         self._got_shape = False
         self._last_shape_n = 0     # n° de la dernière forme appliquée (dédup)
+        self._push_ok = False      # un poste js_api est arrivé : pont prouvé
 
     # ---- API compatible Pill ----
     def show(self, state, text="", sub=""):
@@ -1136,21 +1121,22 @@ class WebDock:
         ne s'injecte pas (course WebView2) — l'interface vivait mais la fenêtre
         restait un rectangle nu (« carré noir »). Ici Python vient RELIRE les
         formes lui-même par evaluate_js (sens Python→JS→retour, indépendant du
-        pont) : tant que la page vit, le détourage finit toujours par
-        s'appliquer. Dédup par n° de forme — quand le poste fonctionne, cette
-        boucle ne refait rien."""
-        while True:
+        pont). Sonde légère (le seul compteur), paquet complet uniquement s'il
+        a changé ; et dès qu'UN poste arrive (_push_ok), le pont est prouvé sur
+        cette machine — la boucle s'arrête, le régime de croisière n'a qu'un
+        seul chemin."""
+        while not self._push_ok:
             time.sleep(0.4)
             w = self._win
             if w is None:
                 continue
             try:
-                raw = w.evaluate_js("JSON.stringify(window.__novaShapes||null)")
-                if not raw or raw == "null":
+                n = int(w.evaluate_js("(window.__novaShapes||{n:0}).n") or 0)
+                if not n or n == self._last_shape_n:
                     continue
-                payload = json.loads(raw)
-                if int(payload.get("n") or 0) != self._last_shape_n:
-                    self.apply_shape(payload)
+                payload = json.loads(
+                    w.evaluate_js("JSON.stringify(window.__novaShapes)"))
+                self.apply_shape(payload)
             except Exception:
                 pass                    # page pas encore prête / en fermeture
 
@@ -1183,16 +1169,20 @@ class DockApi:
 
     def state(self):
         hw = power_profiles.detect_hardware()
+        # palier et libellé de verrou calculés UNE fois (licences actives :
+        # chaque vérification sans tier explicite referait une signature
+        # Ed25519 complète) ; le libellé vient d'ici, pas du JS — il suit le
+        # palier réellement requis (FEATURES) si l'offre change
         tier = licensing.current_tier()
+        lock = _mode_lock_label()
+        modes = []
+        for m in modes_registry.all_modes():
+            ok = licensing.mode_allowed(m["id"], tier)
+            modes.append({"id": m["id"], "label": m["label"],
+                          "hotkey": m["hotkey"], "allowed": ok,
+                          "lock": "" if ok else lock})
         return {
-            # palier calculé UNE fois (licences actives : chaque vérification
-            # sans tier explicite referait une signature Ed25519 complète) ;
-            # le libellé du verrou vient d'ici, pas du JS — il suit le palier
-            # réellement requis (FEATURES) si l'offre change
-            "modes": [{"id": m["id"], "label": m["label"], "hotkey": m["hotkey"],
-                       "allowed": (ok := licensing.mode_allowed(m["id"], tier)),
-                       "lock": "" if ok else _mode_lock_label()}
-                     for m in modes_registry.all_modes()],
+            "modes": modes,
             "profiles": power_profiles.evaluate(hw, _profiles_paid()),
             "hardware": hw,
             "languages": [{"code": c, "label": lbl} for c, lbl in core.LANGUAGES],
@@ -1271,7 +1261,9 @@ class DockApi:
         self._dock._set_panel(name if open_ else "compact")
 
     def shape(self, payload):
-        """Formes réellement visibles (px CSS) → région native de la fenêtre."""
+        """Formes réellement visibles (px CSS) → région native de la fenêtre.
+        Un poste reçu = pont js_api prouvé : le chien de garde peut s'arrêter."""
+        self._dock._push_ok = True
         self._dock.apply_shape(payload or {})
 
     def set_dock_prefs(self, prefs):
@@ -1724,21 +1716,17 @@ def _check_update(manual=True):
         if info and info["newer"]:
             pill.show("thinking", f"Mise à jour vers {info['version']}…")
             res = updater.download_and_install()   # succès = ne revient jamais
-            if res == updater.BUSY:
-                # une autre tentative (auto du lancement) tourne déjà : ce
-                # n'est pas un échec — dire au clic manuel ce qui se passe
-                if manual:
-                    pill.show("thinking", "Mise à jour déjà en cours…")
-                    pill.hide(2.2)
-            elif res == updater.UNSUPPORTED:       # pas un .exe : développement
-                if manual:
-                    pill.show("error",
-                              "Mise à jour auto indisponible "
-                              "(version de développement)")
-                    pill.hide(2.4)
-                else:
-                    pill.hide(0)
-            elif manual:                           # FAILED, demandé par l'utilisateur
+            if not manual:                          # vérif de fond : silencieuse
+                pill.hide(0)
+            elif res == updater.BUSY:
+                # une autre tentative tourne déjà : pas un échec — le dire
+                pill.show("thinking", "Mise à jour déjà en cours…")
+                pill.hide(2.2)
+            elif res == updater.UNSUPPORTED:        # pas un .exe : développement
+                pill.show("error", "Mise à jour auto indisponible "
+                                   "(version de développement)")
+                pill.hide(2.4)
+            else:                                   # FAILED, demandé par l'utilisateur
                 # plan B : l'installation silencieuse a échoué (antivirus,
                 # réseau filtré…) — on ouvre le téléchargement direct dans le
                 # navigateur. webbrowser.open signale l'échec en RENVOYANT
@@ -1759,8 +1747,6 @@ def _check_update(manual=True):
                     pill.show("error",
                               "Mise à jour impossible — réessaie plus tard")
                     pill.hide(2.6)
-            else:                                  # FAILED, vérification de fond
-                pill.hide(0)
         elif manual:
             if info:
                 pill.show("ok", "Nova est à jour", "à jour")
@@ -1844,16 +1830,7 @@ def _build_tray():
     return pystray.Icon(APP_NAME, img, f"{_app_display_name()} — dictée vocale", menu)
 
 
-def _hook_uncaught():
-    """Toute exception non rattrapée (thread principal ou threads de fond)
-    finit dans nova.log au lieu de disparaître avec la console — en .exe
-    fenêtré il n'y a AUCUNE console, c'est la seule trace d'un plantage."""
-    sys.excepthook = lambda t, v, tb: core.log_err("uncaught", v)
-    threading.excepthook = lambda a: core.log_err("uncaught_thread", a.exc_value)
-
-
 def main():
-    _hook_uncaught()
     # profil de puissance : bootstrap AVANT tout le reste, y compris l'onboarding
     # (best-effort, peut échouer ou être fermé sans être terminé) — la garantie
     # « jamais de saturation RAM » ne doit jamais dépendre de l'écran d'accueil.

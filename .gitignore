@@ -63,3 +63,5 @@ assets/*.mp4
 
 # bande-son du film (régénérable via landing/film/audio.py)
 landing/film/nova-film-audio.wav
+nova-crash.log
+nova.log.1
