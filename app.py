@@ -61,6 +61,17 @@ SET_DANGER_BG, SET_DANGER_FG = "#3A2620", "#E7C9BF"   # bouton destructif
 # état courant (mode + profil de puissance sélectionnés dans le menu)
 STATE = {"mode": core.CFG.get("mode", modes_registry.DEFAULT_MODE_ID),
          "profile": core.CFG.get("profile", power_profiles.DEFAULT_ID)}
+try:
+    # Un Style verrouillé hérité d'une version précédente (ex. « messages »,
+    # offert en Free avant la v3.1.4) ou d'une licence rétrogradée ne doit pas
+    # rester « actif » : l'UI le montrerait sélectionné-mais-verrouillé et
+    # chaque dictée serait silencieusement dégradée. On revient au mode par
+    # défaut (Automatique) SANS réécrire la config : si l'utilisateur passe
+    # Pro, son choix d'origine se réactive tout seul.
+    if not licensing.mode_allowed(STATE["mode"]):
+        STATE["mode"] = modes_registry.DEFAULT_MODE_ID
+except Exception:
+    pass
 
 
 resource_path = core.resource_path
@@ -724,8 +735,11 @@ class Pill(threading.Thread):
                      row=0, column=0, columnspan=2, sticky="w", pady=(0, 2))
         hk_entries = {}
         hk_cfg = core.CFG.get("mode_hotkeys") or {}
+        # seuls les Styles du palier (même règle que le dock) : un raccourci
+        # vers un Style verrouillé ne pourrait jamais fonctionner
         rows = [("__menu__", "Ouvrir le menu des Styles")] + \
-               [(m["id"], m["label"]) for m in modes_registry.all_modes()]
+               [(m["id"], m["label"]) for m in modes_registry.all_modes()
+                if licensing.mode_allowed(m["id"])]
         for i, (mid, label) in enumerate(rows, start=1):
             tk.Label(hkf, text=label, bg=SET_BG, fg=SET_MUT, width=24,
                      anchor="w").grid(row=i, column=0, sticky="w", pady=1)
@@ -1104,9 +1118,15 @@ class DockApi:
 
     def state(self):
         hw = power_profiles.detect_hardware()
+        tier = licensing.current_tier()
         return {
+            # palier calculé UNE fois (licences actives : chaque vérification
+            # sans tier explicite referait une signature Ed25519 complète) ;
+            # le libellé du verrou vient d'ici, pas du JS — il suit le palier
+            # réellement requis (FEATURES) si l'offre change
             "modes": [{"id": m["id"], "label": m["label"], "hotkey": m["hotkey"],
-                       "allowed": licensing.mode_allowed(m["id"])}
+                       "allowed": (ok := licensing.mode_allowed(m["id"], tier)),
+                       "lock": "" if ok else _mode_lock_label()}
                      for m in modes_registry.all_modes()],
             "profiles": power_profiles.evaluate(hw, _profiles_paid()),
             "hardware": hw,
@@ -1245,6 +1265,8 @@ class DockApi:
         """Raccourci direct d'un Style ; clé vide = suppression du raccourci."""
         hk = dict(core.CFG.get("mode_hotkeys") or {})
         key = (key or "").strip().lower()
+        if key and not licensing.mode_allowed(str(mode_id)):
+            return hk        # Style verrouillé : un raccourci ne marcherait jamais
         if key:
             hk[str(mode_id)] = key
         else:
@@ -1355,6 +1377,13 @@ def _mode_label(mode_id):
     if isinstance(mode_id, str) and mode_id.startswith(CUSTOM_PREFIX):
         return modes_registry.label_of("voice_to_text")  # custom verrouillé/supprimé
     return modes_registry.label_of(mode_id)
+
+
+def _mode_lock_label():
+    """Badge d'un Style verrouillé, dérivé du palier réellement requis
+    (licensing.FEATURES) — convention de la charte : « NÉCESSITE NOVA … »."""
+    tier = licensing.FEATURES.get("all_modes", licensing.ULTRA)
+    return f"NÉCESSITE NOVA {tier.upper()}"
 
 
 def _ptt_session():
@@ -1526,23 +1555,26 @@ def _rebind_style_hotkeys():
 
 def _hotkey_set_mode(mode_id):
     """Bascule de Style par raccourci clavier : sans le menu sous les yeux,
-    l'utilisateur a besoin d'une confirmation visible du Style désormais actif."""
-    _set_mode(mode_id)
-    if STATE.get("mode") == mode_id:              # refusé si Style verrouillé
+    l'utilisateur a besoin d'une confirmation visible du Style désormais actif.
+    On se fie au RETOUR de _set_mode, pas à STATE : un Style verrouillé peut
+    déjà être « sélectionné » (hérité) — l'égalité confirmerait alors à tort."""
+    if _set_mode(mode_id):
         pill.show("ok", _mode_label(mode_id), "Style actif")
         pill.hide(1.4)
 
 
 # ============================================================ barre des tâches
 def _set_mode(mode_id):
+    """→ True si le Style est réellement devenu actif, False si refusé."""
     if not licensing.mode_allowed(mode_id):       # mode réservé aux paliers payants
         pill.show("error", "Style réservé à Pro", "Débloquez tous les Styles")
         pill.hide(2.0)
-        return
+        return False
     STATE["mode"] = mode_id
     core.save_config({"mode": mode_id})
     pill.show("repos", "")
     pill.hide(1.2)
+    return True
 
 
 def _set_language(lang):
@@ -1626,24 +1658,44 @@ def _check_update(manual=True):
         info = updater.check_latest()
         if info and info["newer"]:
             pill.show("thinking", f"Mise à jour vers {info['version']}…")
-            if not updater.download_and_install():   # False = rien n'est parti
+            res = updater.download_and_install()   # succès = ne revient jamais
+            if res == updater.BUSY:
+                # une autre tentative (auto du lancement) tourne déjà : ce
+                # n'est pas un échec — dire au clic manuel ce qui se passe
                 if manual:
-                    # plan B : l'installation silencieuse a échoué (antivirus,
-                    # réseau filtré…) — on ouvre le téléchargement direct dans
-                    # le navigateur, l'utilisateur n'est jamais coincé
-                    try:
-                        import webbrowser
-                        webbrowser.open(updater.SETUP_URL)
-                        pill.show("error",
-                                  "Installation auto impossible — "
-                                  "le téléchargement s'ouvre dans le navigateur")
-                        pill.hide(4.0)
-                    except Exception:
-                        pill.show("error",
-                                  "Mise à jour impossible — réessaie plus tard")
-                        pill.hide(2.6)
+                    pill.show("thinking", "Mise à jour déjà en cours…")
+                    pill.hide(2.2)
+            elif res == updater.UNSUPPORTED:       # pas un .exe : développement
+                if manual:
+                    pill.show("error",
+                              "Mise à jour auto indisponible "
+                              "(version de développement)")
+                    pill.hide(2.4)
                 else:
                     pill.hide(0)
+            elif manual:                           # FAILED, demandé par l'utilisateur
+                # plan B : l'installation silencieuse a échoué (antivirus,
+                # réseau filtré…) — on ouvre le téléchargement direct dans le
+                # navigateur. webbrowser.open signale l'échec en RENVOYANT
+                # False (jamais d'exception sous Windows) : ne prétendre que
+                # le navigateur s'ouvre que s'il s'est vraiment ouvert.
+                opened = False
+                try:
+                    import webbrowser
+                    opened = bool(webbrowser.open(updater.SETUP_URL))
+                except Exception:
+                    pass
+                if opened:
+                    pill.show("error",
+                              "Installation auto impossible — "
+                              "le téléchargement s'ouvre dans le navigateur")
+                    pill.hide(4.0)
+                else:
+                    pill.show("error",
+                              "Mise à jour impossible — réessaie plus tard")
+                    pill.hide(2.6)
+            else:                                  # FAILED, vérification de fond
+                pill.hide(0)
         elif manual:
             if info:
                 pill.show("ok", "Nova est à jour", "à jour")
@@ -1686,7 +1738,10 @@ def _build_tray():
         return MenuItem(f"{m['hotkey']}. {m['label']}",
                         lambda _i, _it: _set_mode(mid),
                         checked=lambda _it: STATE["mode"] == mid,
-                        radio=True)
+                        radio=True,
+                        # même règle de verrou que le menu du dock — grisé,
+                        # ré-évalué à chaque ouverture (activation en session)
+                        enabled=lambda _it: licensing.mode_allowed(mid))
 
     def lang_item(code, label):
         return MenuItem(label,
