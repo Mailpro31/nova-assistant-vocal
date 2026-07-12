@@ -443,6 +443,8 @@ function paneGeneral(p){
    +G('Raccourcis clavier',
       R('Ouvrir le menu des Styles','Le menu déroulant des Styles, où que vous soyez',
         '<input class="fieldc mono" id="menuHk" style="width:110px;text-align:center" readonly placeholder="—" value="'+esc(S.menu_hotkey||'')+'">')
+      +R('Ouvrir les Réglages','Cette fenêtre, sans passer par la barre des tâches',
+        '<input class="fieldc mono" id="settHk" style="width:110px;text-align:center" readonly placeholder="—" value="'+esc(S.settings_hotkey||'')+'">')
       +styleRows,
       'Cliquez un champ puis appuyez sur une combinaison (ex. Ctrl + Alt + E). Retour arrière efface.')
    +G('Bulle Nova',
@@ -482,6 +484,8 @@ function paneGeneral(p){
       const s=document.getElementById('swAuto');if(s)s.className='sw'+(on?' on':'');});};
   bindKeyCapture(document.getElementById('pttIn'),false,
     k=>{S.ptt_key=k;api('set_ptt_key',k);});
+  document.getElementById('settHk')&&bindKeyCapture(document.getElementById('settHk'),true,
+    k=>api('set_settings_hotkey',k).then(v=>{S.settings_hotkey=v??k;}));
   document.getElementById('menuHk')&&bindKeyCapture(document.getElementById('menuHk'),true,
     k=>{S.menu_hotkey=k;api('set_menu_hotkey',k);});
   p.querySelectorAll('.stylehk').forEach(el=>bindKeyCapture(el,true,k=>{
