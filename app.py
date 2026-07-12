@@ -711,6 +711,66 @@ class Pill(threading.Thread):
         cb_cloud.pack(anchor="w")
         _lock(can_turbo, cb_cloud)
 
+        # reformulation locale : état + installation en un clic (parité avec la
+        # rangée « Reformulation hors ligne » du dock — règle CLAUDE.md)
+        eng_row = tk.Frame(eng, bg=SET_BG)
+        eng_row.pack(anchor="w", pady=(2, 0))
+        eng_lbl = tk.Label(eng_row, text="Reformulation hors ligne : …",
+                           bg=SET_BG, fg=SET_MUT)
+        eng_lbl.pack(side="left")
+        eng_btn = tk.Button(eng_row, text="Installer (≈ 2,5 Go)",
+                            bg=SET_INSET, fg=SET_FG, relief="flat",
+                            activebackground=SET_INSET,
+                            activeforeground=SET_FG)
+        import engine_setup as _es
+
+        def _eng_refresh():
+            # l'état réel demande un aller-retour HTTP local (≤1,5 s) : sondé
+            # HORS du fil UI, résultat appliqué via after() (fil UI, widgets)
+            def work():
+                try:
+                    st = _es.status()
+                except Exception:
+                    return
+
+                def apply():
+                    try:
+                        if not eng_lbl.winfo_exists():
+                            return
+                        if st.get("ready"):
+                            eng_lbl.config(fg=SET_OK,
+                                           text="Reformulation hors ligne : prête")
+                            eng_btn.pack_forget()
+                        elif st["phase"] in ("download", "install",
+                                             "service", "model"):
+                            pct = int((st.get("progress") or 0) * 100)
+                            eng_lbl.config(fg=SET_MUT, text={
+                                "download": "Téléchargement…",
+                                "install": "Installation…",
+                                "service": "Démarrage…",
+                                "model": "Préparation de l'intelligence…",
+                            }[st["phase"]] + f" {pct} %")
+                            eng_btn.pack_forget()
+                            win.after(1200, _eng_refresh)
+                        else:
+                            eng_lbl.config(fg=SET_MUT,
+                                           text="Reformulation hors ligne : "
+                                           + (st.get("error") or "non installée"))
+                            eng_btn.pack(side="left", padx=(8, 0))
+                    except Exception:
+                        pass
+                try:
+                    win.after(0, apply)
+                except Exception:
+                    pass
+            threading.Thread(target=work, daemon=True).start()
+
+        def _eng_install():
+            _es.start()
+            win.after(300, _eng_refresh)
+        eng_btn.config(command=_eng_install)
+        _eng_refresh()
+
         # démarrage avec Windows : lit et écrit directement la clé Run (même
         # entrée que la case de l'installeur) — pas de copie dans config.json
         autostart = tk.BooleanVar(value=winext.get_autostart())
@@ -1024,8 +1084,12 @@ class WebDock:
     # CONSTRUCTION, même si la découpe par région native échoue (mauvais hwnd,
     # timing, machine capricieuse). Quasi-noir → le lissage des bords fond vers
     # une teinte invisible à l'écran. Ne JAMAIS peindre un élément visible avec
-    # cette valeur exacte.
+    # cette valeur exacte. (Les ombres CSS composées sur la clé restent des
+    # pixels QUASI-clé donc opaques : là où la découpe par région échoue, elles
+    # apparaissent comme de douces ombres portées — voulu, pas un défaut.)
     KEY = "#0F1014"
+    # COLORREF Win32 (0x00BBGGRR) dérivé de KEY — une seule source de vérité
+    KEY_COLORREF = int(KEY[5:7] + KEY[3:5] + KEY[1:3], 16)
 
     def __init__(self):
         if not os.path.isfile(DOCK_HTML):   # exe incomplet → repli pilule,
@@ -1053,6 +1117,12 @@ class WebDock:
         # On rallume donc côté Python AVANT de déléguer au JS — le rendu
         # repart, la forme est re-postée, la bulle revient toujours.
         self._ensure_native_visible()
+        if self._panel == "traymenu":
+            # menu tray abandonné (fermé côté JS sans que l'appel `panel` ne
+            # soit revenu, pont muet…) : la dictée reprend la géométrie
+            # normale SANS dépendre du pont — sinon la bulle resterait coincée
+            # dans une fenêtre 290×240 au coin de l'écran
+            self._set_panel("compact")
         self._js("window.novaShow", state, text or "", sub or "")
 
     def hide(self, delay=0.0):
@@ -1080,8 +1150,12 @@ class WebDock:
     def open_tray_menu(self):
         """Menu Nova stylé ouvert depuis l'icône du tray — porte les actions du
         quotidien avec le langage visuel du dock ; le menu natif Windows
-        (impossible à styler) est réduit au strict secours dans _build_tray."""
+        (impossible à styler) est réduit au strict secours dans _build_tray.
+        Réglages déjà ouverts → on les garde (les écraser en 290×240 rendrait
+        la fenêtre inutilisable, le menu resterait invisible dessous)."""
         self._ensure_native_visible()
+        if self._panel.startswith("settings"):
+            return
         self._set_panel("traymenu")
         self._js("window.novaOpenTray")
 
@@ -1132,8 +1206,18 @@ class WebDock:
         w, h = min(w, sw - 24), min(h, sh - 24)
         if name.startswith("settings"):
             x, y = (sw - w) // 2, max(0, (sh - h) // 2)
-        elif name == "traymenu":    # près de la zone de notification (bas-droite)
-            x, y = sw - w - 12, sh - h - 52
+        elif name == "traymenu":
+            # près de la zone de notification : coin de la zone de TRAVAIL
+            # (SPI_GETWORKAREA suit la barre des tâches quel que soit son bord
+            # ou sa hauteur) — repli plein écran avec marge fixe sinon
+            try:
+                import ctypes.wintypes as wt
+                rcw = wt.RECT()
+                ctypes.windll.user32.SystemParametersInfoW(
+                    0x30, 0, ctypes.byref(rcw), 0)            # SPI_GETWORKAREA
+                x, y = rcw.right - w - 12, rcw.bottom - h - 12
+            except Exception:
+                x, y = sw - w - 12, sh - h - 52
         else:                       # bulle / menu : ancrage utilisateur
             anchor = str(core.CFG.get("dock_position") or "bottom-center")
             vert, _, horiz = anchor.partition("-")
@@ -1244,7 +1328,12 @@ class WebDock:
             # rien ouvrir dans la barre des tâches
             if n:
                 self._last_shape_n = n
-            if core.CFG.get("dock_ghost"):
+            # SW_HIDE uniquement AU REPOS (panneau compact) : pendant qu'un
+            # panneau piloté par Python s'ouvre (menu tray…), un rapport de
+            # formes vides transitoire (resize AVANT que le JS n'affiche le
+            # panneau) cachait la fenêtre — et une WebView2 cachée gèle son
+            # rendu, donc plus aucun rapport ne venait la réveiller
+            if core.CFG.get("dock_ghost") and self._panel == "compact":
                 u.ShowWindow(hwnd, 0)                     # SW_HIDE
             return
         rc = wt.RECT()
@@ -1283,6 +1372,18 @@ class WebDock:
             return
         self._shown = True
         try:
+            # secours « page cassée » : retirer la CLÉ DE COULEUR d'abord —
+            # une page qui ne peint rien laisse toutes les surfaces à la clé,
+            # et la fenêtre révélée serait invisible et cliquable au travers.
+            # On montre un vrai rectangle sombre : signal visible qu'il y a un
+            # problème (« jamais d'app invisible »).
+            hwnd = self._get_hwnd()
+            if hwnd:
+                ctypes.windll.user32.SetLayeredWindowAttributes(
+                    hwnd, 0, 255, 0x2)                        # LWA_ALPHA seul
+        except Exception:
+            pass
+        try:
             self._win.show()
         except Exception:
             pass
@@ -1311,13 +1412,18 @@ class WebDock:
             # mais les champs des réglages doivent pouvoir recevoir le clavier
             if self._panel.startswith("settings"):
                 st &= ~NOACT
+                u.SetWindowLongW(hwnd, GWL_EXSTYLE, st)
+                # réglages : fenêtre rectangulaire pleinement opaque — la clé
+                # de couleur y est inutile ET indésirable (un pixel de contenu
+                # qui tomberait PILE sur la clé deviendrait un trou cliquable
+                # au travers ; impossible à garantir sur du contenu rendu)
+                u.SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA)
             else:
                 st |= NOACT
-            u.SetWindowLongW(hwnd, GWL_EXSTYLE, st)
-            r, g, b = (int(self.KEY[i:i + 2], 16) for i in (1, 3, 5))
-            u.SetLayeredWindowAttributes(hwnd, (b << 16) | (g << 8) | r,
-                                         int(op * 255),
-                                         LWA_ALPHA | LWA_COLORKEY)
+                u.SetWindowLongW(hwnd, GWL_EXSTYLE, st)
+                u.SetLayeredWindowAttributes(hwnd, self.KEY_COLORREF,
+                                             int(op * 255),
+                                             LWA_ALPHA | LWA_COLORKEY)
         except Exception as e:
             core.log_err("dock_opacity", e)
 
@@ -1610,9 +1716,16 @@ class DockApi:
         fermé = retour au dock compact. Un seul protocole de redimensionnement."""
         self._dock._set_panel(name if open_ else "compact")
 
-    def quit_app(self):
-        """Quitter proprement depuis le menu Nova du tray."""
-        _request_quit(_tray_icon)
+    def engine_setup_status(self):
+        """État de la reformulation locale (prête / absente / installation en
+        cours avec progression) — consommé par le panneau Général du dock."""
+        import engine_setup
+        return engine_setup.status()
+
+    def engine_setup_start(self):
+        """Bouton « Installer » des Réglages — idempotent, tout en fond."""
+        import engine_setup
+        return engine_setup.start()
 
     def shape(self, payload):
         """Formes réellement visibles (px CSS) → région native de la fenêtre.
@@ -2191,6 +2304,17 @@ def _warmup_engines():
             pass
         time.sleep(10)
         core.warmup_engines()
+        try:
+            # reformulation locale absente (service pas installé) : le dire UNE
+            # fois, avec la marche à suivre — sinon chaque Style retombe en
+            # silence sur le collage brut et l'utilisateur croit à une panne
+            import engine_setup
+            if core.resolve_provider() == "ollama" and not engine_setup.ready():
+                pill.show("error", "Intelligence privée à terminer",
+                          "Réglages → Installer la reformulation locale")
+                pill.hide(5.0)
+        except Exception:
+            pass
     threading.Thread(target=work, daemon=True).start()
 
 
@@ -2228,6 +2352,10 @@ def _build_tray():
         menu = Menu(
             MenuItem("Ouvrir Nova", lambda _i, _it: pill.open_tray_menu(),
                      default=True),
+            # garder la vérification de mise à jour en NATIF : elle marche
+            # sans le pont web (pur Python) et c'est le remède le plus
+            # probable quand justement la webview est cassée
+            MenuItem("Vérifier les mises à jour", lambda _i, _it: _check_update()),
             MenuItem("Quitter Nova", lambda icon, _it: _request_quit(icon)),
         )
     else:

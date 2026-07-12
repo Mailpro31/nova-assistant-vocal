@@ -83,10 +83,14 @@
   #traymenu.on{display:block;animation:tpop .34s var(--spring)}
   @keyframes tpop{from{opacity:0;transform:translateY(10px) scale(.96)}
     to{opacity:1;transform:none}}
-  #traymenu .sep{height:1px;background:rgba(255,255,255,.065);margin:6px 10px}
+  /* .tsep et pas .sep : la classe .sep globale est le séparateur VERTICAL du
+     dock (width:1px) — l'héritage rendait cette ligne invisible (1×1 px) */
+  #traymenu .tsep{height:1px;background:rgba(255,255,255,.065);margin:6px 10px}
   #traymenu .ti{width:17px;height:17px;stroke:var(--txt);fill:none;stroke-width:1.9;
     stroke-linecap:round;stroke-linejoin:round;flex:none}
-  body.tray #dock,body.tray #bubble{display:none}  /* le menu tray a la fenêtre pour lui */
+  /* le menu tray a la fenêtre pour lui — dérivé de l'état .on (une seule
+     source de vérité, pas de classe body à maintenir en parallèle) */
+  body:has(#traymenu.on) #dock,body:has(#traymenu.on) #bubble{display:none}
 
   /* ---- réglages : fenêtre style Réglages macOS (barre latérale + contenu).
      La webview est redimensionnée en 880×620 : #settings EST la fenêtre. ---- */
@@ -198,7 +202,7 @@
   <div id="traymenu">
     <div class="mrow" id="tmSettings"><svg class="ti" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 2h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12a7 7 0 0 0 .1 1.2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 22h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6A7 7 0 0 0 19 12z"/></svg>Ouvrir les Réglages</div>
     <div class="mrow" id="tmStyles"><svg class="ti" viewBox="0 0 24 24"><path d="M12 3l1.6 3.8L17.5 8l-2.8 2.7.7 4-3.4-1.9L8.6 14.7l.7-4L6.5 8z"/></svg>Styles</div>
-    <div class="sep"></div>
+    <div class="tsep"></div>
     <div class="mrow" id="tmUpdate"><svg class="ti" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6"/></svg>Vérifier les mises à jour</div>
     <div class="mrow" id="tmQuit"><svg class="ti" viewBox="0 0 24 24"><path d="M12 2v8M18.4 6.6a9 9 0 1 1-12.8 0"/></svg>Quitter Nova</div>
   </div>
@@ -230,9 +234,16 @@
 
 <script>
 // tout appel au pont résout TOUJOURS (null en cas d'échec) — jamais de rejet
-// non rattrapé : un except Python imprévu ne doit pas figer l'UI (ex. engrenage)
-function api(m){try{return Promise.resolve(window.pywebview.api[m].apply(null,[].slice.call(arguments,1)))
-    .catch(function(){return null;});}
+// non rattrapé : un except Python imprévu ne doit pas figer l'UI (ex. engrenage).
+// Et jamais de promesse ÉTERNELLE : sur certaines machines le pont accepte le
+// poste mais la réponse ne revient jamais — sans plafond, tout .then/await en
+// aval reste suspendu pour toujours (réglages qui ne s'ouvrent pas, préférences
+// jamais confirmées…). 10 s : large pour l'appel le plus lent (activation de
+// licence en ligne), court pour débloquer l'UI d'un pont muet.
+function api(m){try{return Promise.race([
+    Promise.resolve(window.pywebview.api[m].apply(null,[].slice.call(arguments,1)))
+      .catch(function(){return null;}),
+    new Promise(function(res){setTimeout(function(){res(null);},10000);})]);}
   catch(e){return Promise.resolve(null);}}
 let S={modes:[],profiles:[],languages:[],mode:'auto',ptt_key:'f9',mode_hotkeys:{},menu_hotkey:'',language:'fr',cloud_enabled:false,autostart:false,auto_update:true,app_version:'',
   dock_prefs:{position:'bottom-center',scale:1,opacity:1},
@@ -253,35 +264,40 @@ window.novaShow=function(state,text,sub){
 window.novaHide=function(ms){clearTimeout(hideT);hideT=setTimeout(()=>{document.getElementById('bubble').classList.remove('on');ORB.setState('repos');reportShape();},ms||0);};
 window.novaLevel=function(rms){ORB.level(rms);};
 window.__openSettings=function(){openSettings();};
-window.novaOpenModes=function(){const m=document.getElementById('modes');
+window.novaOpenModes=function(){closeTray(true);
+  const m=document.getElementById('modes');
   if(!m.classList.contains('on'))document.getElementById('modesBtn').onclick();};
 
 // ---------- menu Nova du tray ----------
 // Ouvert par Python (open_tray_menu : la fenêtre est déjà redimensionnée et
 // ancrée près de la zone de notification). La fenêtre n'étant jamais activée
-// (NOACTIVATE), il n'y a pas d'événement de perte de focus : le menu se ferme
-// au clic sur une rangée, au début d'une dictée, ou quand la souris le quitte.
+// (NOACTIVATE), il n'y a NI perte de focus NI clic-extérieur observable : le
+// menu se ferme au clic sur une rangée, au début d'une dictée, quand la souris
+// le quitte (700 ms) — et par un garde-fou de 10 s s'il n'a jamais été survolé
+// (sinon il flotterait au-dessus du bureau pour toujours).
+let _tmT=null,_tmAuto=null;
 window.novaOpenTray=function(){
-  document.body.classList.add('tray');
-  document.getElementById('traymenu').classList.add('on');reportShape();};
-function closeTray(){const t=document.getElementById('traymenu');
+  clearTimeout(_tmT);clearTimeout(_tmAuto);   // jamais fermé par un timer périmé
+  if(document.getElementById('settings').classList.contains('on'))return;
+  document.getElementById('modes').classList.remove('on');   // panneaux exclusifs
+  document.getElementById('traymenu').classList.add('on');reportShape();
+  _tmAuto=setTimeout(closeTray,10000);};
+// keepPanel=true : masque le menu SANS repasser par le panneau compact — la
+// destination (réglages / menu des Styles) redimensionne elle-même la fenêtre
+function closeTray(keepPanel){
+  clearTimeout(_tmT);clearTimeout(_tmAuto);
+  const t=document.getElementById('traymenu');
   if(!t.classList.contains('on'))return;
-  t.classList.remove('on');document.body.classList.remove('tray');reportShape();
-  api('panel','traymenu',false).then(reportShape);}
-let _tmT=null;
+  t.classList.remove('on');
+  if(keepPanel!==true){reportShape();api('panel','traymenu',false);}}
 document.getElementById('traymenu').addEventListener('mouseleave',
   ()=>{_tmT=setTimeout(closeTray,700);});
 document.getElementById('traymenu').addEventListener('mouseenter',
-  ()=>{clearTimeout(_tmT);});
-// masque le menu SANS repasser par le panneau compact : la destination
-// (réglages / menu des Styles) redimensionne elle-même la fenêtre
-function _tmOff(){document.getElementById('traymenu').classList.remove('on');
-  document.body.classList.remove('tray');}
-document.getElementById('tmSettings').onclick=()=>{_tmOff();openSettings();};
-document.getElementById('tmStyles').onclick=()=>{_tmOff();
-  document.getElementById('modesBtn').onclick();};
+  ()=>{clearTimeout(_tmT);clearTimeout(_tmAuto);});
+document.getElementById('tmSettings').onclick=()=>{closeTray(true);openSettings();};
+document.getElementById('tmStyles').onclick=()=>{closeTray(true);window.novaOpenModes();};
 document.getElementById('tmUpdate').onclick=()=>{closeTray();api('check_update');};
-document.getElementById('tmQuit').onclick=()=>{api('quit_app');};
+document.getElementById('tmQuit').onclick=()=>{api('quit');};
 
 // ---------- formes visibles → région native de la fenêtre ----------
 // La fenêtre est opaque : Python la découpe aux formes rapportées ici. Appelé
@@ -368,7 +384,10 @@ function bindKeyCapture(el,clearable,set){
 }
 
 // ---------- menus ----------
-document.getElementById('modesBtn').onclick=()=>{const m=document.getElementById('modes');const open=!m.classList.contains('on');m.classList.toggle('on');if(open)renderModes();api('panel','modes',open).then(reportShape);};
+document.getElementById('modesBtn').onclick=()=>{const m=document.getElementById('modes');const open=!m.classList.contains('on');m.classList.toggle('on');if(open)renderModes();
+  // formes rapportées TOUT DE SUITE (pont muet → la région suit quand même) ;
+  // le redimensionnement déclenche ensuite `resize` → re-rapport post-resize
+  reportShape();api('panel','modes',open);};
 // couleurs pastel (dérivées du thème de l'orbe) + icônes SVG monochromes — zéro emoji
 const MC={auto:'#C7B9EA',voice_to_text:'#AEBEEC',email:'#F0D3A8',prompt_engineer:'#E9B8CE',
   todo:'#AEE2CC',messages:'#9FE0BE',notes:'#AED6F0'};
@@ -410,13 +429,14 @@ document.getElementById('tlZoom').onclick=()=>{setMax=!setMax;
 // ses réglages dans la fenêtre actuelle — jamais de rectangle vide ; le
 // redimensionnement arrive ensuite et `resize` re-rapporte les formes.
 function openSettings(){
+  closeTray(true);                       // panneaux exclusifs (raccourci/tray)
   document.getElementById('settings').classList.add('on');
   buildSidebar();buildPane();reportShape();
   api('panel',setMax?'settings_max':'settings',true).then(reportShape);
   api('license_status').then(ls=>{if(ls){S.lic=ls;buildSidebar();buildPane();}});}
 function closeSettings(){document.getElementById('settings').classList.remove('on');
-  reportShape();
-  api('panel','settings',false).then(reportShape);}
+  reportShape();                         // le resize re-rapportera après coup
+  api('panel','settings',false);}
 
 let CAT='general';
 const NAV=[
@@ -500,7 +520,9 @@ function paneGeneral(p){
    +G('Moteur'+(canTurbo?'':' <span class="badge-lock">NÉCESSITE NOVA ULTRA</span>'),
       '<div class="'+(canTurbo?'':'locked')+'">'
       +R('Turbo','La vitesse maximale, via le réseau — sinon Intelligence privée',
-      '<div class="sw'+(S.cloud_enabled&&canTurbo?' on':'')+'" id="swCloud"></div>')+'</div>',
+      '<div class="sw'+(S.cloud_enabled&&canTurbo?' on':'')+'" id="swCloud"></div>')+'</div>'
+      +R('Reformulation hors ligne','Le moteur qui applique vos Styles sur cet ordinateur',
+      '<span id="engSt" style="font-size:11.5px;color:var(--mut)">…</span>'),
       'L\'Intelligence privée fonctionne entièrement hors ligne.')
    +G('Démarrage',R('Lancer au démarrage de Windows','Nova sera prête dès l\'ouverture de session',
       '<div class="sw'+(S.autostart?' on':'')+'" id="swAuto"></div>'),'')
@@ -544,6 +566,29 @@ function paneGeneral(p){
     const on=await api('toggle_cloud');S.cloud_enabled=!!on;
     const sw=document.getElementById('swCloud');   // garde : l'utilisateur a pu changer de pane
     if(sw)sw.className='sw'+(on?' on':'');};
+  // ---- reformulation locale : état + installation en un clic ----
+  // Le service est un composant tiers (~2,5 Go) absent des machines neuves :
+  // sans lui chaque Style retombe sur le collage brut. L'état se resonde en
+  // continu pendant l'installation ; l'élément peut disparaître (changement
+  // de pane) → chaque tick re-vérifie sa présence.
+  function engRender(st){const el=document.getElementById('engSt');if(!el)return;
+    if(!st){el.textContent='—';return;}
+    if(st.ready){el.innerHTML='<span style="color:#30d158">Prête</span>';return;}
+    if(['download','install','service','model'].indexOf(st.phase)>=0){
+      el.textContent=({download:'Téléchargement…',install:'Installation…',
+        service:'Démarrage…',model:'Préparation de l\'intelligence…'})[st.phase]
+        +' '+Math.round((st.progress||0)*100)+' %';
+      setTimeout(engPoll,1200);return;}
+    el.innerHTML=(st.phase==='error'
+        ?'<span style="color:#FF453A">'+esc(st.error||'Échec')+'</span> '
+        :'Non installée ')
+      +'<button class="btn sec" id="engBtn" style="margin-left:8px">'
+      +(st.phase==='error'?'Réessayer':'Installer (≈ 2,5 Go)')+'</button>';
+    const b=document.getElementById('engBtn');
+    if(b)b.onclick=()=>{api('engine_setup_start').then(engRender);};}
+  function engPoll(){if(!document.getElementById('engSt'))return;
+    api('engine_setup_status').then(engRender);}
+  engPoll();
   document.getElementById('swAuto').onclick=()=>{const el=document.getElementById('swAuto');
     const want=!el.classList.contains('on');
     api('set_autostart',want).then(on=>{S.autostart=!!on;      // état réel du registre

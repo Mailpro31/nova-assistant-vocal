@@ -2264,7 +2264,17 @@ def warmup_engines():
             # appel de reformulation reste inchangé → texte STRICTEMENT identique.
             _ollama_chat_request(_reform_system(), "ok", {"num_predict": 1}, 180)
     except Exception as e:
-        log_err("warmup_llm", e)
+        # service local ABSENT (pas installé / pas lancé) : condition ATTENDUE
+        # sur une machine neuve — une ligne sobre au lieu d'un traceback
+        # complet à chaque démarrage. L'installation guidée vit dans les
+        # Réglages (engine_setup) ; en attendant, les Styles retombent sur le
+        # collage brut (format_rules) comme toujours. (requests est importé
+        # paresseusement dans ce module → détection par le nom de la classe.)
+        if "ConnectionError" in type(e).__name__:
+            log_err("warmup_llm", "reformulation locale indisponible (service "
+                                  "absent) — installation via les Réglages")
+        else:
+            log_err("warmup_llm", e)
 
 
 def transcribe_routed(audio, fast=False):
