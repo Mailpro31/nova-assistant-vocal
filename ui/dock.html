@@ -10,13 +10,16 @@
     --font:-apple-system,"SF Pro Display","SF Pro Text","Segoe UI",Inter,system-ui,sans-serif;
     --ease:cubic-bezier(.22,1,.36,1);--spring:cubic-bezier(.34,1.56,.64,1)}
   *{box-sizing:border-box;margin:0;padding:0}
-  /* fond = CLÉ DE COULEUR (#0F1014, identique à WebDock.KEY dans app.py) :
-     Windows rend transparents (et cliquables au travers) tous les pixels de
-     cette couleur exacte (WS_EX_LAYERED + LWA_COLORKEY). Le « carré » autour
-     des formes disparaît donc PAR CONSTRUCTION, quelle que soit la fenêtre
-     qui peint le fond — la découpe par région native (reportShape) reste en
-     défense en profondeur. Ne JAMAIS utiliser #0F1014 pour un élément visible. */
-  html,body{width:100%;height:100%;overflow:hidden;background:#0F1014;font-family:var(--font);
+  /* fond RÉELLEMENT TRANSPARENT (alpha 0). La fenêtre est créée avec
+     transparent=True : WebView2 compose son propre fond en alpha, donc tout ce
+     qui n'est pas un élément visible (bulle, orbe, menus, réglages) laisse voir
+     le bureau — le « carré/rectangle » autour de l'app n'existe pas PAR
+     CONSTRUCTION. C'est la SEULE transparence fiable avec WebView2 : sa vue est
+     composée par DirectComposition et IGNORE la clé de couleur (LWA_COLORKEY)
+     COMME la découpe par région (SetWindowRgn) de la fenêtre hôte — les deux
+     laissaient le rectangle sur certaines machines. Chaque élément VISIBLE
+     porte donc son PROPRE fond opaque (voir #dock/#bubble/#modes/#settings). */
+  html,body{width:100%;height:100%;overflow:hidden;background:transparent;font-family:var(--font);
     color:var(--txt);-webkit-font-smoothing:antialiased;user-select:none;cursor:default}
 
   /* ---- le dock flottant (bas-centre) ---- */
@@ -264,7 +267,11 @@ window.novaShow=function(state,text,sub){
 window.novaHide=function(ms){clearTimeout(hideT);hideT=setTimeout(()=>{document.getElementById('bubble').classList.remove('on');ORB.setState('repos');reportShape();},ms||0);};
 window.novaLevel=function(rms){ORB.level(rms);};
 window.__openSettings=function(){openSettings();};
-window.novaOpenModes=function(){closeTray(true);
+window.novaOpenModes=function(){
+  // réglages ouverts : le raccourci Styles ne doit PAS écraser la fenêtre
+  // réglages en géométrie compacte (comme novaOpenTray, on ignore)
+  if(document.getElementById('settings').classList.contains('on'))return;
+  closeTray(true);
   const m=document.getElementById('modes');
   if(!m.classList.contains('on'))document.getElementById('modesBtn').onclick();};
 
@@ -415,7 +422,7 @@ function renderModes(){const box=document.getElementById('modes');box.innerHTML=
          // libellé fourni par Python (suit le palier requis), badge canonique
          :'<span class="badge-lock mbadge">'+esc(m.lock||'')+'</span>');
     r.onclick=ok
-      ?()=>{S.mode=m.id;box.classList.remove('on');api('panel','modes',false);renderModes();
+      ?()=>{S.mode=m.id;box.classList.remove('on');reportShape();api('panel','modes',false);renderModes();
             // Python fait autorité : si le changement est refusé (licence
             // expirée en cours de session…), on réaligne l'affichage
             api('set_mode',m.id).then(v=>{if(v&&v!==S.mode){S.mode=v;renderModes();}});}
@@ -436,11 +443,13 @@ document.getElementById('tlZoom').onclick=()=>{setMax=!setMax;
 // redimensionnement arrive ensuite et `resize` re-rapporte les formes.
 function openSettings(){
   closeTray(true);                       // panneaux exclusifs (raccourci/tray)
+  document.getElementById('modes').classList.remove('on');   // jamais le menu Styles SOUS les réglages (sinon il ré-émerge à la fermeture)
   document.getElementById('settings').classList.add('on');
   buildSidebar();buildPane();reportShape();
   api('panel',setMax?'settings_max':'settings',true).then(reportShape);
   api('license_status').then(ls=>{if(ls){S.lic=ls;buildSidebar();buildPane();}});}
 function closeSettings(){document.getElementById('settings').classList.remove('on');
+  clearTimeout(window.__engT);           // stoppe net le poll du moteur (fenêtre fermée)
   reportShape();                         // le resize re-rapportera après coup
   api('panel','settings',false);}
 
@@ -593,8 +602,11 @@ function paneGeneral(p){
       +'<button class="btn sec" id="engBtn" style="margin-left:8px">'
       +(st.phase==='error'?'Réessayer':'Installer (≈ 2,5 Go)')+'</button>';
     const b=document.getElementById('engBtn');
-    if(b)b.onclick=()=>{api('engine_setup_start').then(engRender);};}
-  function engPoll(){if(!document.getElementById('engSt'))return;
+    if(b)b.onclick=()=>{b.disabled=true;api('engine_setup_start').then(engRender);};}
+  function engPoll(){const s=document.getElementById('settings');
+    // s'arrête si le pane a changé (engSt absent) OU si la fenêtre réglages a
+    // été fermée (feu tricolore) — sinon le poll tournait toutes les 1,2 s à vie
+    if(!document.getElementById('engSt')||!s||!s.classList.contains('on'))return;
     api('engine_setup_status').then(engRender);}
   engPoll();
   document.getElementById('swAuto').onclick=()=>{const el=document.getElementById('swAuto');

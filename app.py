@@ -1092,19 +1092,12 @@ class WebDock:
     SETTINGS = (880, 620)      # fenêtre paysage type Réglages macOS
     SETTINGS_MAX = (1180, 780)  # bouton vert (zoom) — borné à l'écran
     TRAYMENU = (290, 240)      # menu Nova du tray (4 rangées + séparateur)
-    # CLÉ DE COULEUR : couleur de fond de TOUTES les surfaces (Form WinForms,
-    # WebView2, page dock.html — même valeur dans html,body). Windows rend ces
-    # pixels transparents et cliquables au travers (LWA_COLORKEY, voir
-    # _apply_opacity) : le « carré » autour des formes disparaît PAR
-    # CONSTRUCTION, même si la découpe par région native échoue (mauvais hwnd,
-    # timing, machine capricieuse). Quasi-noir → le lissage des bords fond vers
-    # une teinte invisible à l'écran. Ne JAMAIS peindre un élément visible avec
-    # cette valeur exacte. (Les ombres CSS composées sur la clé restent des
-    # pixels QUASI-clé donc opaques : là où la découpe par région échoue, elles
-    # apparaissent comme de douces ombres portées — voulu, pas un défaut.)
+    # Couleur de REPLI de la fenêtre (background_color) : la transparence réelle
+    # est assurée par WebView2 (transparent=True) + fond de page alpha 0. Cette
+    # teinte quasi-noire ne se voit QUE si un très vieux runtime WebView2
+    # ignorait l'alpha — au pire un rectangle sombre (comme avant), jamais pire.
+    # La page dock.html peint « transparent », pas cette valeur.
     KEY = "#0F1014"
-    # COLORREF Win32 (0x00BBGGRR) dérivé de KEY — une seule source de vérité
-    KEY_COLORREF = int(KEY[5:7] + KEY[3:5] + KEY[1:3], 16)
 
     def __init__(self):
         if not os.path.isfile(DOCK_HTML):   # exe incomplet → repli pilule,
@@ -1288,9 +1281,8 @@ class WebDock:
                 u.SetWindowLongW(hwnd, GWL_EXSTYLE, (st | TOOL) & ~APPWIN)
             except Exception as e:
                 core.log_err("dock_exstyle", e)
-            # clé de couleur active AVANT toute première révélation : sans ça,
-            # la fenêtre pourrait apparaître une fois avec son fond visible
-            # (self._hwnd est déjà mémorisé → pas de récursion)
+            # applique NOACTIVATE (+ opacité utilisateur éventuelle) dès la 1re
+            # acquisition (self._hwnd déjà mémorisé → pas de récursion)
             self._apply_opacity()
         return self._hwnd
 
@@ -1335,7 +1327,6 @@ class WebDock:
             return
         import ctypes.wintypes as wt
         u, g = ctypes.windll.user32, ctypes.windll.gdi32
-        self._got_shape = True          # le JS est vivant : plus de secours
         shapes = payload.get("shapes") or []
         if not shapes:
             # rien à montrer : en mode « invisible au repos », la fenêtre
@@ -1378,67 +1369,59 @@ class WebDock:
         if n:
             self._last_shape_n = n      # consommé une fois RÉELLEMENT appliquée
         self._shown = True
+        # _got_shape UNIQUEMENT sur une forme NON VIDE réellement affichée : un
+        # rapport vide (page cassée sans rendu, hors mode ghost) ne doit PAS
+        # inhiber le secours _reveal — sinon la fenêtre ne serait jamais montrée
+        self._got_shape = True
 
     def _reveal(self):
-        """Secours : ne montre la fenêtre nue QUE si le JS n'a jamais rapporté
-        de forme (page cassée) — jamais d'app invisible, jamais de rectangle nu
-        par-dessus le mode « invisible au repos »."""
+        """Secours : la fenêtre a été créée cachée pour éviter tout flash au
+        démarrage. Si le JS n'a jamais rapporté de forme (démarrage WebView2 très
+        lent après mise à jour, ou page cassée), on la RÉVÈLE quand même — mais
+        elle est TRANSPARENTE (transparent=True), donc la montrer n'affiche RIEN
+        tant que la page n'a pas peint : jamais de rectangle nu. Dès que la page
+        peint (même tardivement), la bulle apparaît. NE force PLUS aucune opacité
+        ni clé de couleur (c'était le bug qui rendait le « carré » permanent sur
+        un démarrage lent). En mode « invisible au repos », on ne montre rien :
+        la fenêtre reste masquée jusqu'à la 1re dictée."""
         if self._shown or self._got_shape:
             return
+        if core.CFG.get("dock_ghost"):
+            return
         self._shown = True
-        try:
-            # secours « page cassée » : retirer la CLÉ DE COULEUR d'abord —
-            # une page qui ne peint rien laisse toutes les surfaces à la clé,
-            # et la fenêtre révélée serait invisible et cliquable au travers.
-            # On montre un vrai rectangle sombre : signal visible qu'il y a un
-            # problème (« jamais d'app invisible »).
-            hwnd = self._get_hwnd()
-            if hwnd:
-                ctypes.windll.user32.SetLayeredWindowAttributes(
-                    hwnd, 0, 255, 0x2)                        # LWA_ALPHA seul
-        except Exception:
-            pass
         try:
             self._win.show()
         except Exception:
             pass
 
     def _apply_opacity(self):
-        """Opacité choisie par l'utilisateur pour la bulle (réglages toujours
-        pleinement opaques) + CLÉ DE COULEUR : tous les pixels exactement de
-        la couleur KEY (fond de la page, de la Form et du WebView2) deviennent
-        transparents et cliquables au travers — c'est ce qui efface le
-        « carré » autour des formes même quand la découpe par région native
-        n'opère pas. WS_EX_LAYERED + LWA_ALPHA|LWA_COLORKEY — best effort."""
+        """Transparence RÉELLE via WebView2 (transparent=True) : le fond de la
+        page est alpha 0, donc PLUS de « carré » autour de la bulle sur aucune
+        machine — la clé de couleur ET la découpe par région ne fonctionnent PAS
+        avec la vue WebView2 (composée par DirectComposition, elle les ignore).
+        On ne gère donc plus ici que : (1) WS_EX_NOACTIVATE — la bulle ne prend
+        jamais le focus, sauf les réglages qui doivent recevoir le clavier ;
+        (2) l'opacité utilisateur, appliquée UNIFORMÉMENT et seulement si < 1
+        (à 1.0 on ne touche PAS au layering, la transparence WebView2 reste seule
+        maîtresse : aucune interférence, aucun trou cliquable)."""
         try:
             hwnd = self._get_hwnd()
             if not hwnd:
                 return
             u = ctypes.windll.user32
-            op = 1.0 if self._panel.startswith("settings") else \
-                float(core.CFG.get("dock_opacity", 1.0) or 1.0)
-            op = min(1.0, max(0.55, op))
-            GWL_EXSTYLE, LAYERED = -20, 0x00080000
-            LWA_COLORKEY, LWA_ALPHA = 0x1, 0x2
-            NOACT = 0x08000000
-            st = u.GetWindowLongW(hwnd, GWL_EXSTYLE) | LAYERED
-            # WS_EX_NOACTIVATE partout SAUF réglages : la bulle et ses menus ne
-            # prennent JAMAIS l'activation (la dictée colle dans la bonne app),
-            # mais les champs des réglages doivent pouvoir recevoir le clavier
-            if self._panel.startswith("settings"):
-                st &= ~NOACT
-                u.SetWindowLongW(hwnd, GWL_EXSTYLE, st)
-                # réglages : fenêtre rectangulaire pleinement opaque — la clé
-                # de couleur y est inutile ET indésirable (un pixel de contenu
-                # qui tomberait PILE sur la clé deviendrait un trou cliquable
-                # au travers ; impossible à garantir sur du contenu rendu)
-                u.SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA)
-            else:
-                st |= NOACT
-                u.SetWindowLongW(hwnd, GWL_EXSTYLE, st)
-                u.SetLayeredWindowAttributes(hwnd, self.KEY_COLORREF,
-                                             int(op * 255),
-                                             LWA_ALPHA | LWA_COLORKEY)
+            GWL_EXSTYLE, LAYERED, NOACT, LWA_ALPHA = -20, 0x00080000, 0x08000000, 0x2
+            settings = self._panel.startswith("settings")
+            st = u.GetWindowLongW(hwnd, GWL_EXSTYLE)
+            # NOACTIVATE partout SAUF réglages (leurs champs reçoivent le clavier)
+            st = (st & ~NOACT) if settings else (st | NOACT)
+            u.SetWindowLongW(hwnd, GWL_EXSTYLE, st)
+            op = float(core.CFG.get("dock_opacity", 1.0) or 1.0)
+            if not settings and op < 0.999:
+                # opacité utilisateur : alpha uniforme (les zones alpha 0 restent
+                # invisibles, la bulle devient plus translucide)
+                u.SetWindowLongW(hwnd, GWL_EXSTYLE, st | LAYERED)
+                u.SetLayeredWindowAttributes(hwnd, 0, int(max(0.55, op) * 255),
+                                             LWA_ALPHA)
         except Exception as e:
             core.log_err("dock_opacity", e)
 
@@ -1461,20 +1444,28 @@ class WebDock:
         vert, _, horiz = anchor.partition("-")
         x = {"left": 24, "right": sw - w - 24}.get(horiz, (sw - w) // 2)
         y = 24 if vert == "top" else sh - h - 56
-        # Fenêtre OPAQUE créée CACHÉE : le JS rapporte les formes visibles,
-        # apply_shape découpe la région native puis révèle la fenêtre. Si le
-        # JS ne répond pas (page cassée), on révèle quand même après 10 s —
-        # jamais d'app invisible.
+        # Fenêtre TRANSPARENTE (transparent=True) : WebView2 compose son fond en
+        # alpha 0 → aucun « carré/rectangle » autour de la bulle, sur TOUTES les
+        # machines. C'est la seule transparence qui marche avec WebView2 (sa vue
+        # DirectComposition ignore la clé de couleur et la découpe par région de
+        # la fenêtre hôte — les deux échouaient sur la machine de l'utilisateur).
+        # Créée
+        # CACHÉE pour éviter tout flash au démarrage ; apply_shape révèle à la
+        # 1re forme, sinon _reveal la montre après 15 s (jamais d'app invisible).
+        # background_color sombre = repli si un très vieux runtime ignorait
+        # l'alpha (au pire un rectangle sombre, comme avant — jamais pire).
         # focus=False : la bulle ne vole JAMAIS le focus clavier — la fenêtre
         # active reste celle de l'utilisateur (détection auto + collage fiables)
         self._win = webview.create_window(
             "NovaDock", DOCK_HTML, width=w, height=h, x=x, y=y,
             frameless=True, easy_drag=False, on_top=True, hidden=True,
-            focus=False, background_color=self.KEY, resizable=False,
-            js_api=DockApi(self))
-        # 10 s : après une mise à jour, le premier démarrage de WebView2 peut
-        # être lent — révéler trop tôt montrerait le rectangle nu.
-        threading.Timer(10.0, self._reveal).start()
+            focus=False, transparent=True, background_color=self.KEY,
+            resizable=False, js_api=DockApi(self))
+        # 15 s : après une mise à jour, le premier démarrage de WebView2 peut
+        # dépasser 10 s (démarrage à froid) — la fenêtre étant transparente, la
+        # montrer n'affiche RIEN tant que la page n'a pas peint (pas de rectangle
+        # nu) ; dès que la page peint, la bulle apparaît.
+        threading.Timer(15.0, self._reveal).start()
         threading.Thread(target=self._shape_watchdog, daemon=True).start()
         webview.start()
 
