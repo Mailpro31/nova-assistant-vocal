@@ -23,7 +23,7 @@ import winext
 # Version de l'app — source unique. Doit rester égale au MyAppVersion de
 # installer/nova.iss (test_v3 le vérifie) ; les releases GitHub sont taguées
 # « v » + cette valeur, et updater.py s'en sert pour détecter une mise à jour.
-APP_VERSION = "3.1.10"
+APP_VERSION = "3.1.11"
 
 APP_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
 
@@ -48,8 +48,8 @@ DEFAULT_CONFIG = {
     "dock_ui": "web",         # interface : "web" = dock/fenêtres du site (défaut),
                               # "pill" = pilule tkinter (repli sans WebView2)
     "mode_hotkeys": {},       # raccourci clavier par Style : {mode_id: "ctrl+alt+e"}
-    "menu_hotkey": "",
-    "settings_hotkey": "",    # combinaison qui ouvre la fenêtre Réglages        # raccourci qui ouvre le menu des Styles ("" = aucun)
+    "menu_hotkey": "",        # raccourci qui ouvre le menu des Styles ("" = aucun)
+    "settings_hotkey": "",    # combinaison qui ouvre la fenêtre Réglages
     "dock_position": "bottom-center",  # ancrage de la bulle : top/bottom × left/center/right
     "dock_scale": 1.0,        # taille de la bulle : 1.0 normale, 0.85 petite
     "dock_opacity": 1.0,      # opacité de la bulle (0.55 → 1.0)
@@ -249,9 +249,19 @@ def install_crash_logging():
 CFG = _merge(DEFAULT_CONFIG, _load("config.json", {}))
 
 
+# Dictionnaires REMPLACÉS tels quels à la sauvegarde (jamais fusionnés) : la
+# fusion récursive de _merge rend toute SUPPRESSION de clé impossible — un
+# raccourci de Style retiré réapparaissait à la sauvegarde suivante. Les deux
+# écrans envoient toujours le dictionnaire complet pour ces clés.
+_REPLACE_KEYS = ("mode_hotkeys",)
+
+
 def save_config(new_cfg):
     global CFG
     CFG = _merge(CFG, new_cfg)
+    for k in _REPLACE_KEYS:
+        if isinstance((new_cfg or {}).get(k), dict):
+            CFG[k] = dict(new_cfg[k])
     _save("config.json", CFG)
     return CFG
 
@@ -488,6 +498,11 @@ def _resolve_device():
             import ctranslate2
             if ctranslate2.get_cuda_device_count() > 0:
                 comp = _pick_gpu_compute(_gpu_vram_gb())
+                if comp is None and pref in ("cuda", "gpu"):
+                    # choix EXPLICITE de l'utilisateur : on tente quand même,
+                    # en format économe — le repli CPU du chargement
+                    # (_load_whisper) reste le filet si la carte ne tient pas
+                    comp = "int8_float16"
                 if comp:
                     _DEVICE.update(device="cuda", compute=comp)
                     return _DEVICE["device"], _DEVICE["compute"]
@@ -518,14 +533,21 @@ def _load_whisper(name):
                         cpu_threads=_cpu_threads())
 
 
+_RAM_TOTAL = {"gb": None}   # mémoïsé : la RAM totale ne change pas en session
+                            # et cette valeur est relue sur des chemins chauds
+
+
 def _ram_total_gb():
-    """RAM totale de la machine (Go), 8 si indéterminable — sert uniquement au
-    mode « auto » de keep_warm, une valeur prudente suffit."""
-    try:
-        import psutil
-        return psutil.virtual_memory().total / 1e9
-    except Exception:
-        return 8.0
+    """RAM totale de la machine (Go), 0 si indéterminable — les décisions
+    « auto » (keep_warm, relèvement qualité, keep_alive du LLM) deviennent
+    alors prudentes au lieu de supposer une machine confortable."""
+    if _RAM_TOTAL["gb"] is None:
+        try:
+            import psutil
+            _RAM_TOTAL["gb"] = psutil.virtual_memory().total / 1e9
+        except Exception:
+            _RAM_TOTAL["gb"] = 0.0
+    return _RAM_TOTAL["gb"]
 
 
 def _llm_keep_alive():
@@ -540,12 +562,19 @@ def _llm_keep_alive():
 def stt_keep_warm():
     """Garder le moteur STT en mémoire entre les dictées ? Sans ça, chaque
     dictée commençait par RECHARGER le modèle depuis le disque (2-4 s perdues
-    à chaque fois sur un PC sans GPU). « auto » : oui dès ~8 Go de RAM, sauf
-    pour le très grand modèle (Apex) qui reste séquentiel."""
+    à chaque fois sur un PC sans GPU). « auto » : oui si la RAM peut tenir le
+    modèle EN PLUS du LLM de reformulation — seuil proportionné au modèle
+    (standard ~0,7 Go dès ~8 Go ; grand moteur multilingue ~1,5 Go dès
+    ~12 Go). Jamais pour le très grand modèle (Apex), qui reste séquentiel :
+    l'invariant « jamais les deux gros modèles en RAM » prime."""
     pref = (CFG.get("stt") or {}).get("keep_warm", "auto")
     if pref is True or pref is False:
         return pref
-    return _ram_total_gb() >= 7.5 and CFG.get("whisper_model") != "large-v3"
+    model = CFG.get("whisper_model") or ""
+    if model == "large-v3":
+        return False
+    need = 12.0 if model == "large-v3-turbo" else 7.5
+    return _ram_total_gb() >= need
 
 
 def _stt_beam():
@@ -560,8 +589,12 @@ def _stt_beam():
 def effective_stt_model(profile_stt):
     """Modèle STT réellement chargé : celui du profil de puissance, RELEVÉ au
     grand moteur multilingue local (large-v3-turbo) si « qualité maximale »
-    est coché — sauf si le profil embarque déjà un modèle au moins aussi bon."""
-    if (CFG.get("stt") or {}).get("quality_max")             and profile_stt in ("tiny", "base", "small"):
+    est coché — sauf si le profil embarque déjà un modèle au moins aussi bon,
+    ou si la machine n'a pas la mémoire pour le tenir (~1,5 Go) : le garde-fou
+    RAM des profils ne doit pas être contournable par une simple case."""
+    if ((CFG.get("stt") or {}).get("quality_max")
+            and profile_stt in ("tiny", "base", "small")
+            and _ram_total_gb() >= 7.5):
         return "large-v3-turbo"
     return profile_stt
 
@@ -577,6 +610,20 @@ def sync_stt_model():
             set_stt_model(want)
     except Exception as e:
         log_err("stt_quality", e)
+
+
+def download_stt_model(name=None):
+    """Pré-télécharge le modèle STT dans le cache local SANS tenir _model_lock :
+    le téléchargement (~1,5 Go) peut durer des minutes et, sous le verrou, il
+    gelait la dictée ET les réglages pendant tout ce temps. get_model() n'a
+    ensuite qu'un chargement disque de quelques secondes à faire sous verrou.
+    Best-effort : hors ligne, le chargement échouera et son erreur est déjà
+    gérée par l'appelant."""
+    try:
+        from faster_whisper.utils import download_model
+        download_model(name or CFG["whisper_model"])
+    except Exception as e:
+        log_err("stt_download", e)
 
 
 def get_model():
@@ -737,6 +784,14 @@ def _mic_kw():
     return {}
 
 
+# Époque des reprises micro : incrémentée (sous frames_lock) quand
+# record_audio JETTE le tampon partagé après une perte du périphérique.
+# LiveTranscriber la surveille : sa détection « le tampon a rétréci »
+# (len < _done) peut rater la fenêtre si un commit de plusieurs secondes est
+# en vol pendant que le tampon se vide PUIS regrossit au-delà de _done.
+_MIC_EPOCH = {"n": 0}
+
+
 def record_audio(on_level=None, frames_out=None, frames_lock=None, cancel=None,
                  end_silence=None, min_voiced=0.0, stop=None):
     """Enregistre jusqu'au silence. on_level(rms) est appelé à chaque bloc (pour
@@ -801,7 +856,16 @@ def record_audio(on_level=None, frames_out=None, frames_lock=None, cancel=None,
         # défaut, seuil de bruit remis à zéro (recalibrage immédiat)
         log_err("record_audio", e)
         NOISE["floor"] = 0.0
-        frames.clear()
+        # vidage SOUS verrou (le fil du live lit ce tampon en parallèle) et
+        # époque incrémentée : la transcription en continu sait que son texte
+        # committé décrit de l'audio disparu, même si elle rate le passage à vide
+        if frames_lock:
+            with frames_lock:
+                frames.clear()
+                _MIC_EPOCH["n"] += 1
+        else:
+            frames.clear()
+            _MIC_EPOCH["n"] += 1
         started, silence_start, voiced, rms_sum = False, None, 0, 0.0
         t0 = time.time()
         try:
@@ -830,11 +894,19 @@ def transcribe(audio, prompt=None):
     utilisateur (stt_prompt) ; la transcription en continu passe le texte déjà
     committé — UNE seule invocation du modèle dans tout le dépôt."""
     prompt = prompt or stt_prompt() or None
-    with transcribe_lock:
+    # verrou BORNÉ : si une transcription de fond est figée (modèle
+    # pathologiquement lent, machine en swap), attendre sans limite gèlerait
+    # la dictée entière — le repli de LiveTranscriber.finish() bloquait sur ce
+    # même verrou. Au-delà, on lève : chaque appelant a déjà son chemin d'erreur.
+    if not transcribe_lock.acquire(timeout=120):
+        raise TimeoutError("transcription de fond figée")
+    try:
         segments, _info = get_model().transcribe(
             audio, language=_stt_language(), beam_size=_stt_beam(),
             vad_filter=True, initial_prompt=prompt)
         return " ".join(s.text for s in segments).strip()
+    finally:
+        transcribe_lock.release()
 
 
 def transcribe_quick(audio, prompt=None, beam=1):
@@ -1375,6 +1447,15 @@ def _reform_model(provider):
     return BEST_CLOUD_LLM.get(provider, cfg_model)
 
 
+def _ollama_warm_model():
+    """Le modèle Ollama que la prochaine reformulation chargera RÉELLEMENT —
+    résolution unique, partagée par _complete_one et warmup_engines. Sans
+    elle, le préchauffage lisait le modèle configuré brut et pouvait charger
+    un modèle différent de celui de la dictée : deux résidents pendant
+    30 minutes."""
+    return _reform_model("ollama") or ((ollama_models() or [""])[0])
+
+
 def _complete_one(provider, system, user, timeout):
     if provider == "anthropic":
         from anthropic import Anthropic
@@ -1386,7 +1467,7 @@ def _complete_one(provider, system, user, timeout):
         return next((b.text for b in msg.content if b.type == "text"), "").strip() or None
     import requests
     if provider == "ollama":
-        model = _reform_model("ollama") or ((ollama_models() or [""])[0])
+        model = _ollama_warm_model()
         if not model:
             return None
         r = requests.post(ollama_url() + "/api/chat", timeout=timeout, json={
@@ -1865,6 +1946,7 @@ class LiveTranscriber:
         self._on_partial = on_partial
         self._transcribe = transcribe     # les tests shadowent cet attribut
         self._done = 0                    # nb de blocs déjà committés
+        self._epoch = _MIC_EPOCH["n"]     # détecte une reprise micro (tampon jeté)
         self._parts = []
         self.broken = False
         self._stop = threading.Event()
@@ -1888,11 +1970,13 @@ class LiveTranscriber:
     def _pending(self):
         with self._lock:
             total = len(self._frames)
-            if total < self._done:
-                # le tampon a RÉTRÉCI : record_audio l'a vidé (reprise micro).
-                # Le texte committé décrit de l'audio disparu → on se marque
-                # cassé, l'appelant repassera par la transcription intégrale
-                # du nouvel enregistrement.
+            if total < self._done or self._epoch != _MIC_EPOCH["n"]:
+                # le tampon a été VIDÉ par record_audio (reprise micro) —
+                # l'époque le dit même quand un commit lent a raté la fenêtre
+                # où le tampon était encore plus court que _done. Le texte
+                # committé décrit de l'audio disparu → on se marque cassé,
+                # l'appelant repassera par la transcription intégrale du
+                # nouvel enregistrement.
                 self.broken = True
                 return [], total
             return self._frames[self._done:], total
@@ -1901,23 +1985,39 @@ class LiveTranscriber:
         pending, total = self._pending()
         if not pending:
             return
+        thr = effective_threshold()
         if not final:
             # assez de matière ET la voix s'est tue sur les derniers blocs —
             # sinon on couperait un mot en plein milieu
             if 0.1 * len(pending) < self.MIN_COMMIT_S + 0.1 * self.PAUSE_BLOCKS:
                 return
-            thr = effective_threshold()
             for b in pending[-self.PAUSE_BLOCKS:]:
                 if _rms(b) > thr:
                     return
+        if not any(_rms(b) > thr for b in pending):
+            # tranche SANS voix (touche tenue en réfléchissant) : rien à
+            # transcrire — on avance le curseur sans payer d'inférence toutes
+            # les ~3 s ni risquer l'écho-hallucination (amorcé par le texte
+            # committé, le moteur le répète volontiers sur du souffle, et ce
+            # faux texte serait re-committé puis re-amorcé en boule de neige)
+            self._done = total
+            return
         audio = np.concatenate(pending).flatten()
-        # le texte déjà committé sert d'amorce : ponctuation et contexte suivent
-        prompt = " ".join(self._parts)[-224:] or (stt_prompt() or None)
+        # amorce : le lexique utilisateur d'abord (noms propres, contacts,
+        # automations — il ne doit JAMAIS disparaître après la 1re tranche),
+        # puis le texte déjà committé (ponctuation et contexte). ~450
+        # caractères ≈ la moitié du plafond de 224 tokens : les deux tiennent.
+        lex = (stt_prompt() or "").strip()[:128]
+        ctx = " ".join(self._parts)[-320:]
+        prompt = (lex + " " + ctx).strip() or None
         txt = self._transcribe(audio, prompt)
         self._done = total
         if txt:
             self._parts.append(txt)
-            if self._on_partial:
+            # jamais d'aperçu APRÈS la fin (stop/finish posés) : la bulle est
+            # déjà passée à « Un instant… » ou à l'erreur — un aperçu tardif
+            # la renverrait à « écoute » alors que le micro est fermé
+            if self._on_partial and not final and not self._stop.is_set():
                 try:
                     self._on_partial(" ".join(self._parts))
                 except Exception:
@@ -1954,37 +2054,61 @@ class LiveTranscriber:
 def stt_live_enabled():
     """La transcription en continu est-elle pertinente ? Opt-out via réglages ;
     inutile sur GPU (déjà quasi instantané) et contre-productive avec Turbo
-    (un aller-retour réseau par tranche)."""
+    (un aller-retour réseau par tranche) — mais seulement si Turbo est
+    JOIGNABLE : hors ligne, transcribe_routed retombera en local, autant
+    garder le live. Appelée à l'APPUI de la touche, elle ne doit JAMAIS
+    bloquer : ni sonde réseau (drapeau mémorisé), ni résolution GPU (imports
+    + nvidia-smi peuvent prendre des secondes alors que le micro n'est pas
+    encore ouvert — les premiers mots seraient perdus)."""
     stt = CFG.get("stt") or {}
     if stt.get("live", True) is False:
         return False
     if stt.get("cloud_enabled") and _cloud_licensed():
-        return False
+        try:
+            import integrations
+            if integrations.is_online():
+                return False
+        except Exception:
+            return False
     try:
-        return not gpu_active()
+        if not _DEVICE["device"]:
+            # device pas encore résolu (tout début de session) : on suppose
+            # CPU → live actif. La résolution se fera dans le FIL du live,
+            # jamais sur le chemin de l'appui.
+            return True
+        return _DEVICE["device"] != "cuda"
     except Exception:
         return True
 
 
 def warmup_engines():
-    """Préchauffe ce que la PREMIÈRE dictée de la session utilisera : le
-    moteur de transcription (si « gardé en mémoire ») et le modèle de
-    reformulation local (chargé dans Ollama, même keep_alive que l'usage
-    réel). Appelé en arrière-plan au démarrage : la première dictée devient
-    aussi rapide que les suivantes. Best-effort, jamais bloquant."""
+    """Préchauffe ce que la PREMIÈRE dictée de la session utilisera : le choix
+    GPU/CPU (memoïsé — il ne doit jamais rester à faire à l'appui de touche),
+    le moteur de transcription (si « gardé en mémoire ») et le modèle de
+    reformulation local — le MÊME que la reformulation chargera réellement
+    (_ollama_warm_model), et seulement si le fournisseur résolu est bien le
+    moteur local : sinon on chargerait des giga-octets pour rien (fournisseur
+    cloud ou désactivé). Appelé en arrière-plan au démarrage : la première
+    dictée devient aussi rapide que les suivantes. Best-effort, jamais
+    bloquant."""
+    try:
+        _resolve_device()
+    except Exception as e:
+        log_err("warmup_device", e)
     try:
         if stt_keep_warm():
             get_model()
     except Exception as e:
         log_err("warmup_stt", e)
     try:
-        import requests
-        model = (CFG.get("providers") or {}).get("ollama", {}).get("model") or ""
-        if model:
-            # prompt vide = charge le modèle sans générer (contrat Ollama)
-            requests.post(ollama_url() + "/api/generate", timeout=180, json={
-                "model": model, "prompt": "",
-                "keep_alive": _llm_keep_alive()})
+        if resolve_provider() == "ollama":
+            import requests
+            model = _ollama_warm_model()
+            if model:
+                # prompt vide = charge le modèle sans générer (contrat Ollama)
+                requests.post(ollama_url() + "/api/generate", timeout=180, json={
+                    "model": model, "prompt": "",
+                    "keep_alive": _llm_keep_alive()})
     except Exception as e:
         log_err("warmup_llm", e)
 

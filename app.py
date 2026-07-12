@@ -739,6 +739,31 @@ class Pill(threading.Thread):
         tk.Button(kb, text="Appliquer", command=save_key, bg=SET_ACCENT,
                   fg=SET_WHITE, relief="flat", padx=10, pady=3).pack(side="left")
 
+        # langue de dictée (parité avec le paneLang du dock — règle CLAUDE.md :
+        # toute option existe dans les DEUX écrans ; le tray n'a plus de
+        # sous-menu Langue, cet écran de repli doit donc l'offrir)
+        lgf = tk.Frame(win, bg=SET_BG)
+        lgf.pack(fill="x", padx=16, pady=(0, 4))
+        tk.Label(lgf, text="Langue de dictée :", bg=SET_BG,
+                 fg=SET_FG).pack(side="left")
+        _langs = list(core.LANGUAGES)          # source unique (dock + tkinter)
+        _lang_by_label = {lbl: c for c, lbl in _langs}
+        cur_code = core.CFG.get("language", "fr")
+        lang_var = tk.StringVar(
+            value=next((lbl for c, lbl in _langs if c == cur_code),
+                       _langs[0][1]))
+        lang_menu = tk.OptionMenu(
+            lgf, lang_var, *[lbl for _c, lbl in _langs],
+            command=lambda lbl: _set_language(_lang_by_label.get(lbl, "fr")))
+        lang_menu.configure(bg=SET_INSET, fg=SET_FG, relief="flat", bd=0,
+                            activebackground=SET_INSET,
+                            activeforeground=SET_FG, highlightthickness=0)
+        try:
+            lang_menu["menu"].configure(bg=SET_INSET, fg=SET_FG)
+        except Exception:
+            pass
+        lang_menu.pack(side="left", padx=8)
+
         # raccourcis clavier : un par Style + ouverture du menu des Styles.
         # Pendant du groupe « Raccourcis clavier » du dock web (parité imposée
         # par CLAUDE.md) — champs texte simples, ex. « ctrl+alt+e », vide = off.
@@ -770,10 +795,18 @@ class Pill(threading.Thread):
 
         def save_hotkeys():
             vals = {m: e.get().strip().lower() for m, e in hk_entries.items()}
-            core.save_config({
-                "menu_hotkey": vals.pop("__menu__", ""),
-                "settings_hotkey": vals.pop("__settings__", ""),
-                "mode_hotkeys": {m: k for m, k in vals.items() if k}})
+            menu_k = vals.pop("__menu__", "")
+            sett_k = vals.pop("__settings__", "")
+            # dictionnaire COMPLET : save_config le remplace tel quel (c'est ce
+            # qui rend la suppression d'un raccourci possible — la fusion
+            # récursive, elle, ne supprime jamais). Les Styles hors palier,
+            # absents de cet écran, sont préservés tels quels.
+            hk = {m: k for m, k in (core.CFG.get("mode_hotkeys") or {}).items()
+                  if m not in vals}
+            hk.update({m: k for m, k in vals.items() if k})
+            core.save_config({"menu_hotkey": menu_k,
+                              "settings_hotkey": sett_k,
+                              "mode_hotkeys": hk})
             _rebind_style_hotkeys()
         tk.Button(hkf, text="Appliquer les raccourcis", command=save_hotkeys,
                   bg=SET_ACCENT, fg=SET_WHITE, relief="flat", padx=10,
@@ -794,17 +827,23 @@ class Pill(threading.Thread):
 
         def save_stt():
             # même logique que le dock (_apply_stt_opts) : fusion, synchro du
-            # modèle et pré-téléchargement — aucune dérive entre les écrans
-            _apply_stt_opts({"live": v_live.get(), "keep_warm": v_warm.get(),
-                             "precision_max": v_prec.get(),
-                             "quality_max": v_qual.get(),
-                             "instant_normal": v_inst.get()})
+            # modèle et pré-téléchargement — aucune dérive entre les écrans.
+            opts = {"live": v_live.get(), "precision_max": v_prec.get(),
+                    "quality_max": v_qual.get(),
+                    "instant_normal": v_inst.get()}
+            # keep_warm « auto » (résolu selon la RAM et le modèle) : épinglé
+            # en booléen SEULEMENT si cette case diffère de l'état résolu —
+            # sinon cocher n'importe quelle AUTRE case figeait l'automatisme
+            # pour toujours (aucun chemin UI ne sait revenir à « auto »)
+            if v_warm.get() != _stt_opts()["keep_warm_on"]:
+                opts["keep_warm"] = v_warm.get()
+            _apply_stt_opts(opts)
         sf = tk.Frame(win, bg=SET_BG)
         sf.pack(fill="x", padx=16, pady=4)
         for var, label in ((v_live, "Pendant la dictée (recommandé)"),
                            (v_warm, "Moteur gardé en mémoire (~0,7 Go de RAM)"),
                            (v_prec, "Précision maximale (3-5× plus lent sur CPU)"),
-                           (v_qual, "Qualité maximale (téléchargement ~1,5 Go)"),
+                           (v_qual, "Qualité maximale (~1,5 Go, dès ~8 Go de RAM)"),
                            (v_inst, "Collage éclair pour le Style Normal (sans IA)")):
             tk.Checkbutton(sf, text=label, variable=var, command=save_stt,
                            bg=SET_BG, fg=SET_FG, selectcolor=SET_INSET,
@@ -917,6 +956,8 @@ class WebDock:
         self._shown = False
         self._got_shape = False
         self._last_shape_n = 0     # n° de la dernière forme appliquée (dédup)
+        self._shape_lock = threading.Lock()   # poste js_api ‖ watchdog :
+                                              # jamais entrelacés (régression)
         self._push_ok = False      # un poste js_api est arrivé : pont prouvé
 
     # ---- API compatible Pill ----
@@ -1028,52 +1069,63 @@ class WebDock:
         zone cliquable fantôme. À la première forme, la fenêtre (créée cachée)
         est révélée — l'utilisateur ne voit jamais le rectangle nu."""
         try:
-            n = int(payload.get("n") or 0)
-            if n and n == self._last_shape_n:
-                return                      # déjà appliquée (poussée + relue)
-            hwnd = self._get_hwnd()
-            if not hwnd:
-                return
-            import ctypes.wintypes as wt
-            u, g = ctypes.windll.user32, ctypes.windll.gdi32
-            self._got_shape = True          # le JS est vivant : plus de secours
-            if n:
-                self._last_shape_n = n
-            shapes = payload.get("shapes") or []
-            if not shapes:
-                # rien à montrer : en mode « invisible au repos », la fenêtre
-                # disparaît complètement (SW_HIDE) — silencieuse, sans jamais
-                # rien ouvrir dans la barre des tâches
-                if core.CFG.get("dock_ghost"):
-                    u.ShowWindow(hwnd, 0)                     # SW_HIDE
-                return
-            rc = wt.RECT()
-            u.GetClientRect(hwnd, ctypes.byref(rc))
-            vw, vh = float(payload.get("vw") or 0), float(payload.get("vh") or 0)
-            if not (rc.right and rc.bottom and vw and vh):
-                return
-            sx, sy = rc.right / vw, rc.bottom / vh
-            region = None
-            for s in shapes:
-                x1, y1 = int(s["x"] * sx), int(s["y"] * sy)
-                x2 = int((s["x"] + s["w"]) * sx) + 1
-                y2 = int((s["y"] + s["h"]) * sy) + 1
-                r = int(min(float(s.get("r", 13)), s["w"] / 2, s["h"] / 2) * sx) * 2
-                rgn = g.CreateRoundRectRgn(x1, y1, x2, y2, r, r)
-                if region is None:
-                    region = rgn
-                else:
-                    g.CombineRgn(region, region, rgn, 2)      # RGN_OR
-                    g.DeleteObject(rgn)
-            if region is not None:
-                u.SetWindowRgn(hwnd, region, True)  # le système en devient proprio
-            # SW_SHOWNOACTIVATE : la bulle (ré)apparaît SANS prendre le focus —
-            # la fenêtre de l'utilisateur reste active pendant la dictée
-            u.ShowWindow(hwnd, 4)
-            self._shown = True
+            with self._shape_lock:
+                self._apply_shape_locked(payload)
         except Exception as e:
             core.log_err("dock_shape", e)
         self._reveal()
+
+    def _apply_shape_locked(self, payload):
+        n = int(payload.get("n") or 0)
+        # garde MONOTONE (pas une simple égalité) : le poste js_api et le
+        # watchdog arrivent par des fils différents — sans elle, une forme
+        # PÉRIMÉE lue avant un poste plus récent pouvait être appliquée
+        # après lui et faire régresser la région (retour du « carré »)
+        if n and n <= self._last_shape_n:
+            return
+        hwnd = self._get_hwnd()
+        if not hwnd:
+            return
+        import ctypes.wintypes as wt
+        u, g = ctypes.windll.user32, ctypes.windll.gdi32
+        self._got_shape = True          # le JS est vivant : plus de secours
+        shapes = payload.get("shapes") or []
+        if not shapes:
+            # rien à montrer : en mode « invisible au repos », la fenêtre
+            # disparaît complètement (SW_HIDE) — silencieuse, sans jamais
+            # rien ouvrir dans la barre des tâches
+            if n:
+                self._last_shape_n = n
+            if core.CFG.get("dock_ghost"):
+                u.ShowWindow(hwnd, 0)                     # SW_HIDE
+            return
+        rc = wt.RECT()
+        u.GetClientRect(hwnd, ctypes.byref(rc))
+        vw, vh = float(payload.get("vw") or 0), float(payload.get("vh") or 0)
+        if not (rc.right and rc.bottom and vw and vh):
+            return      # fenêtre pas encore mesurable : n n'est PAS consommé —
+                        # le watchdog ré-appliquera cette même forme plus tard
+        sx, sy = rc.right / vw, rc.bottom / vh
+        region = None
+        for s in shapes:
+            x1, y1 = int(s["x"] * sx), int(s["y"] * sy)
+            x2 = int((s["x"] + s["w"]) * sx) + 1
+            y2 = int((s["y"] + s["h"]) * sy) + 1
+            r = int(min(float(s.get("r", 13)), s["w"] / 2, s["h"] / 2) * sx) * 2
+            rgn = g.CreateRoundRectRgn(x1, y1, x2, y2, r, r)
+            if region is None:
+                region = rgn
+            else:
+                g.CombineRgn(region, region, rgn, 2)      # RGN_OR
+                g.DeleteObject(rgn)
+        if region is not None:
+            u.SetWindowRgn(hwnd, region, True)  # le système en devient proprio
+        # SW_SHOWNOACTIVATE : la bulle (ré)apparaît SANS prendre le focus —
+        # la fenêtre de l'utilisateur reste active pendant la dictée
+        u.ShowWindow(hwnd, 4)
+        if n:
+            self._last_shape_n = n      # consommé une fois RÉELLEMENT appliquée
+        self._shown = True
 
     def _reveal(self):
         """Secours : ne montre la fenêtre nue QUE si le JS n'a jamais rapporté
@@ -1166,7 +1218,7 @@ class WebDock:
                 continue
             try:
                 n = int(w.evaluate_js("(window.__novaShapes||{n:0}).n") or 0)
-                if not n or n == self._last_shape_n:
+                if not n or n <= self._last_shape_n:
                     continue
                 payload = json.loads(
                     w.evaluate_js("JSON.stringify(window.__novaShapes)"))
@@ -1206,34 +1258,48 @@ def _stt_opts():
             "instant_normal": bool(core.CFG.get("instant_normal"))}
 
 
+_stt_opts_lock = threading.Lock()   # deux bascules rapprochées (pont js_api =
+                                    # un fil par appel) : pas d'écrasement RMW
+
+
 def _apply_stt_opts(opts):
     """Options de latence (écriture) — logique UNIQUE pour les deux écrans :
     fusion, synchronisation du modèle, et pré-téléchargement du grand moteur
     en arrière-plan quand « qualité maximale » vient d'être activée (pour que
     la prochaine dictée n'attende pas ~1,5 Go)."""
     opts = opts or {}
-    stt = dict(core.CFG.get("stt") or {})
-    was_max = bool(stt.get("quality_max"))
-    for k in ("live", "keep_warm", "precision_max", "quality_max"):
-        if k in opts:
-            stt[k] = bool(opts[k])
-    patch = {"stt": stt}
-    if "instant_normal" in opts:      # option de reformulation, hors bloc stt
-        patch["instant_normal"] = bool(opts["instant_normal"])
-    core.save_config(patch)
+    with _stt_opts_lock:
+        stt = dict(core.CFG.get("stt") or {})
+        was_max = bool(stt.get("quality_max"))
+        for k in ("live", "keep_warm", "precision_max", "quality_max"):
+            if k in opts:
+                stt[k] = bool(opts[k])
+        patch = {"stt": stt}
+        if "instant_normal" in opts:  # option de reformulation, hors bloc stt
+            patch["instant_normal"] = bool(opts["instant_normal"])
+        core.save_config(patch)
     if bool(stt.get("quality_max")) != was_max:
-        core.sync_stt_model()
-        if stt.get("quality_max"):
-            threading.Thread(target=_preload_stt, daemon=True).start()
+        # JAMAIS sur le fil d'appel (pont js_api ou fenêtre tkinter) : la
+        # synchro et le déchargement attendent le verrou du modèle, qu'un
+        # chargement en cours peut tenir longtemps — l'interrupteur doit
+        # répondre tout de suite, le travail lourd part en arrière-plan
+        def _sync():
+            core.sync_stt_model()
+            if stt.get("quality_max"):
+                _preload_stt()
+        threading.Thread(target=_sync, daemon=True).start()
     return _stt_opts()
 
 
 def _preload_stt():
     """Télécharge/charge le moteur choisi tout de suite (feedback bulle),
-    plutôt que de faire attendre la première dictée. Best-effort."""
+    plutôt que de faire attendre la première dictée. Best-effort. Le
+    téléchargement se fait HORS verrou modèle (il peut durer des minutes) :
+    dictée et réglages restent réactifs pendant ce temps."""
     try:
         pill.show("thinking", "Préparation du moteur amélioré…",
                   "téléchargement unique — environ 1,5 Go")
+        core.download_stt_model()
         core.get_model()
         pill.show("ok", "Moteur amélioré prêt")
         pill.hide(2.0)
@@ -1573,8 +1639,13 @@ def _ptt_session():
             except Exception as e:
                 core.log_err("stt_live", e)
                 live, rec_kw = None, {}
-        audio = core.record_audio(on_level=pill.level, stop=_ptt_stop,
-                                  end_silence=999, **rec_kw)
+        try:
+            audio = core.record_audio(on_level=pill.level, stop=_ptt_stop,
+                                      end_silence=999, **rec_kw)
+        except Exception:
+            if live:
+                live.stop()   # sinon le fil de fond scruterait le tampon
+            raise             # pour toujours (fuite d'un thread par échec)
         t_release = time.time()
         if audio is None:
             if live:
@@ -1722,6 +1793,12 @@ def _rebind_style_hotkeys():
     for mode_id, key in (core.CFG.get("mode_hotkeys") or {}).items():
         key = str(key or "").strip().lower()
         if not key:
+            continue
+        if not licensing.mode_allowed(mode_id):
+            # Style au-dessus du palier (résiliation, resserrement d'offre) :
+            # raccourci laissé INERTE plutôt que de déclencher pour toujours
+            # la bulle « Style réservé » — re-lié dès le prochain rebind
+            # après activation d'une licence
             continue
         try:
             _style_hotkeys.append(keyboard.add_hotkey(
@@ -1897,8 +1974,15 @@ def _auto_update_check():
 def _warmup_engines():
     """Au lancement : précharge les moteurs en arrière-plan (10 s de délai —
     priorité au démarrage de l'interface et à la vérification de mise à jour).
-    La PREMIÈRE dictée de la session devient aussi rapide que les suivantes."""
+    Le choix GPU/CPU, lui, se résout TOUT DE SUITE (quelques secondes, zéro
+    RAM) : il ne doit jamais rester à faire au premier appui de touche, où il
+    retarderait l'ouverture du micro. La PREMIÈRE dictée de la session
+    devient aussi rapide que les suivantes."""
     def work():
+        try:
+            core.gpu_active()          # résolution memoïsée du device
+        except Exception:
+            pass
         time.sleep(10)
         core.warmup_engines()
     threading.Thread(target=work, daemon=True).start()
