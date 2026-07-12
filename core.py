@@ -23,7 +23,7 @@ import winext
 # Version de l'app — source unique. Doit rester égale au MyAppVersion de
 # installer/nova.iss (test_v3 le vérifie) ; les releases GitHub sont taguées
 # « v » + cette valeur, et updater.py s'en sert pour détecter une mise à jour.
-APP_VERSION = "3.1.15"
+APP_VERSION = "3.1.16"
 
 APP_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
 
@@ -1971,9 +1971,12 @@ class LiveTranscriber:
         self._done = 0                    # nb de blocs déjà committés
         self._epoch = _MIC_EPOCH["n"]     # détecte une reprise micro (tampon jeté)
         # lexique figé UNE fois pour la session (noms propres, contacts,
-        # automations) : invariant pendant la dictée → inutile de relire
-        # commands.json + la base profil à chaque tranche (~3 s) sous verrou
-        self._lex = (stt_prompt() or "").strip()[:128]
+        # automations), invariant pendant la dictée. Calculé PARESSEUSEMENT au
+        # 1er commit (fil de fond), JAMAIS dans __init__ : ce constructeur tourne
+        # sur le fil d'appui de la touche, AVANT l'ouverture du micro — y lire le
+        # profil + commands.json + la base contacts retarderait les tout premiers
+        # phonèmes (même discipline que stt_live_enabled, non bloquant à l'appui).
+        self._lex = None
         self._parts = []
         self.broken = False
         self._stop = threading.Event()
@@ -2040,6 +2043,8 @@ class LiveTranscriber:
         # JAMAIS disparaître après la 1re tranche), puis le texte déjà committé
         # (ponctuation et contexte). Whisper conserve la QUEUE de l'amorce : le
         # lexique en tête + le contexte récent en fin tiennent dans les 224 tk.
+        if self._lex is None:              # lu UNE fois, ici (fil de fond)
+            self._lex = (stt_prompt() or "").strip()[:128]
         ctx = " ".join(self._parts)[-320:]
         prompt = (self._lex + " " + ctx).strip() or None
         txt = self._transcribe(audio, prompt)
