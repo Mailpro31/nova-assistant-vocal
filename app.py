@@ -1149,6 +1149,19 @@ class WebDock:
             except Exception:
                 hwnd = 0
         if hwnd:
+            # native.Handle peut être la VUE WebView2 (fenêtre ENFANT hébergée
+            # en mode fenêtré), pas la Form frameless de plus haut niveau :
+            # SetWindowRgn sur l'enfant découpe le contenu mais laisse la
+            # fenêtre-hôte en rectangle opaque à fond BLANC tout autour — le
+            # « carré blanc ». On remonte à la racine top-level (GA_ROOT) ;
+            # no-op strict si hwnd est déjà le sommet (repli FindWindowW, ou
+            # versions pywebview où Handle est déjà la Form).
+            try:
+                root = ctypes.windll.user32.GetAncestor(hwnd, 2)  # GA_ROOT
+                if root:
+                    hwnd = int(root)
+            except Exception:
+                pass
             self._hwnd = hwnd
             try:  # tray uniquement : ni barre des tâches, ni Alt-Tab
                 u = ctypes.windll.user32
