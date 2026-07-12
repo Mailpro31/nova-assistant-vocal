@@ -853,7 +853,7 @@ class Pill(threading.Thread):
         for var, label, dis in (
                 (v_live, "Pendant la dictée (recommandé)", False),
                 (v_warm, "Moteur gardé en mémoire (~0,7 Go de RAM)", False),
-                (v_prec, "Précision maximale (3-5× plus lent sur CPU)", False),
+                (v_prec, "Précision maximale (3-5× plus lent sur processeur)", False),
                 (v_qual, "Qualité maximale (~1,5 Go, nécessite ~12 Go de RAM)",
                  not q_ok),
                 (v_inst, "Collage éclair pour le Style Normal (sans IA)", False)):
@@ -1779,6 +1779,12 @@ def _ptt_session():
         pill.show("error", "Erreur — réessaie")
         pill.hide(2.0)
     finally:
+        if live:
+            live.stop()   # backstop : coupe le fil de fond quel que soit le chemin
+                          # de sortie. Une exception entre record_audio et finish()
+                          # (p.ex. pill.show pendant un teardown du dock) laissait
+                          # sinon un daemon orphelin scruter le tampon à vie.
+                          # stop() = Event.set(), idempotent après finish().
         _ptt_active.clear()
 
 
@@ -1966,8 +1972,6 @@ def _app_display_name():
     """Nom affiché : personnalisé si palier Ultra + nom défini, sinon « Nova »."""
     name = (core.CFG.get("custom_name") or "").strip()
     return name if (name and licensing.has("custom_naming")) else "Nova"
-
-
 
 
 def _check_update(manual=True):

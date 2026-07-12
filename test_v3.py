@@ -796,6 +796,37 @@ def test_hotkey_removal():
         core.CFG = real_cfg          # _save est neutralisé en tête de fichier
 
 
+def test_save_config_atomic():
+    """save_config fait une lecture-modification-écriture du global CFG. Sans
+    verrou tenu sur TOUTE l'opération (et pas seulement l'écriture disque), deux
+    sauvegardes simultanées s'écrasent — lost update : la bascule « Qualité
+    maximale » et le fil de synchro du modèle qu'elle lance pouvaient laisser
+    quality_max=True avec whisper_model=\"small\". _lock est ré-entrant et tenu
+    sur la RMW entière. On martèle save_config depuis N fils au départ simultané
+    et on vérifie qu'AUCUNE écriture n'est perdue."""
+    import threading as _th
+    print("Config — save_config atomique sous fils concurrents")
+    real_cfg = core.CFG
+    try:
+        core.CFG = dict(real_cfg)
+        n = 40
+        gate = _th.Barrier(n)
+
+        def writer(i):
+            gate.wait()                  # départ simultané → maximise la course
+            core.save_config({f"_atomic_{i}": i})
+
+        ths = [_th.Thread(target=writer, args=(i,)) for i in range(n)]
+        for t in ths:
+            t.start()
+        for t in ths:
+            t.join()
+        survived = sum(1 for i in range(n) if core.CFG.get(f"_atomic_{i}") == i)
+        check("40 écritures concurrentes survivent (0 lost update)", survived, n)
+    finally:
+        core.CFG = real_cfg          # _save est neutralisé en tête de fichier
+
+
 def test_web_dock_default():
     """L'interface web (dock.html) est l'UI par défaut pour TOUS : décision
     produit — la pilule tkinter n'est que le repli WebView2-absent. Une
@@ -822,6 +853,7 @@ if __name__ == "__main__":
     test_free_offer_sync()
     test_stt_latency()
     test_hotkey_removal()
+    test_save_config_atomic()
     test_web_dock_default()
     print()
     if _fails:

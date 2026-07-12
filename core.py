@@ -23,7 +23,7 @@ import winext
 # Version de l'app — source unique. Doit rester égale au MyAppVersion de
 # installer/nova.iss (test_v3 le vérifie) ; les releases GitHub sont taguées
 # « v » + cette valeur, et updater.py s'en sert pour détecter une mise à jour.
-APP_VERSION = "3.1.16"
+APP_VERSION = "3.1.17"
 
 APP_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
 
@@ -154,7 +154,10 @@ LANGUAGES = [
     ("hi", "हिन्दी"), ("zh", "中文"), ("ja", "日本語"), ("ko", "한국어"),
 ]
 
-_lock = threading.Lock()
+_lock = threading.RLock()   # ré-entrant : save_config le tient sur toute la
+#                             lecture-modification-écriture de CFG PUIS appelle
+#                             _save (qui le reprend) — RMW atomique sans
+#                             auto-blocage, et _save reste neutralisable en test.
 
 
 # ------------------------------------------------------------------ util ----
@@ -257,12 +260,22 @@ _REPLACE_KEYS = ("mode_hotkeys",)
 
 
 def save_config(new_cfg):
+    # Lecture-modification-écriture ATOMIQUE du global CFG, tenue sous _lock (le
+    # même verrou que l'écriture fichier) : deux fils qui sauvegardent en même
+    # temps — p.ex. la bascule « Qualité maximale » et le fil de synchro du modèle
+    # qu'elle déclenche — ne peuvent plus s'écraser mutuellement. Sans ça, le
+    # lost-update laissait un config incohérent (quality_max=True mais
+    # whisper_model="small"). Écriture en place plutôt qu'appel à _save : _lock
+    # n'est pas ré-entrant.
     global CFG
-    CFG = _merge(CFG, new_cfg)
-    for k in _REPLACE_KEYS:
-        if isinstance((new_cfg or {}).get(k), dict):
-            CFG[k] = dict(new_cfg[k])
-    _save("config.json", CFG)
+    with _lock:
+        merged = _merge(CFG, new_cfg)
+        for k in _REPLACE_KEYS:
+            if isinstance((new_cfg or {}).get(k), dict):
+                merged[k] = dict(new_cfg[k])
+        CFG = merged
+        _save("config.json", CFG)    # _lock est ré-entrant → _save le reprend ;
+        #                              reste neutralisable par les tests
     return CFG
 
 
@@ -522,15 +535,30 @@ def _load_whisper(name):
     """Charge un WhisperModel sur le device résolu, avec repli CPU DÉFINITIF si
     le GPU refuse (cuDNN absent, VRAM pleine…) — pour que Nova démarre toujours."""
     from faster_whisper import WhisperModel
+
+    def _mk(**kw):
+        # local_files_only=True évite la requête réseau (HEAD vers le Hub) que
+        # WhisperModel lance à CHAQUE construction (démarrage + chaque changement
+        # de modèle : profil, bascule qualité) : ~quelques centaines de ms sur bon
+        # réseau, PLUSIEURS secondes sur réseau d'entreprise/instable, et plus
+        # d'attente hors ligne. Le modèle est déjà en cache (pré-téléchargé par
+        # download_stt_model). Repli SANS le drapeau si le cache manque encore
+        # (1er lancement sans pré-téléchargement) → le téléchargement se fait alors,
+        # exactement comme avant. Mêmes octets de poids chargés → texte identique :
+        # gain de latence sans coût qualité.
+        try:
+            return WhisperModel(name, local_files_only=True, **kw)
+        except Exception:
+            return WhisperModel(name, **kw)
+
     dev, comp = _resolve_device()
     if dev == "cuda":
         try:
-            return WhisperModel(name, device="cuda", compute_type=comp)
+            return _mk(device="cuda", compute_type=comp)
         except Exception as e:
             log_err("gpu_load", e)
             _DEVICE.update(device="cpu", compute="int8")   # bascule CPU pour de bon
-    return WhisperModel(name, device="cpu", compute_type="int8",
-                        cpu_threads=_cpu_threads())
+    return _mk(device="cpu", compute_type="int8", cpu_threads=_cpu_threads())
 
 
 _RAM_TOTAL = {"gb": None}   # mémoïsé : la RAM totale ne change pas en session
