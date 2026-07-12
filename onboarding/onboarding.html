@@ -155,7 +155,7 @@
       <h1 class="sm">Choisis ta touche</h1>
       <p class="sub">Maintenue, elle m'active. Relâchée, je transcris, reformule et colle.</p>
       <div class="glass"><div class="keys" id="keys"></div>
-        <div id="capkey">ou <input id="capInput" placeholder="clique et appuie sur une touche" readonly></div>
+        <div id="capkey">ou <input id="capInput" placeholder="clique, puis touche ou combinaison" readonly></div>
       </div>
       <div class="btnrow"><button class="btn ghost" onclick="prev()">Précédent</button>
         <button class="btn pri" onclick="next()">Suivant</button></div>
@@ -227,8 +227,28 @@ function keys(){const box=document.getElementById('keys');box.innerHTML='';
   QK.forEach(([v,l])=>{const b=document.createElement('button');
     b.className='key'+(S.ptt_key===v?' sel':'');b.textContent=l;b.onclick=()=>pick(v);box.appendChild(b);});}
 function pick(v){S.ptt_key=v;keys();api('set_ptt_key',v);}
+// même capture que les Réglages : les modificateurs TENUS se préfixent à la
+// touche pressée (Ctrl maintenu + Espace → « ctrl+space ») — les combinaisons
+// marchent donc dès le premier écran, pas seulement dans les Réglages
 document.getElementById('capInput').addEventListener('keydown',e=>{e.preventDefault();
-  const k=(e.key||'').toLowerCase();if(k){e.target.value=k;pick(k);}});
+  const raw=e.key||'';if(raw==='Tab'||raw==='Escape')return;
+  const MAP={'arrowleft':'left','arrowright':'right','arrowup':'up','arrowdown':'down',
+    ' ':'space','spacebar':'space','control':'ctrl','pageup':'page up','pagedown':'page down',
+    'meta':'windows','os':'windows','contextmenu':'menu'};
+  let k=raw.toLowerCase();k=MAP[k]||k;
+  const OK=['left','right','up','down','space','ctrl','alt','shift','enter','home',
+    'end','delete','insert','page up','page down','windows','menu','backspace'];
+  if(k.length===1||/^f\d{1,2}$/.test(k)||OK.indexOf(k)>=0){
+    const MODS=['ctrl','alt','shift','windows'];
+    if(MODS.indexOf(k)<0){
+      const held=[];
+      if(e.ctrlKey)held.push('ctrl');
+      if(e.altKey)held.push('alt');
+      if(e.shiftKey)held.push('shift');
+      if(e.metaKey)held.push('windows');
+      if(held.length)k=held.join('+')+'+'+k;
+    }
+    e.target.value=k;pick(k);}});
 
 const LOCK='<svg class="icn" viewBox="0 0 24 24" style="width:13px;height:13px"><rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
 function profiles(){const box=document.getElementById('profiles');box.innerHTML='';
