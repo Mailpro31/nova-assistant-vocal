@@ -610,7 +610,8 @@ def test_stt_latency():
         return f"seg{len(calls)}"
 
     frames, lock = [], _th.Lock()
-    lt = core.LiveTranscriber(frames, lock, start=False, _transcribe=fake_tx)
+    lt = core.LiveTranscriber(frames, lock)   # .start() jamais appelé : pas de
+    lt._transcribe = fake_tx                  # thread, logique de découpe pure
     core.NOISE["floor"] = 0.01                 # seuil de voix réaliste
     quiet = _np.zeros(1600, dtype=_np.float32)             # bloc silencieux
     loud = _np.ones(1600, dtype=_np.float32) * 0.5         # bloc de voix
@@ -629,10 +630,18 @@ def test_stt_latency():
     check("live : la traîne reçoit l'amorce du committé",
           calls[1][1], "seg1")
     # fil cassé → None (l'appelant repart sur la transcription intégrale)
-    lt2 = core.LiveTranscriber([], _th.Lock(), start=False,
-                               _transcribe=fake_tx)
+    lt2 = core.LiveTranscriber([], _th.Lock())
+    lt2._transcribe = fake_tx
     lt2.broken = True
     check("live : cassé → None (repli intégral)", lt2.finish(), None)
+    # tampon RÉTRÉCI (record_audio l'a vidé sur reprise micro) : le texte
+    # committé décrit de l'audio disparu → cassé, repli intégral
+    f3 = [quiet] * 40
+    lt3 = core.LiveTranscriber(f3, _th.Lock())
+    lt3._transcribe = fake_tx
+    lt3._commit(final=False)                  # committe le tampon initial
+    del f3[:]                                 # reprise micro : tampon vidé
+    check("live : tampon vidé → cassé, repli intégral", lt3.finish(), None)
 
     # --- keep_warm : explicite > auto ---
     old_stt = dict(core.CFG.get("stt") or {})

@@ -655,7 +655,6 @@ function paneLang(p){
    +G('Raccourcis vocaux',add+vars,'« Quand je dis X, colle Y » — 100 % privé, jamais envoyé à une IA.')
    +G('Vitesse de transcription',sttRows(),
       'Sur un PC 8 Go sans carte graphique : « pendant la dictée » fait passer l\'attente d\'environ 10 s à 2-3 s, sans rien changer à la qualité ; « moteur gardé en mémoire » économise 2 à 4 s par dictée mais occupe ~0,7 Go de RAM en continu ; « précision maximale » ralentit 3 à 5 fois chaque transcription ; « qualité maximale » télécharge une fois ~1,5 Go, occupe ~1,5 Go de RAM et ajoute quelques secondes par phrase — pour les dictées où chaque mot compte.');
-  const stO=S.stt_opts||{};
   const bindSw=(id,key)=>{const el=document.getElementById(id);if(!el)return;
     el.onclick=()=>{const want=!el.classList.contains('on');
       api('set_stt_opts',{[key]:want}).then(o=>{if(o){S.stt_opts=o;buildPane();}});};};

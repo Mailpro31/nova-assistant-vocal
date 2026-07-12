@@ -608,6 +608,12 @@ def update_noise(rms):
         NOISE["floor"] = min(f * 1.01 + 1e-5, rms)
 
 
+def _rms(block):
+    """Niveau RMS d'un bloc audio — partagé par l'enregistreur et la
+    transcription en continu (même définition de « voix »)."""
+    return float(np.sqrt(np.mean(block ** 2)))
+
+
 def effective_threshold():
     f = NOISE["floor"]
     if f <= 0:
@@ -706,7 +712,7 @@ def record_audio(on_level=None, frames_out=None, frames_lock=None, cancel=None,
                         frames.append(block.copy())
                 else:
                     frames.append(block.copy())
-                rms = float(np.sqrt(np.mean(block ** 2)))
+                rms = _rms(block)
                 if on_level:
                     on_level(rms)
                 now = time.time()
@@ -758,8 +764,11 @@ def _stt_language():
     return None if lang in ("auto", "", None) else lang
 
 
-def transcribe(audio):
-    prompt = stt_prompt() or None
+def transcribe(audio, prompt=None):
+    """Transcription locale complète. `prompt` (amorce) : par défaut le lexique
+    utilisateur (stt_prompt) ; la transcription en continu passe le texte déjà
+    committé — UNE seule invocation du modèle dans tout le dépôt."""
+    prompt = prompt or stt_prompt() or None
     with transcribe_lock:
         segments, _info = get_model().transcribe(
             audio, language=_stt_language(), beam_size=_stt_beam(),
@@ -1788,19 +1797,21 @@ class LiveTranscriber:
     MIN_COMMIT_S = 2.4       # tranche mini avant commit (évite les miettes)
     PAUSE_BLOCKS = 5         # ~0,5 s sous le seuil de voix = fin de tranche
 
-    def __init__(self, frames, lock, on_partial=None, start=True,
-                 _transcribe=None):
+    def __init__(self, frames, lock, on_partial=None):
         self._frames, self._lock = frames, lock
         self._on_partial = on_partial
-        self._transcribe = _transcribe or self._transcribe_local
+        self._transcribe = transcribe     # les tests shadowent cet attribut
         self._done = 0                    # nb de blocs déjà committés
         self._parts = []
         self.broken = False
         self._stop = threading.Event()
         self._th = None
-        if start:
-            self._th = threading.Thread(target=self._loop, daemon=True)
-            self._th.start()
+
+    def start(self):
+        """Démarre la boucle de fond (séparé du constructeur : les tests
+        exercent la logique de découpe sans thread)."""
+        self._th = threading.Thread(target=self._loop, daemon=True)
+        self._th.start()
 
     # --- boucle de fond -----------------------------------------------------
     def _loop(self):
@@ -1813,7 +1824,15 @@ class LiveTranscriber:
 
     def _pending(self):
         with self._lock:
-            return self._frames[self._done:], len(self._frames)
+            total = len(self._frames)
+            if total < self._done:
+                # le tampon a RÉTRÉCI : record_audio l'a vidé (reprise micro).
+                # Le texte committé décrit de l'audio disparu → on se marque
+                # cassé, l'appelant repassera par la transcription intégrale
+                # du nouvel enregistrement.
+                self.broken = True
+                return [], total
+            return self._frames[self._done:], total
 
     def _commit(self, final):
         pending, total = self._pending()
@@ -1826,7 +1845,7 @@ class LiveTranscriber:
                 return
             thr = effective_threshold()
             for b in pending[-self.PAUSE_BLOCKS:]:
-                if float(np.sqrt(np.mean(b ** 2))) > thr:
+                if _rms(b) > thr:
                     return
         audio = np.concatenate(pending).flatten()
         # le texte déjà committé sert d'amorce : ponctuation et contexte suivent
@@ -1841,30 +1860,32 @@ class LiveTranscriber:
                 except Exception:
                     pass
 
-    def _transcribe_local(self, audio, prompt):
-        with transcribe_lock:
-            segments, _info = get_model().transcribe(
-                audio, language=_stt_language(), beam_size=_stt_beam(),
-                vad_filter=True, initial_prompt=prompt)
-            return " ".join(s.text for s in segments).strip()
-
     # --- fin de dictée ------------------------------------------------------
+    def stop(self):
+        """Arrêt SANS transcription finale (rien entendu, annulation) : la
+        traîne serait jetée, inutile de payer une inférence pour elle."""
+        self._stop.set()
+
     def finish(self):
         """→ texte complet (tranches committées + traîne), ou None si le fil a
-        cassé — l'appelant retombe alors sur la transcription classique."""
-        self._stop.set()
-        if self._th is not None:
-            self._th.join(timeout=30)
-            if self._th.is_alive():        # transcription de fond figée
-                return None
-        if self.broken:
-            return None
+        cassé — l'appelant retombe alors sur la transcription classique.
+        Ne lève JAMAIS : c'est son contrat, l'appelant n'a qu'un seul chemin
+        d'erreur (le repli intégral)."""
         try:
+            self._stop.set()
+            if self._th is not None:
+                self._th.join(timeout=30)
+                if self._th.is_alive():    # transcription de fond figée
+                    return None
+            if self.broken:
+                return None
             self._commit(final=True)
+            if self.broken:                # rétrécissement vu par le commit
+                return None
+            return " ".join(self._parts).strip()
         except Exception as e:
             log_err("stt_live", e)
             return None
-        return " ".join(self._parts).strip()
 
 
 def stt_live_enabled():
