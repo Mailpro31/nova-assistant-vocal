@@ -208,7 +208,13 @@
 
 <script>
 // ---- pont API (tolère l'absence de pywebview dans un aperçu) ----
-function api(m){ try{ return window.pywebview.api[m].apply(null,[].slice.call(arguments,1)); }
+// Même contrat que le dock : résout TOUJOURS (null en cas d'échec, de rejet
+// OU de pont muet — plafond 10 s) ; sans le .catch, un rejet Python laissait
+// init() suspendu pour toujours et l'assistant vide.
+function api(m){ try{ return Promise.race([
+    Promise.resolve(window.pywebview.api[m].apply(null,[].slice.call(arguments,1)))
+      .catch(function(){return null;}),
+    new Promise(function(res){setTimeout(function(){res(null);},10000);})]); }
   catch(e){ return Promise.resolve(null); } }
 
 let STEP=0, S=null;
@@ -266,9 +272,11 @@ function langs(){const sel=document.getElementById('lang');sel.innerHTML='';
   S.languages.forEach(l=>{const o=document.createElement('option');o.value=l.code;o.textContent=l.label;
     if(l.code===S.language)o.selected=true;sel.appendChild(o);});}
 function chooseCloud(on){
-  if(on&&S.turbo_allowed===false)return;     // Turbo verrouillé : carte inerte
+  // FAIL-CLOSED : tant que l'état réel n'a pas dit turbo_allowed===true, la
+  // carte Turbo est inerte (undefined = verrouillé, pas déverrouillé)
+  if(on&&S.turbo_allowed!==true)return;
   Promise.resolve(api('set_cloud',on)).then(ok=>{
-    const en=on&&ok!==false;                 // le Python reste l'autorité
+    const en=on&&ok===true;                  // null (pont muet) ≠ succès
     document.getElementById('optLocal').classList.toggle('sel',!en);
     document.getElementById('optCloud').classList.toggle('sel',en);});}
 
@@ -359,39 +367,55 @@ function mountOrb(cv){const gl=cv.getContext('webgl',{alpha:true,antialias:true,
    gl.drawArrays(gl.TRIANGLES,0,3);requestAnimationFrame(f);})(t0);
 }
 
-let _inited=false;
+// _inited n'est posé QUE quand l'état RÉEL (pont présent) a peuplé l'UI : un
+// init de repli sans pont ne verrouille rien — l'injection tardive du pont
+// (tout premier démarrage de WebView2, parfois >8 s) RE-lance init() et
+// resynchronise tout (langues, profils, verrou Turbo). Avant : le repli
+// posait _inited pour toujours → menu des langues VIDE + Turbo dégrisé.
+let _inited=false,_booted=false;
 function init(){
-  if(_inited)return; _inited=true;        // pywebviewready + fallback : une seule fois
-  try{mountParticles(document.getElementById('particles'));}catch(e){}  // un canvas absent n'empêche pas le wizard
+  if(_inited)return;
+  const bridged=!!(window.pywebview&&window.pywebview.api);
+  if(bridged)_inited=true;
+  if(!_booted){_booted=true;              // décor monté une seule fois
+    try{mountParticles(document.getElementById('particles'));}catch(e){}
+    try{mountOrb(document.getElementById('orb0'));mountOrb(document.getElementById('orb5'));}catch(e){}
+    show(0);}
   Promise.resolve(api('state')).then(st=>{
-    S=st||{modes:[],profiles:[],languages:[],ptt_key:'f9',language:'fr',cloud_enabled:false,video_url:''};
+    // repli FAIL-CLOSED : sans état réel, Turbo est VERROUILLÉ (jamais
+    // dégrisé par défaut) — la vraie valeur arrive avec le pont
+    S=st||{modes:[],profiles:[],languages:[],ptt_key:'f9',language:'fr',
+           cloud_enabled:false,turbo_allowed:false,video_url:''};
     S.psel=null;
     const v=document.getElementById('video');
     if(S.video_url){document.body.classList.remove('no-video');v.src=S.video_url;}
     else{document.getElementById('sound').style.display='none';document.getElementById('playHint').style.display='none';}
     keys();profiles();langs();
-    // sans droit Ultra, Turbo n'est pas un choix : carte grisée + badge, et
-    // l'Intelligence privée est sélectionnée d'office
-    if(S.turbo_allowed===false){
-      const oc=document.getElementById('optCloud');
+    // re-render idempotent : on repart d'une carte Turbo propre à chaque passe
+    const oc=document.getElementById('optCloud');
+    oc.classList.remove('lock');
+    const ub=oc.querySelector('.ultrab');if(ub)ub.remove();
+    // sans droit Ultra CONFIRMÉ, Turbo n'est pas un choix : carte grisée +
+    // badge, et l'Intelligence privée est sélectionnée d'office
+    if(S.turbo_allowed!==true){
       oc.classList.add('lock');
       oc.querySelector('.t').insertAdjacentHTML('beforeend',
         '<span class="ultrab">NÉCESSITE NOVA ULTRA</span>');
       S.cloud_enabled=false;
     }
-    document.getElementById('opt'+(S.cloud_enabled?'Cloud':'Local')).classList.add('sel');
-    mountOrb(document.getElementById('orb0'));mountOrb(document.getElementById('orb5'));
-    show(0);
+    document.getElementById('optLocal').classList.toggle('sel',!S.cloud_enabled);
+    oc.classList.toggle('sel',!!S.cloud_enabled);
   });
 }
 // Démarrage robuste (même course qu'au dock) : l'événement pywebviewready
 // peut être manqué et le pont peut s'injecter APRÈS 600 ms au tout premier
 // démarrage de WebView2 — on scrute donc le pont avant de se rabattre sur
-// l'aperçu navigateur (init sans pont = assistant aux valeurs par défaut).
+// l'aperçu navigateur (init sans pont = assistant aux valeurs par défaut,
+// SANS verrouiller _inited : la resynchro reste possible à tout moment).
 window.addEventListener('pywebviewready',init);
 const _initPoll=setInterval(()=>{if(_inited){clearInterval(_initPoll);return;}
   if(window.pywebview&&window.pywebview.api)init();},120);
-setTimeout(()=>{clearInterval(_initPoll);if(!_inited)init();},8000);
+setTimeout(()=>{if(!_inited)init();},20000);
 </script>
 </body>
 </html>

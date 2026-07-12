@@ -938,6 +938,19 @@ def test_web_dock_default():
     import licensing as _lic
     check("licensing : web_dock offert en Free",
           _lic.FEATURES.get("web_dock"), _lic.FREE)
+    # clé de couleur : dock.html DOIT peindre exactement WebDock.KEY (app.py) —
+    # si l'un des deux dévie, la clé ne matche plus aucun pixel et le « carré »
+    # revient. app.py n'est pas importable ici (Win32) → comparaison SOURCE.
+    import os
+    import re
+    _here = os.path.dirname(os.path.abspath(__file__))
+    _app = open(os.path.join(_here, "app.py"), encoding="utf-8").read()
+    _dock = open(os.path.join(_here, "ui", "dock.html"), encoding="utf-8").read()
+    _mk = re.search(r'KEY\s*=\s*"(#[0-9A-Fa-f]{6})"', _app)
+    _key = _mk.group(1) if _mk else "(introuvable)"
+    check("clé de couleur : WebDock.KEY définie", bool(_mk), True)
+    check("clé de couleur : dock.html peint la même valeur",
+          f"background:{_key}" in _dock, True)
 
 
 if __name__ == "__main__":
