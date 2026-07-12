@@ -1037,6 +1037,13 @@ class WebDock:
 
     # ---- API compatible Pill ----
     def show(self, state, text="", sub=""):
+        # « Invisible au repos » a pu masquer la fenêtre native (SW_HIDE dans
+        # _apply_shape_locked). Or une fenêtre WebView2 cachée SUSPEND son
+        # rendu (requestAnimationFrame gelé) : le reportShape déclenché par
+        # novaShow ne partirait jamais et la bulle ne réapparaîtrait PLUS.
+        # On rallume donc côté Python AVANT de déléguer au JS — le rendu
+        # repart, la forme est re-postée, la bulle revient toujours.
+        self._ensure_native_visible()
         self._js("window.novaShow", state, text or "", sub or "")
 
     def hide(self, delay=0.0):
@@ -1050,6 +1057,7 @@ class WebDock:
             self._js("window.novaLevel", float(rms))
 
     def open_settings(self):
+        self._ensure_native_visible()   # sinon réglages invisibles après ghost
         self._set_panel("settings")
         self._js("__openSettings")
 
@@ -1057,7 +1065,22 @@ class WebDock:
         """Ouvre le menu déroulant des Styles du dock (raccourci clavier).
         Le clic simulé côté JS passe par le protocole `panel` habituel, qui
         redimensionne la fenêtre — un seul mécanisme."""
+        self._ensure_native_visible()   # même piège que show() en mode ghost
         self._js("window.novaOpenModes")
+
+    def _ensure_native_visible(self):
+        """Ré-affiche la fenêtre native SANS voler le focus (SW_SHOWNOACTIVATE,
+        idempotent si déjà visible). Indispensable après le SW_HIDE du mode
+        « invisible au repos » : cachée, la fenêtre WebView2 gèle son rendu et
+        le JS ne peut plus rapporter de forme — seul Python peut la rallumer.
+        La région précédente (dernière forme non vide) reste appliquée le temps
+        que reportShape re-découpe : jamais de rectangle nu."""
+        try:
+            hwnd = self._get_hwnd()
+            if hwnd:
+                ctypes.windll.user32.ShowWindow(hwnd, 4)  # SW_SHOWNOACTIVATE
+        except Exception:
+            pass
 
     # ---- pont Python → JS ----
     def _js(self, fn, *args):
