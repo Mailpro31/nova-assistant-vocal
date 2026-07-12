@@ -23,7 +23,7 @@ import winext
 # Version de l'app — source unique. Doit rester égale au MyAppVersion de
 # installer/nova.iss (test_v3 le vérifie) ; les releases GitHub sont taguées
 # « v » + cette valeur, et updater.py s'en sert pour détecter une mise à jour.
-APP_VERSION = "3.1.21"
+APP_VERSION = "3.1.22"
 
 APP_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
 
@@ -2168,15 +2168,22 @@ def stt_live_enabled():
         return True
 
 
+def _seq_exclusive():
+    """Mémoire séquentielle sur petite RAM : le STT et le LLM de reformulation ne
+    doivent JAMAIS coexister en mémoire. Vrai quand seq_memory est demandé ET que
+    le STT n'est pas gardé chaud (RAM contrainte, ~4-7 Go). Source UNIQUE de cet
+    invariant : la dictée décharge le STT avant le LLM (_ptt_session) ET le
+    préchauffage n'épingle pas le LLM (_should_warm_llm) sur exactement ce prédicat."""
+    return bool(CFG.get("seq_memory")) and not stt_keep_warm()
+
+
 def _should_warm_llm():
-    """Faut-il préchauffer le LLM de reformulation au démarrage ? OUI seulement
-    là où il peut rester résident sans danger. En mémoire séquentielle sur petite
-    RAM (seq_memory ET STT non gardé chaud, ~4-7 Go), la dictée décharge le STT
-    AVANT de solliciter le LLM pour ne JAMAIS tenir les deux gros modèles
-    ensemble : y épingler le LLM au démarrage romprait l'invariant — la 1re
-    transcription chargerait le STT alors que le LLM (~2 Go) est encore résident
-    (keep_alive) → risque de swap/OOM, l'exact inverse du but du préchauffage."""
-    if bool(CFG.get("seq_memory")) and not stt_keep_warm():
+    """Faut-il préchauffer le LLM de reformulation au démarrage ? OUI seulement là
+    où il peut rester résident sans danger. En mémoire séquentielle sur petite RAM,
+    y épingler le LLM romprait l'invariant : la 1re transcription chargerait le STT
+    alors que le LLM (~2 Go) est encore résident (keep_alive) → swap/OOM, l'exact
+    inverse du but du préchauffage."""
+    if _seq_exclusive():
         return False
     return resolve_provider() == "ollama"
 
@@ -2198,6 +2205,14 @@ def warmup_engines():
     try:
         if stt_keep_warm():
             get_model()
+            # Réchauffe aussi le CHEMIN de 1re inférence, pas seulement les poids :
+            # le modèle VAD Silero se charge PARESSEUSEMENT au 1er transcribe() et
+            # CTranslate2 fait son init runtime au 1er appel. Une transcription muette
+            # jetée paie ce coût au démarrage (~100-400 ms) au lieu de la 1re dictée.
+            # Buffer de zéros, résultat ignoré → texte STRICTEMENT identique (aucun
+            # paramètre de décodage réel changé). Uniquement quand le modèle est
+            # gardé chaud (RAM confortable) → sans coût mémoire.
+            transcribe(np.zeros(16000, dtype=np.float32))
     except Exception as e:
         log_err("warmup_stt", e)
     try:

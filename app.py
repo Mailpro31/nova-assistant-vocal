@@ -364,7 +364,15 @@ class Pill(threading.Thread):
                     else:
                         self._dismiss()
                 elif msg[0] == "settings":
-                    self._open_settings_window()
+                    # isolé du tick : une exception pendant la CONSTRUCTION de la
+                    # fenêtre (état de licence limite, etc.) ne doit jamais casser
+                    # la boucle de la pilule — sinon self.root.after(40, _tick) plus
+                    # bas ne se replanifie pas et la pilule se fige pour la session.
+                    try:
+                        self._open_settings_window()
+                    except Exception as e:
+                        core.log_err("settings_window", e)
+                        self._settings_win = None   # fenêtre à moitié construite
         except queue.Empty:
             pass
         # animation barres + fondu
@@ -392,18 +400,57 @@ class Pill(threading.Thread):
         self._settings_win = win
         win.title("Nova — Réglages")
         win.configure(bg=SET_BG)
-        win.geometry("560x760")
+        # hauteur bornée à l'écran : la fenêtre empile beaucoup de sections et
+        # ne doit jamais dépasser le bureau (sinon les boutons du bas sortent de
+        # l'écran, inatteignables). Le conteneur défilant ci-dessous rend tout
+        # le contenu joignable quelle que soit la taille de l'écran.
+        try:
+            _sh = int(win.winfo_screenheight())
+        except Exception:
+            _sh = 760
+        win.geometry("560x%d" % max(480, min(760, _sh - 80)))
         win.attributes("-topmost", True)
+
+        # Conteneur défilant (Canvas + Scrollbar) : TOUS les widgets de contenu
+        # ci-dessous sont parentés à `body`, pas à `win` — licence, raccourcis
+        # vocaux, personnalisation, Styles, moteur, profil, vitesse, « Mes
+        # infos »… dépassent le bas sur un petit écran. Sans ce conteneur, la
+        # moitié basse (dont « Mes infos ») serait invisible et inatteignable.
+        _canvas = tk.Canvas(win, bg=SET_BG, highlightthickness=0, bd=0)
+        _vsb = tk.Scrollbar(win, orient="vertical", command=_canvas.yview)
+        _canvas.configure(yscrollcommand=_vsb.set)
+        _vsb.pack(side="right", fill="y")
+        _canvas.pack(side="left", fill="both", expand=True)
+        body = tk.Frame(_canvas, bg=SET_BG)
+        _body_id = _canvas.create_window((0, 0), window=body, anchor="nw")
+        # la zone défilable suit la hauteur réelle du contenu ; la largeur de
+        # `body` suit celle du canvas (sinon le contenu ne s'étire pas en largeur)
+        body.bind("<Configure>",
+                  lambda _e: _canvas.configure(scrollregion=_canvas.bbox("all")))
+        _canvas.bind("<Configure>",
+                     lambda e: _canvas.itemconfigure(_body_id, width=e.width))
+
+        # molette : active UNIQUEMENT quand le pointeur survole la fenêtre —
+        # jamais de capture globale qui volerait la molette aux autres apps.
+        def _on_wheel(e):
+            _canvas.yview_scroll(int(-(e.delta or 0) / 120), "units")
+        _canvas.bind("<Enter>",
+                     lambda _e: _canvas.bind_all("<MouseWheel>", _on_wheel))
+        _canvas.bind("<Leave>", lambda _e: _canvas.unbind_all("<MouseWheel>"))
 
         def on_close():
             self._settings_win = None
+            try:                                 # libère la molette (Leave peut
+                _canvas.unbind_all("<MouseWheel>")   # ne pas tirer à la fermeture)
+            except Exception:
+                pass
             win.destroy()
         win.protocol("WM_DELETE_WINDOW", on_close)
 
         # — Licence & version —
-        tk.Label(win, text="Licence", bg=SET_BG, fg=SET_FG,
+        tk.Label(body, text="Licence", bg=SET_BG, fg=SET_FG,
                  font=("Segoe UI", 15, "bold")).pack(anchor="w", padx=16, pady=(14, 4))
-        lic_state = tk.Label(win, text="", bg=SET_BG, fg=SET_MUT,
+        lic_state = tk.Label(body, text="", bg=SET_BG, fg=SET_MUT,
                              font=("Segoe UI", 9), justify="left")
         lic_state.pack(anchor="w", padx=16)
 
@@ -424,7 +471,7 @@ class Pill(threading.Thread):
                 lic_state.config(fg=SET_OK,
                                  text=f"Version : {st['tier'].capitalize()} — {exp}.")
 
-        lic_row = tk.Frame(win, bg=SET_BG)
+        lic_row = tk.Frame(body, bg=SET_BG)
         lic_row.pack(fill="x", padx=16, pady=8)
         e_lic = tk.Entry(lic_row, width=34, bg=SET_INSET, fg=SET_FG,
                          insertbackground=SET_FG, relief="flat")
@@ -444,23 +491,23 @@ class Pill(threading.Thread):
         # stat de valeur hebdo (rétention) — même info que le dock (« Votre semaine »)
         try:
             wk = storage.week_stats()
-            tk.Label(win, text=f"Cette semaine : {wk.get('count', 0)} dictées · "
+            tk.Label(body, text=f"Cette semaine : {wk.get('count', 0)} dictées · "
                      f"≈ {wk.get('minutes', 0)} min de frappe évitées",
                      bg=SET_BG, fg=SET_MUT,
                      font=("Segoe UI", 9)).pack(anchor="w", padx=16)
         except Exception:
             pass
-        tk.Frame(win, bg=SET_INSET, height=1).pack(fill="x", padx=16, pady=(8, 2))
+        tk.Frame(body, bg=SET_INSET, height=1).pack(fill="x", padx=16, pady=(8, 2))
 
         pad = {"padx": 16, "pady": 6}
-        tk.Label(win, text="Raccourcis vocaux", bg=SET_BG, fg=SET_FG,
+        tk.Label(body, text="Raccourcis vocaux", bg=SET_BG, fg=SET_FG,
                  font=("Segoe UI", 15, "bold")).pack(anchor="w", **pad)
-        tk.Label(win, text="Quand je dis…  →  le texte collé à la place "
+        tk.Label(body, text="Quand je dis…  →  le texte collé à la place "
                  "(100 % privé, jamais envoyé à une IA)",
                  bg=SET_BG, fg=SET_MUT, font=("Segoe UI", 9)).pack(anchor="w",
                                                                         padx=16)
 
-        row = tk.Frame(win, bg=SET_BG)
+        row = tk.Frame(body, bg=SET_BG)
         row.pack(fill="x", padx=16, pady=8)
         e_trig = tk.Entry(row, width=16, bg=SET_INSET, fg=SET_FG,
                           insertbackground=SET_FG, relief="flat")
@@ -470,7 +517,7 @@ class Pill(threading.Thread):
                          insertbackground=SET_FG, relief="flat")
         e_val.pack(side="left", ipady=4)
 
-        listbox = tk.Listbox(win, height=8, bg=SET_INSET, fg=SET_FG,
+        listbox = tk.Listbox(body, height=8, bg=SET_INSET, fg=SET_FG,
                              selectbackground=SET_ACCENT, relief="flat",
                              highlightthickness=0)
         listbox.pack(fill="both", expand=True, padx=16, pady=8)
@@ -500,7 +547,7 @@ class Pill(threading.Thread):
             core.save_custom_variables(items)
             refresh()
 
-        btns = tk.Frame(win, bg=SET_BG)
+        btns = tk.Frame(body, bg=SET_BG)
         btns.pack(fill="x", padx=16)
         tk.Button(btns, text="+ Ajouter", command=add_var, bg=SET_ACCENT,
                   fg=SET_WHITE, relief="flat", padx=12, pady=4).pack(side="left")
@@ -510,15 +557,15 @@ class Pill(threading.Thread):
 
         # — Personnalisation (palier Ultra) —
         def ultra_header(title, unlocked):
-            tk.Label(win, text=title + ("" if unlocked else "   — NÉCESSITE NOVA ULTRA"),
+            tk.Label(body, text=title + ("" if unlocked else "   — NÉCESSITE NOVA ULTRA"),
                      bg=SET_BG, fg=SET_FG, font=("Segoe UI", 15, "bold")
                      ).pack(anchor="w", padx=16, pady=(0, 4))
 
-        tk.Frame(win, bg=SET_LINE, height=1).pack(fill="x", padx=16, pady=12)
+        tk.Frame(body, bg=SET_LINE, height=1).pack(fill="x", padx=16, pady=12)
         can_orb = licensing.has("orb_customization")
         can_name = licensing.has("custom_naming")
         ultra_header("Personnalisation", can_orb or can_name)
-        pcol = tk.Frame(win, bg=SET_BG)
+        pcol = tk.Frame(body, bg=SET_BG)
         pcol.pack(fill="x", padx=16, pady=4)
         tk.Label(pcol, text="Couleur de l'orbe :", bg=SET_BG,
                  fg=SET_MUT).pack(side="left")
@@ -526,7 +573,7 @@ class Pill(threading.Thread):
                            insertbackground=SET_FG, relief="flat")
         e_color.pack(side="left", padx=8, ipady=3)
         e_color.insert(0, core.CFG.get("orb_color", ""))
-        pnam = tk.Frame(win, bg=SET_BG)
+        pnam = tk.Frame(body, bg=SET_BG)
         pnam.pack(fill="x", padx=16, pady=4)
         tk.Label(pnam, text="Nom personnalisé :", bg=SET_BG,
                  fg=SET_MUT).pack(side="left")
@@ -540,7 +587,7 @@ class Pill(threading.Thread):
                 core.save_config({"orb_color": e_color.get().strip()})
             if can_name:
                 core.save_config({"custom_name": e_name.get().strip()[:40]})
-        b_perso = tk.Button(win, text="Enregistrer la personnalisation",
+        b_perso = tk.Button(body, text="Enregistrer la personnalisation",
                             command=save_perso, bg=SET_ACCENT, fg=SET_WHITE,
                             relief="flat", padx=12, pady=4)
         b_perso.pack(anchor="w", padx=16, pady=(4, 0))
@@ -550,15 +597,15 @@ class Pill(threading.Thread):
 
         # — Modes sur mesure (palier Ultra) : selon l'app / l'onglet actif,
         #   appliquer SON prompt à la reformulation —
-        tk.Frame(win, bg=SET_LINE, height=1).pack(fill="x", padx=16, pady=12)
+        tk.Frame(body, bg=SET_LINE, height=1).pack(fill="x", padx=16, pady=12)
         can_cm = licensing.has("custom_modes")
         ultra_header("Styles sur mesure", can_cm)
-        tk.Label(win, text="Quand l'app ou l'onglet actif contient un de ces "
+        tk.Label(body, text="Quand l'app ou l'onglet actif contient un de ces "
                  "mots, votre consigne reformule à votre façon.",
                  bg=SET_BG, fg=SET_MUT,
                  font=("Segoe UI", 9)).pack(anchor="w", padx=16)
 
-        cmrow = tk.Frame(win, bg=SET_BG)
+        cmrow = tk.Frame(body, bg=SET_BG)
         cmrow.pack(fill="x", padx=16, pady=(8, 2))
         e_cm_name = tk.Entry(cmrow, width=14, bg=SET_INSET, fg=SET_FG,
                              insertbackground=SET_FG, relief="flat")
@@ -568,12 +615,12 @@ class Pill(threading.Thread):
                               insertbackground=SET_FG, relief="flat")
         e_cm_match.pack(side="left", padx=8, ipady=4)
         g_cm_match = _ph(e_cm_match, "Mots-clés app/onglet (virgules)")
-        t_cm_prompt = tk.Text(win, height=3, bg=SET_INSET, fg=SET_FG,
+        t_cm_prompt = tk.Text(body, height=3, bg=SET_INSET, fg=SET_FG,
                               insertbackground=SET_FG, relief="flat",
                               font=("Segoe UI", 9), wrap="word")
         t_cm_prompt.pack(fill="x", padx=16, pady=4)
 
-        cm_list = tk.Listbox(win, height=3, bg=SET_INSET, fg=SET_FG,
+        cm_list = tk.Listbox(body, height=3, bg=SET_INSET, fg=SET_FG,
                              selectbackground=SET_ACCENT, relief="flat",
                              highlightthickness=0)
         cm_list.pack(fill="x", padx=16, pady=4)
@@ -604,7 +651,7 @@ class Pill(threading.Thread):
             core.save_custom_modes(items)
             cm_refresh()
 
-        cmb = tk.Frame(win, bg=SET_BG)
+        cmb = tk.Frame(body, bg=SET_BG)
         cmb.pack(fill="x", padx=16)
         b_cm_add = tk.Button(cmb, text="+ Créer le Style", command=cm_add,
                              bg=SET_ACCENT, fg=SET_WHITE, relief="flat",
@@ -618,9 +665,9 @@ class Pill(threading.Thread):
         _lock(can_cm, e_cm_name, e_cm_match, t_cm_prompt, b_cm_add, b_cm_del)
 
         # moteur + touche push-to-talk
-        sep = tk.Frame(win, bg=SET_LINE, height=1)
+        sep = tk.Frame(body, bg=SET_LINE, height=1)
         sep.pack(fill="x", padx=16, pady=12)
-        eng = tk.Frame(win, bg=SET_BG)
+        eng = tk.Frame(body, bg=SET_BG)
         eng.pack(fill="x", padx=16)
         cloud = tk.BooleanVar(value=bool(core.CFG.get("stt", {}).get("cloud_enabled")))
 
@@ -697,7 +744,7 @@ class Pill(threading.Thread):
 
         # profil de puissance : les profils trop lourds sont grisés (jamais de
         # plantage RAM). L'utilisateur ne voit aucun nom de modèle.
-        prof = tk.Frame(win, bg=SET_BG)
+        prof = tk.Frame(body, bg=SET_BG)
         prof.pack(fill="x", padx=16, pady=(10, 0))
         hw = power_profiles.detect_hardware()
         tk.Label(prof, text="Profil de puissance :", bg=SET_BG,
@@ -722,7 +769,7 @@ class Pill(threading.Thread):
                            activebackground=SET_BG, activeforeground=SET_FG,
                            relief="flat").pack(anchor="w")
 
-        kb = tk.Frame(win, bg=SET_BG)
+        kb = tk.Frame(body, bg=SET_BG)
         kb.pack(fill="x", padx=16, pady=8)
         tk.Label(kb, text="Touche de dictée :", bg=SET_BG,
                  fg=SET_FG).pack(side="left")
@@ -742,7 +789,7 @@ class Pill(threading.Thread):
         # langue de dictée (parité avec le paneLang du dock — règle CLAUDE.md :
         # toute option existe dans les DEUX écrans ; le tray n'a plus de
         # sous-menu Langue, cet écran de repli doit donc l'offrir)
-        lgf = tk.Frame(win, bg=SET_BG)
+        lgf = tk.Frame(body, bg=SET_BG)
         lgf.pack(fill="x", padx=16, pady=(0, 4))
         tk.Label(lgf, text="Langue de dictée :", bg=SET_BG,
                  fg=SET_FG).pack(side="left")
@@ -767,7 +814,7 @@ class Pill(threading.Thread):
         # raccourcis clavier : un par Style + ouverture du menu des Styles.
         # Pendant du groupe « Raccourcis clavier » du dock web (parité imposée
         # par CLAUDE.md) — champs texte simples, ex. « ctrl+alt+e », vide = off.
-        hkf = tk.Frame(win, bg=SET_BG)
+        hkf = tk.Frame(body, bg=SET_BG)
         hkf.pack(fill="x", padx=16, pady=(4, 0))
         tk.Label(hkf, text="Raccourcis clavier (ex. ctrl+alt+e — vide = aucun)",
                  bg=SET_BG, fg=SET_MUT, font=("Segoe UI", 8)).grid(
@@ -814,9 +861,9 @@ class Pill(threading.Thread):
                                pady=(4, 0))
 
         # Vitesse de transcription (parité avec le dock — mêmes options)
-        seps = tk.Frame(win, bg=SET_LINE, height=1)
+        seps = tk.Frame(body, bg=SET_LINE, height=1)
         seps.pack(fill="x", padx=16, pady=12)
-        tk.Label(win, text="Vitesse de transcription", bg=SET_BG, fg=SET_FG,
+        tk.Label(body, text="Vitesse de transcription", bg=SET_BG, fg=SET_FG,
                  font=("Segoe UI", 13, "bold")).pack(anchor="w", padx=16)
         _o = _stt_opts()                  # même source que le dock
         v_live = tk.BooleanVar(value=_o["live"])
@@ -842,10 +889,10 @@ class Pill(threading.Thread):
             # en booléen SEULEMENT si cette case diffère de l'état résolu —
             # sinon cocher n'importe quelle AUTRE case figeait l'automatisme
             # pour toujours (aucun chemin UI ne sait revenir à « auto »)
-            if v_warm.get() != _stt_opts()["keep_warm_on"]:
+            if v_warm.get() != core.stt_keep_warm():   # = keep_warm_on, sans rebâtir le dict
                 opts["keep_warm"] = v_warm.get()
             _apply_stt_opts(opts)
-        sf = tk.Frame(win, bg=SET_BG)
+        sf = tk.Frame(body, bg=SET_BG)
         sf.pack(fill="x", padx=16, pady=4)
         # « Qualité maximale » grisée si la machine ne peut pas tenir le grand
         # moteur (~12 Go) — même gating que le dock, parité CLAUDE.md.
@@ -866,9 +913,9 @@ class Pill(threading.Thread):
 
         # Mes infos : champs de profil réutilisés par « mon adresse », « mon
         # e-mail »… dans le texte dicté (surtout le mode E-mail). 100 % local.
-        sep2 = tk.Frame(win, bg=SET_LINE, height=1)
+        sep2 = tk.Frame(body, bg=SET_LINE, height=1)
         sep2.pack(fill="x", padx=16, pady=12)
-        tk.Label(win, text="Mes infos", bg=SET_BG, fg=SET_FG,
+        tk.Label(body, text="Mes infos", bg=SET_BG, fg=SET_FG,
                  font=("Segoe UI", 13, "bold")).pack(anchor="w", padx=16)
         info = core.personal_info()
         # clés = source unique storage.PERSONAL_FIELDS (jamais de dérive avec le
@@ -877,7 +924,7 @@ class Pill(threading.Thread):
                   "telephone": "Téléphone", "adresse": "Adresse"}
         fields = [(k, labels.get(k, k)) for k in storage.PERSONAL_FIELDS]
         entries = {}
-        me = tk.Frame(win, bg=SET_BG)
+        me = tk.Frame(body, bg=SET_BG)
         me.pack(fill="x", padx=16, pady=4)
         for i, (key, label) in enumerate(fields):
             tk.Label(me, text=label, bg=SET_BG, fg=SET_MUT, width=10,
@@ -890,7 +937,7 @@ class Pill(threading.Thread):
 
         # informations personnalisées : paires libres « ce que je dis » → valeur,
         # pendant du groupe équivalent du dock web (parité CLAUDE.md)
-        xf = tk.Frame(win, bg=SET_BG)
+        xf = tk.Frame(body, bg=SET_BG)
         xf.pack(fill="x", padx=16, pady=(8, 0))
         tk.Label(xf, text="Informations personnalisées (libellé → valeur)",
                  bg=SET_BG, fg=SET_MUT, font=("Segoe UI", 8)).grid(
@@ -910,7 +957,7 @@ class Pill(threading.Thread):
             extra_rows.append((e1, e2))
         for it in (info.get("extra") or []):
             add_extra(str(it.get("label", "")), str(it.get("value", "")))
-        tk.Button(win, text="Ajouter une information", command=add_extra,
+        tk.Button(body, text="Ajouter une information", command=add_extra,
                   bg=SET_INSET, fg=SET_FG, relief="flat", padx=10,
                   pady=3).pack(anchor="w", padx=16, pady=(4, 0))
 
@@ -922,7 +969,7 @@ class Pill(threading.Thread):
             core.save_personal(o)
             pill.show("ok", "Infos enregistrées")
             pill.hide(1.2)
-        tk.Button(win, text="Enregistrer mes infos", command=save_me,
+        tk.Button(body, text="Enregistrer mes infos", command=save_me,
                   bg=SET_ACCENT, fg=SET_WHITE, relief="flat", padx=12,
                   pady=4).pack(anchor="w", padx=16, pady=(4, 0))
 
@@ -1735,7 +1782,7 @@ def _ptt_session():
         # gestion mémoire séquentielle : on libère le STT avant le LLM sur les
         # petites configs — SAUF si « moteur en mémoire » (dès ~8 Go) : le
         # rechargement disque coûtait 2-4 s au début de CHAQUE dictée
-        if core.CFG.get("seq_memory") and not core.stt_keep_warm():
+        if core._seq_exclusive():        # invariant partagé (cf. core._should_warm_llm)
             core.unload_whisper()
         prompt, concrete = _resolve_prompt(STATE["mode"])
         if concrete == "voice_to_text" and core.CFG.get("instant_normal"):

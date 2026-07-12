@@ -175,19 +175,28 @@ def apply_profile(profile_id, cfg_save):
     payload = {"profile": p["id"], "seq_memory": p["seq_memory"],
                "providers": providers}
     try:
-        import core     # import paresseux (core importe déjà ce module)
-        # Calcul (effective_stt_model, option « qualité maximale ») + écriture de
-        # whisper_model tenus sous _stt_sync_lock — le MÊME verrou que
-        # sync_stt_model. Les DEUX seuls écrivains de whisper_model partagent
-        # ainsi un point de sérialisation : un changement de profil concurrent
-        # d'une bascule qualité ne peut plus s'écrire dans le désordre et laisser
-        # whisper_model incohérent avec le profil (grand moteur ~1,5 Go chargé —
-        # et rechargé à chaque dictée — sur une config < 12 Go qui dit « small »).
-        with core._stt_sync_lock:
-            payload["whisper_model"] = core.effective_stt_model(p["stt"])
-            cfg_save(payload)
+        import core            # import paresseux (core importe déjà ce module)
+        _lock = core._stt_sync_lock
     except Exception:
-        payload["whisper_model"] = p["stt"]   # repli : profil brut sans relèvement
+        core = _lock = None
+    # Calcul (effective_stt_model, option « qualité maximale ») ET écriture de
+    # whisper_model tenus ENSEMBLE sous _stt_sync_lock — le MÊME verrou que
+    # sync_stt_model. Les DEUX seuls écrivains de whisper_model partagent ainsi
+    # un point de sérialisation : un changement de profil concurrent d'une bascule
+    # qualité ne peut plus s'écrire dans le désordre et laisser whisper_model
+    # incohérent avec le profil (grand moteur ~1,5 Go chargé — et rechargé à chaque
+    # dictée — sur une config < 12 Go qui dit « small »). Écriture UNIQUE : une
+    # panne de cfg_save se propage (comme l'ancien code), pas de double-écriture
+    # hors verrou qui dé-relèverait whisper_model.
+    if _lock is not None:
+        with _lock:
+            try:
+                payload["whisper_model"] = core.effective_stt_model(p["stt"])
+            except Exception:
+                payload["whisper_model"] = p["stt"]
+            cfg_save(payload)
+    else:                       # core indisponible → aucun sync concurrent à sérialiser
+        payload["whisper_model"] = p["stt"]
         cfg_save(payload)
     return p["id"]
 
