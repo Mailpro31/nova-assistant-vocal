@@ -1016,6 +1016,7 @@ class WebDock:
     MODES = (440, 470)
     SETTINGS = (880, 620)      # fenêtre paysage type Réglages macOS
     SETTINGS_MAX = (1180, 780)  # bouton vert (zoom) — borné à l'écran
+    TRAYMENU = (290, 240)      # menu Nova du tray (4 rangées + séparateur)
     # CLÉ DE COULEUR : couleur de fond de TOUTES les surfaces (Form WinForms,
     # WebView2, page dock.html — même valeur dans html,body). Windows rend ces
     # pixels transparents et cliquables au travers (LWA_COLORKEY, voir
@@ -1076,6 +1077,14 @@ class WebDock:
         self._ensure_native_visible()   # même piège que show() en mode ghost
         self._js("window.novaOpenModes")
 
+    def open_tray_menu(self):
+        """Menu Nova stylé ouvert depuis l'icône du tray — porte les actions du
+        quotidien avec le langage visuel du dock ; le menu natif Windows
+        (impossible à styler) est réduit au strict secours dans _build_tray."""
+        self._ensure_native_visible()
+        self._set_panel("traymenu")
+        self._js("window.novaOpenTray")
+
     def _ensure_native_visible(self):
         """Ré-affiche la fenêtre native SANS voler le focus (SW_SHOWNOACTIVATE,
         idempotent si déjà visible). Indispensable après le SW_HIDE du mode
@@ -1123,6 +1132,8 @@ class WebDock:
         w, h = min(w, sw - 24), min(h, sh - 24)
         if name.startswith("settings"):
             x, y = (sw - w) // 2, max(0, (sh - h) // 2)
+        elif name == "traymenu":    # près de la zone de notification (bas-droite)
+            x, y = sw - w - 12, sh - h - 52
         else:                       # bulle / menu : ancrage utilisateur
             anchor = str(core.CFG.get("dock_position") or "bottom-center")
             vert, _, horiz = anchor.partition("-")
@@ -1598,6 +1609,10 @@ class DockApi:
         """Le dock signale quel panneau nommé est ouvert (modes, settings…) ;
         fermé = retour au dock compact. Un seul protocole de redimensionnement."""
         self._dock._set_panel(name if open_ else "compact")
+
+    def quit_app(self):
+        """Quitter proprement depuis le menu Nova du tray."""
+        _request_quit(_tray_icon)
 
     def shape(self, payload):
         """Formes réellement visibles (px CSS) → région native de la fenêtre.
@@ -2204,18 +2219,27 @@ def _build_tray():
                         # ré-évalué à chaque ouverture (activation en session)
                         enabled=lambda _it: licensing.mode_allowed(mid))
 
-    # Menu volontairement SOBRE (il est dessiné par Windows : impossible de le
-    # styler — sa seule esthétique possible est la concision). Profil, Langue,
-    # Turbo et licence vivent dans les Réglages, pas en double ici.
-    menu = Menu(
-        # élément par défaut : un DOUBLE-CLIC sur l'icône ouvre les Réglages
-        MenuItem("Ouvrir les Réglages", lambda _i, _it: pill.open_settings(),
-                 default=True),
-        MenuItem("Style", Menu(*[mode_item(m) for m in modes_registry.all_modes()])),
-        Menu.SEPARATOR,
-        MenuItem("Vérifier les mises à jour", lambda _i, _it: _check_update()),
-        MenuItem("Quitter Nova", lambda icon, _it: _request_quit(icon)),
-    )
+    # Le menu natif est dessiné par WINDOWS : impossible à styler. Quand le
+    # dock web est là, il porte son PROPRE menu Nova (open_tray_menu, langage
+    # visuel du dock) — le natif est réduit au strict secours : ouvrir le menu
+    # Nova (double-clic = défaut) et quitter (toujours accessible même si la
+    # webview est morte). La pilule tkinter, sans dock, garde le menu complet.
+    if hasattr(pill, "open_tray_menu"):
+        menu = Menu(
+            MenuItem("Ouvrir Nova", lambda _i, _it: pill.open_tray_menu(),
+                     default=True),
+            MenuItem("Quitter Nova", lambda icon, _it: _request_quit(icon)),
+        )
+    else:
+        menu = Menu(
+            # élément par défaut : un DOUBLE-CLIC sur l'icône ouvre les Réglages
+            MenuItem("Ouvrir les Réglages", lambda _i, _it: pill.open_settings(),
+                     default=True),
+            MenuItem("Style", Menu(*[mode_item(m) for m in modes_registry.all_modes()])),
+            Menu.SEPARATOR,
+            MenuItem("Vérifier les mises à jour", lambda _i, _it: _check_update()),
+            MenuItem("Quitter Nova", lambda icon, _it: _request_quit(icon)),
+        )
     return pystray.Icon(APP_NAME, img, f"{_app_display_name()} — dictée vocale", menu)
 
 
