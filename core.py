@@ -23,7 +23,7 @@ import winext
 # Version de l'app — source unique. Doit rester égale au MyAppVersion de
 # installer/nova.iss (test_v3 le vérifie) ; les releases GitHub sont taguées
 # « v » + cette valeur, et updater.py s'en sert pour détecter une mise à jour.
-APP_VERSION = "3.1.17"
+APP_VERSION = "3.1.18"
 
 APP_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
 
@@ -240,7 +240,6 @@ def install_crash_logging():
     except Exception:
         pass
     try:
-        import threading
         sys.excepthook = lambda t, v, tb: log_err("crash", v)
         threading.excepthook = lambda a: log_err("crash_thread", a.exc_value)
     except Exception:
@@ -644,15 +643,28 @@ def effective_stt_model(profile_stt):
     return profile_stt
 
 
+_stt_sync_lock = threading.Lock()   # sérialise la lecture-calcul-écriture de
+#                                     whisper_model. Verrou FEUILLE : n'acquiert
+#                                     _lock/_model_lock qu'ensuite (via
+#                                     set_stt_model), jamais l'inverse → pas
+#                                     d'inversion d'ordre possible.
+
+
 def sync_stt_model():
     """Aligne whisper_model sur le profil courant + l'option qualité maximale
-    (appelé quand l'option change). Décharge l'ancien modèle au besoin."""
+    (appelé quand l'option change). Décharge l'ancien modèle au besoin.
+    Lecture (effective_stt_model lit quality_max + profil) ET écriture
+    (set_stt_model) tenues sous _stt_sync_lock : deux bascules rapides (Qualité
+    ON puis OFF, ou double-clic) ne peuvent plus écrire whisper_model dans le
+    désordre — plus d'état incohérent « grand moteur chargé alors que
+    quality_max=False »."""
     try:
         import power_profiles
-        p = power_profiles.get_profile(CFG.get("profile") or "normal")
-        want = effective_stt_model(p["stt"])
-        if want != CFG.get("whisper_model"):
-            set_stt_model(want)
+        with _stt_sync_lock:
+            p = power_profiles.get_profile(CFG.get("profile") or "normal")
+            want = effective_stt_model(p["stt"])
+            if want != CFG.get("whisper_model"):
+                set_stt_model(want)
     except Exception as e:
         log_err("stt_quality", e)
 

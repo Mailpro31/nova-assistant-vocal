@@ -827,6 +827,28 @@ def test_save_config_atomic():
         core.CFG = real_cfg          # _save est neutralisé en tête de fichier
 
 
+def test_partial_stt_merge():
+    """Les écrans de réglages n'envoient plus qu'un patch MINIMAL du sous-dict
+    stt (seule la clé changée). save_config/_merge doit fusionner cette clé SANS
+    écraser ses voisines — sinon un basculement Turbo (cloud_enabled) et un
+    réglage de latence écrits en parallèle s'écrasent (lost update inter-appels)."""
+    print("Config — fusion partielle du sous-dict stt (anti lost-update)")
+    real_cfg = core.CFG
+    try:
+        core.CFG = core._merge(real_cfg,
+                               {"stt": {"cloud_enabled": False, "live": True}})
+        core.save_config({"stt": {"cloud_enabled": True}})    # un seul champ
+        stt = core.CFG.get("stt") or {}
+        check("cloud_enabled mis à jour", stt.get("cloud_enabled"), True)
+        check("live (voisin) préservé", stt.get("live"), True)
+        core.save_config({"stt": {"live": False}})            # un autre champ
+        stt = core.CFG.get("stt") or {}
+        check("live mis à jour", stt.get("live"), False)
+        check("cloud_enabled (voisin) préservé", stt.get("cloud_enabled"), True)
+    finally:
+        core.CFG = real_cfg          # _save est neutralisé en tête de fichier
+
+
 def test_web_dock_default():
     """L'interface web (dock.html) est l'UI par défaut pour TOUS : décision
     produit — la pilule tkinter n'est que le repli WebView2-absent. Une
@@ -854,6 +876,7 @@ if __name__ == "__main__":
     test_stt_latency()
     test_hotkey_removal()
     test_save_config_atomic()
+    test_partial_stt_merge()
     test_web_dock_default()
     print()
     if _fails:

@@ -639,9 +639,9 @@ class Pill(threading.Thread):
                         "Activer Turbo ?", parent=win):
                     cloud.set(False)
                     return
-            stt = dict(core.CFG.get("stt", {}))
-            stt["cloud_enabled"] = bool(cloud.get())
-            core.save_config({"stt": stt})
+            # patch minimal (seule la clé changée), cf. _toggle_cloud : évite
+            # d'écraser un réglage de latence écrit en parallèle
+            core.save_config({"stt": {"cloud_enabled": bool(cloud.get())}})
         can_turbo = licensing.has("cloud_stt")
         cb_cloud = tk.Checkbutton(
             eng, text="Turbo (plus rapide, via le réseau) — sinon "
@@ -1317,36 +1317,42 @@ def _apply_stt_opts(opts):
     opts = opts or {}
     refused_quality = False
     with _stt_opts_lock:
-        stt = dict(core.CFG.get("stt") or {})
-        was_max = bool(stt.get("quality_max"))
+        was_max = bool((core.CFG.get("stt") or {}).get("quality_max"))
+        # patch MINIMAL : UNIQUEMENT les clés que cet écran gère. Ne jamais
+        # ré-écrire tout le sous-dict stt — sinon un basculement Turbo
+        # (cloud_enabled) simultané, écrit par _toggle_cloud sur un autre fil,
+        # serait ré-écrasé par une copie périmée (lost update inter-appels).
+        stt_patch = {}
         for k in ("live", "keep_warm", "precision_max", "quality_max"):
             if k in opts:
-                stt[k] = bool(opts[k])
+                stt_patch[k] = bool(opts[k])
+        want_max = stt_patch.get("quality_max", was_max)
         # « Qualité maximale » demandée sur une machine qui ne peut pas tenir le
         # grand moteur (~1,5 Go + LLM) : refus SYNCHRONE et honnête plutôt que
         # de cocher la case, ne rien relever, puis annoncer « moteur amélioré
         # prêt » (l'UI mentait). La case revient à False, reflétée au retour.
-        if stt.get("quality_max") and not was_max \
-                and not core.quality_max_supported():
-            stt["quality_max"] = False
+        if want_max and not was_max and not core.quality_max_supported():
+            stt_patch["quality_max"] = False
+            want_max = False
             refused_quality = True
-        patch = {"stt": stt}
+        patch = {"stt": stt_patch} if stt_patch else {}
         if "instant_normal" in opts:  # option de reformulation, hors bloc stt
             patch["instant_normal"] = bool(opts["instant_normal"])
-        core.save_config(patch)
+        if patch:
+            core.save_config(patch)
     if refused_quality:
         pill.show("error", "Mémoire insuffisante",
                   "Le moteur amélioré demande environ 12 Go de mémoire")
         pill.hide(2.8)
         return _stt_opts()
-    if bool(stt.get("quality_max")) != was_max:
+    if want_max != was_max:
         # JAMAIS sur le fil d'appel (pont js_api ou fenêtre tkinter) : la
         # synchro et le déchargement attendent le verrou du modèle, qu'un
         # chargement en cours peut tenir longtemps — l'interrupteur doit
         # répondre tout de suite, le travail lourd part en arrière-plan
         def _sync():
             core.sync_stt_model()
-            if stt.get("quality_max"):
+            if want_max:
                 _preload_stt()
         threading.Thread(target=_sync, daemon=True).start()
     return _stt_opts()
@@ -1531,9 +1537,6 @@ class DockApi:
             _rebind_ptt()
         return core.CFG.get("ptt_key")
 
-    def stt_opts(self):
-        return _stt_opts()
-
     def set_stt_opts(self, opts):
         return _apply_stt_opts(opts)
 
@@ -1672,6 +1675,12 @@ def _ptt_session():
     """Enregistre tant que la touche est tenue, puis transcrit → (Custom
     Variables) → reformate selon le mode → colle au curseur. Repli texte brut
     si l'IA échoue : le curseur n'est jamais vide (garde-fou Phase 5b)."""
+    live = None          # lié AVANT le try : le finally le référence sur TOUT
+    #                      chemin de sortie, y compris un retour anticipé (quota
+    #                      atteint) ou une exception AVANT la création du
+    #                      LiveTranscriber — sinon UnboundLocalError dans le
+    #                      finally sautait _ptt_active.clear() → PTT figé pour
+    #                      le reste de la session.
     try:
         pill.show("listening", "")
         # Palier Free : quota hebdomadaire de transcription (payant = illimité ;
@@ -1688,7 +1697,7 @@ def _ptt_session():
         # transcrites pendant que la touche est tenue — à la relâche il ne
         # reste que la fin. Au moindre pépin : repli intégral classique sur le
         # MÊME audio complet (jamais de plantage, jamais de perte).
-        live, rec_kw = None, {}
+        rec_kw = {}
         if core.stt_live_enabled():
             try:
                 frames, flock = [], threading.Lock()
@@ -1700,17 +1709,12 @@ def _ptt_session():
             except Exception as e:
                 core.log_err("stt_live", e)
                 live, rec_kw = None, {}
-        try:
-            audio = core.record_audio(on_level=pill.level, stop=_ptt_stop,
-                                      end_silence=999, **rec_kw)
-        except Exception:
-            if live:
-                live.stop()   # sinon le fil de fond scruterait le tampon
-            raise             # pour toujours (fuite d'un thread par échec)
+        # récupération : si record_audio lève, l'exception remonte au except
+        # externe (« Erreur — réessaie ») et le finally coupe le fil de fond.
+        audio = core.record_audio(on_level=pill.level, stop=_ptt_stop,
+                                  end_silence=999, **rec_kw)
         t_release = time.time()
         if audio is None:
-            if live:
-                live.stop()      # sans transcription finale : rien à garder
             pill.show("error", "Je n'ai rien entendu")
             pill.hide(1.6)
             return
@@ -1780,11 +1784,11 @@ def _ptt_session():
         pill.hide(2.0)
     finally:
         if live:
-            live.stop()   # backstop : coupe le fil de fond quel que soit le chemin
-                          # de sortie. Une exception entre record_audio et finish()
-                          # (p.ex. pill.show pendant un teardown du dock) laissait
-                          # sinon un daemon orphelin scruter le tampon à vie.
-                          # stop() = Event.set(), idempotent après finish().
+            live.stop()   # propriétaire UNIQUE du teardown du fil de fond :
+                          # s'exécute sur TOUT chemin de sortie (retour anticipé,
+                          # exception, succès). stop() = Event.set(), idempotent
+                          # après finish() ou une reprise micro — plus de daemon
+                          # orphelin, plus de double-arrêt à gérer ailleurs.
         _ptt_active.clear()
 
 
@@ -1920,14 +1924,16 @@ def _set_language(lang):
 def _toggle_cloud():
     """Bascule Local ↔ Cloud pour STT ET reformulation (GOAL Partie 4 : local
     par défaut, cloud proposé jamais imposé)."""
-    stt = dict(core.CFG.get("stt", {}))
-    to_cloud = not stt.get("cloud_enabled")
+    to_cloud = not (core.CFG.get("stt") or {}).get("cloud_enabled")
     if to_cloud and not licensing.has("cloud_stt"):   # Turbo réservé à Ultra
         pill.show("error", "Turbo réservé à Pro", "La vitesse maximale, via le réseau")
         pill.hide(2.2)
         return
-    stt["cloud_enabled"] = to_cloud
-    core.save_config({"stt": stt, "provider": "auto" if to_cloud else "ollama"})
+    # patch MINIMAL (seule la clé changée) : ne pas ré-écrire tout le sous-dict
+    # stt, sinon un réglage de latence écrit en parallèle (autre fil js_api)
+    # serait ré-écrasé par une copie périmée.
+    core.save_config({"stt": {"cloud_enabled": to_cloud},
+                      "provider": "auto" if to_cloud else "ollama"})
 
 
 def _set_profile(profile_id, silent=False):
