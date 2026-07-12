@@ -172,9 +172,15 @@ def apply_profile(profile_id, cfg_save):
     Retourne l'id réellement appliqué."""
     p = get_profile(profile_id)
     providers = {"ollama": {"model": p["llm"]}}
+    stt = p["stt"]
+    try:                # option « qualité maximale » : relève le modèle STT
+        import core     # import paresseux (core importe déjà ce module)
+        stt = core.effective_stt_model(stt)
+    except Exception:
+        pass
     cfg_save({
         "profile": p["id"],
-        "whisper_model": p["stt"],
+        "whisper_model": stt,
         "seq_memory": p["seq_memory"],
         "providers": providers,
     })

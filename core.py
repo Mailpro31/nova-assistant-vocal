@@ -23,7 +23,7 @@ import winext
 # Version de l'app — source unique. Doit rester égale au MyAppVersion de
 # installer/nova.iss (test_v3 le vérifie) ; les releases GitHub sont taguées
 # « v » + cette valeur, et updater.py s'en sert pour détecter une mise à jour.
-APP_VERSION = "3.1.7"
+APP_VERSION = "3.1.8"
 
 APP_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
 
@@ -109,6 +109,11 @@ DEFAULT_CONFIG = {
     "stt": {
         "cloud_enabled": False,      # Groq Whisper, opt-in uniquement
         "cloud_model": "whisper-large-v3-turbo",
+        # --- latence (PC sans GPU surtout) ---
+        "live": True,               # transcrire PENDANT la dictée (segments)
+        "keep_warm": "auto",        # garder le moteur en RAM entre dictées
+        "precision_max": False,     # beam 5 sur CPU (lent) au lieu de beam 1
+        "quality_max": False,       # grand moteur multilingue local (~1,5 Go)
     },
     "tts": {
         "enabled": False,            # confirmations à voix haute (opt-in)
@@ -461,6 +466,58 @@ def _load_whisper(name):
     return WhisperModel(name, device="cpu", compute_type="int8")
 
 
+def _ram_total_gb():
+    """RAM totale de la machine (Go), 8 si indéterminable — sert uniquement au
+    mode « auto » de keep_warm, une valeur prudente suffit."""
+    try:
+        import psutil
+        return psutil.virtual_memory().total / 1e9
+    except Exception:
+        return 8.0
+
+
+def stt_keep_warm():
+    """Garder le moteur STT en mémoire entre les dictées ? Sans ça, chaque
+    dictée commençait par RECHARGER le modèle depuis le disque (2-4 s perdues
+    à chaque fois sur un PC sans GPU). « auto » : oui dès ~8 Go de RAM, sauf
+    pour le très grand modèle (Apex) qui reste séquentiel."""
+    pref = (CFG.get("stt") or {}).get("keep_warm", "auto")
+    if pref is True or pref is False:
+        return pref
+    return _ram_total_gb() >= 7.5 and CFG.get("whisper_model") != "large-v3"
+
+
+def _stt_beam():
+    """Largeur de recherche : 5 sur GPU (précision max quasi gratuite) ; sur
+    CPU, 1 par défaut (3-5× plus rapide, perte négligeable sur une dictée
+    propre) — 5 si l'utilisateur coche « précision maximale »."""
+    if gpu_active():
+        return 5
+    return 5 if (CFG.get("stt") or {}).get("precision_max") else 1
+
+
+def effective_stt_model(profile_stt):
+    """Modèle STT réellement chargé : celui du profil de puissance, RELEVÉ au
+    grand moteur multilingue local (large-v3-turbo) si « qualité maximale »
+    est coché — sauf si le profil embarque déjà un modèle au moins aussi bon."""
+    if (CFG.get("stt") or {}).get("quality_max")             and profile_stt in ("tiny", "base", "small"):
+        return "large-v3-turbo"
+    return profile_stt
+
+
+def sync_stt_model():
+    """Aligne whisper_model sur le profil courant + l'option qualité maximale
+    (appelé quand l'option change). Décharge l'ancien modèle au besoin."""
+    try:
+        import power_profiles
+        p = power_profiles.get_profile(CFG.get("profile") or "normal")
+        want = effective_stt_model(p["stt"])
+        if want != CFG.get("whisper_model"):
+            set_stt_model(want)
+    except Exception as e:
+        log_err("stt_quality", e)
+
+
 def get_model():
     global _model, _model_name
     with _model_lock:
@@ -705,8 +762,8 @@ def transcribe(audio):
     prompt = stt_prompt() or None
     with transcribe_lock:
         segments, _info = get_model().transcribe(
-            audio, language=_stt_language(), beam_size=5, vad_filter=True,
-            initial_prompt=prompt)
+            audio, language=_stt_language(), beam_size=_stt_beam(),
+            vad_filter=True, initial_prompt=prompt)
         return " ".join(s.text for s in segments).strip()
 
 
@@ -1713,6 +1770,116 @@ def stt_prompt():
     if len(s) > 520:                       # coupe sur une frontière d'item, pas en plein mot
         s = s[:520].rsplit(", ", 1)[0]
     return s
+
+
+class LiveTranscriber:
+    """Transcription AU FIL de la parole — le gros levier de latence sur un PC
+    sans GPU. Pendant que la touche est tenue, chaque tranche terminée (pause
+    de voix d'environ une demi-seconde) est transcrite en arrière-plan et
+    « committée » ; à la relâche, seule la traîne reste à transcrire : la
+    latence ressentie ne dépend plus de la longueur de la dictée.
+
+    Défensif de bout en bout (« jamais de plantage ») : au moindre pépin le
+    fil se marque cassé et finish() rend None — l'appelant repasse alors par
+    la transcription intégrale classique, sur le MÊME audio complet, avec le
+    MÊME résultat qu'avant. Les tests injectent `_transcribe` et appellent
+    `_commit` directement (start=False) : la logique de découpe est pure."""
+
+    MIN_COMMIT_S = 2.4       # tranche mini avant commit (évite les miettes)
+    PAUSE_BLOCKS = 5         # ~0,5 s sous le seuil de voix = fin de tranche
+
+    def __init__(self, frames, lock, on_partial=None, start=True,
+                 _transcribe=None):
+        self._frames, self._lock = frames, lock
+        self._on_partial = on_partial
+        self._transcribe = _transcribe or self._transcribe_local
+        self._done = 0                    # nb de blocs déjà committés
+        self._parts = []
+        self.broken = False
+        self._stop = threading.Event()
+        self._th = None
+        if start:
+            self._th = threading.Thread(target=self._loop, daemon=True)
+            self._th.start()
+
+    # --- boucle de fond -----------------------------------------------------
+    def _loop(self):
+        try:
+            while not self._stop.wait(0.3):
+                self._commit(final=False)
+        except Exception as e:
+            log_err("stt_live", e)
+            self.broken = True
+
+    def _pending(self):
+        with self._lock:
+            return self._frames[self._done:], len(self._frames)
+
+    def _commit(self, final):
+        pending, total = self._pending()
+        if not pending:
+            return
+        if not final:
+            # assez de matière ET la voix s'est tue sur les derniers blocs —
+            # sinon on couperait un mot en plein milieu
+            if 0.1 * len(pending) < self.MIN_COMMIT_S + 0.1 * self.PAUSE_BLOCKS:
+                return
+            thr = effective_threshold()
+            for b in pending[-self.PAUSE_BLOCKS:]:
+                if float(np.sqrt(np.mean(b ** 2))) > thr:
+                    return
+        audio = np.concatenate(pending).flatten()
+        # le texte déjà committé sert d'amorce : ponctuation et contexte suivent
+        prompt = " ".join(self._parts)[-224:] or (stt_prompt() or None)
+        txt = self._transcribe(audio, prompt)
+        self._done = total
+        if txt:
+            self._parts.append(txt)
+            if self._on_partial:
+                try:
+                    self._on_partial(" ".join(self._parts))
+                except Exception:
+                    pass
+
+    def _transcribe_local(self, audio, prompt):
+        with transcribe_lock:
+            segments, _info = get_model().transcribe(
+                audio, language=_stt_language(), beam_size=_stt_beam(),
+                vad_filter=True, initial_prompt=prompt)
+            return " ".join(s.text for s in segments).strip()
+
+    # --- fin de dictée ------------------------------------------------------
+    def finish(self):
+        """→ texte complet (tranches committées + traîne), ou None si le fil a
+        cassé — l'appelant retombe alors sur la transcription classique."""
+        self._stop.set()
+        if self._th is not None:
+            self._th.join(timeout=30)
+            if self._th.is_alive():        # transcription de fond figée
+                return None
+        if self.broken:
+            return None
+        try:
+            self._commit(final=True)
+        except Exception as e:
+            log_err("stt_live", e)
+            return None
+        return " ".join(self._parts).strip()
+
+
+def stt_live_enabled():
+    """La transcription en continu est-elle pertinente ? Opt-out via réglages ;
+    inutile sur GPU (déjà quasi instantané) et contre-productive avec Turbo
+    (un aller-retour réseau par tranche)."""
+    stt = CFG.get("stt") or {}
+    if stt.get("live", True) is False:
+        return False
+    if stt.get("cloud_enabled") and _cloud_licensed():
+        return False
+    try:
+        return not gpu_active()
+    except Exception:
+        return True
 
 
 def transcribe_routed(audio, fast=False):

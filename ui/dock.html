@@ -628,6 +628,18 @@ function paneCModes(p){
       if(r&&r.ok){S.custom_modes=r.custom_modes||[];buildPane();}});};
 }
 
+function sttRows(){
+  const o=S.stt_opts||{};
+  return R('Pendant la dictée','Le texte se prépare au fil de la voix — seule la fin reste à traiter à la relâche',
+      '<div class="sw'+(o.live!==false?' on':'')+'" id="swLive"></div>')
+    +R('Moteur gardé en mémoire','Évite le rechargement au début de chaque dictée',
+      '<div class="sw'+(o.keep_warm_on?' on':'')+'" id="swWarm"></div>')
+    +R('Précision maximale','Plus lent sur processeur — sans effet avec une carte NVIDIA (déjà au maximum)',
+      '<div class="sw'+(o.precision_max?' on':'')+'" id="swPrec"></div>')
+    +R('Qualité maximale','Le grand moteur multilingue local remplace le standard (téléchargement unique ~1,5 Go)',
+      '<div class="sw'+(o.quality_max?' on':'')+'" id="swQual"></div>');
+}
+
 function paneLang(p){
   let opts='';(S.languages||[]).forEach(l=>{opts+='<option value="'+l.code+'"'+
     (l.code===S.language?' selected':'')+'>'+esc(l.label)+'</option>';});
@@ -640,7 +652,15 @@ function paneLang(p){
    +G('Langue',R('Langue de dictée','« Auto » détecte la langue parlée',
       '<select class="fieldc" id="langSel2">'+opts+'</select>'),
       'Toutes les langues sont incluses, quel que soit le palier.')
-   +G('Raccourcis vocaux',add+vars,'« Quand je dis X, colle Y » — 100 % privé, jamais envoyé à une IA.');
+   +G('Raccourcis vocaux',add+vars,'« Quand je dis X, colle Y » — 100 % privé, jamais envoyé à une IA.')
+   +G('Vitesse de transcription',sttRows(),
+      'Sur un PC 8 Go sans carte graphique : « pendant la dictée » fait passer l\'attente d\'environ 10 s à 2-3 s, sans rien changer à la qualité ; « moteur gardé en mémoire » économise 2 à 4 s par dictée mais occupe ~0,7 Go de RAM en continu ; « précision maximale » ralentit 3 à 5 fois chaque transcription ; « qualité maximale » télécharge une fois ~1,5 Go, occupe ~1,5 Go de RAM et ajoute quelques secondes par phrase — pour les dictées où chaque mot compte.');
+  const stO=S.stt_opts||{};
+  const bindSw=(id,key)=>{const el=document.getElementById(id);if(!el)return;
+    el.onclick=()=>{const want=!el.classList.contains('on');
+      api('set_stt_opts',{[key]:want}).then(o=>{if(o){S.stt_opts=o;buildPane();}});};};
+  bindSw('swLive','live');bindSw('swWarm','keep_warm');
+  bindSw('swPrec','precision_max');bindSw('swQual','quality_max');
   document.getElementById('langSel2').onchange=e=>{S.language=e.target.value;api('set_language',e.target.value);};
   document.getElementById('vAdd').onclick=()=>{const t=document.getElementById('vT').value.trim(),
     v=document.getElementById('vV').value.trim();if(!t||!v)return;
