@@ -185,10 +185,13 @@
       <h1 class="sm">Privé ou Turbo ?</h1>
       <p class="sub">Modifiable à tout moment depuis le menu.</p>
       <div class="cards">
-        <div class="opt" id="optLocal" onclick="chooseCloud(false)">
+        <!-- État par défaut FAIL-CLOSED dès le premier pixel (avant tout JS/pont) :
+             Intelligence privée sélectionnée, Turbo grisé + badge. init() ne
+             DÉ-grise que si l'état réel confirme turbo_allowed===true. -->
+        <div class="opt sel" id="optLocal" onclick="chooseCloud(false)">
           <div class="t">Intelligence privée</div><div class="h">Rien ne quitte ta machine, fonctionne hors ligne.</div></div>
-        <div class="opt" id="optCloud" onclick="chooseCloud(true)">
-          <div class="t">Turbo</div><div class="h">La vitesse maximale — vos dictées sont traitées en ligne. Inclus avec Nova Ultra.</div></div>
+        <div class="opt lock" id="optCloud" onclick="chooseCloud(true)">
+          <div class="t">Turbo<span class="ultrab">NÉCESSITE NOVA ULTRA</span></div><div class="h">La vitesse maximale — vos dictées sont traitées en ligne. Inclus avec Nova Ultra.</div></div>
       </div>
       <div class="btnrow"><button class="btn ghost" onclick="prev()">Précédent</button>
         <button class="btn pri" onclick="next()">Suivant</button></div>
