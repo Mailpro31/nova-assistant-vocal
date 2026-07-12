@@ -1016,7 +1016,15 @@ class WebDock:
     MODES = (440, 470)
     SETTINGS = (880, 620)      # fenêtre paysage type Réglages macOS
     SETTINGS_MAX = (1180, 780)  # bouton vert (zoom) — borné à l'écran
-    BG = "#101218"              # fond opaque sous les surfaces translucides
+    # CLÉ DE COULEUR : couleur de fond de TOUTES les surfaces (Form WinForms,
+    # WebView2, page dock.html — même valeur dans html,body). Windows rend ces
+    # pixels transparents et cliquables au travers (LWA_COLORKEY, voir
+    # _apply_opacity) : le « carré » autour des formes disparaît PAR
+    # CONSTRUCTION, même si la découpe par région native échoue (mauvais hwnd,
+    # timing, machine capricieuse). Quasi-noir → le lissage des bords fond vers
+    # une teinte invisible à l'écran. Ne JAMAIS peindre un élément visible avec
+    # cette valeur exacte.
+    KEY = "#0F1014"
 
     def __init__(self):
         if not os.path.isfile(DOCK_HTML):   # exe incomplet → repli pilule,
@@ -1170,6 +1178,10 @@ class WebDock:
                 u.SetWindowLongW(hwnd, GWL_EXSTYLE, (st | TOOL) & ~APPWIN)
             except Exception as e:
                 core.log_err("dock_exstyle", e)
+            # clé de couleur active AVANT toute première révélation : sans ça,
+            # la fenêtre pourrait apparaître une fois avec son fond visible
+            # (self._hwnd est déjà mémorisé → pas de récursion)
+            self._apply_opacity()
         return self._hwnd
 
     def apply_shape(self, payload):
@@ -1266,7 +1278,11 @@ class WebDock:
 
     def _apply_opacity(self):
         """Opacité choisie par l'utilisateur pour la bulle (réglages toujours
-        pleinement opaques). WS_EX_LAYERED + LWA_ALPHA — best effort."""
+        pleinement opaques) + CLÉ DE COULEUR : tous les pixels exactement de
+        la couleur KEY (fond de la page, de la Form et du WebView2) deviennent
+        transparents et cliquables au travers — c'est ce qui efface le
+        « carré » autour des formes même quand la découpe par région native
+        n'opère pas. WS_EX_LAYERED + LWA_ALPHA|LWA_COLORKEY — best effort."""
         try:
             hwnd = self._get_hwnd()
             if not hwnd:
@@ -1275,7 +1291,8 @@ class WebDock:
             op = 1.0 if self._panel.startswith("settings") else \
                 float(core.CFG.get("dock_opacity", 1.0) or 1.0)
             op = min(1.0, max(0.55, op))
-            GWL_EXSTYLE, LAYERED, LWA_ALPHA = -20, 0x00080000, 0x2
+            GWL_EXSTYLE, LAYERED = -20, 0x00080000
+            LWA_COLORKEY, LWA_ALPHA = 0x1, 0x2
             NOACT = 0x08000000
             st = u.GetWindowLongW(hwnd, GWL_EXSTYLE) | LAYERED
             # WS_EX_NOACTIVATE partout SAUF réglages : la bulle et ses menus ne
@@ -1286,7 +1303,10 @@ class WebDock:
             else:
                 st |= NOACT
             u.SetWindowLongW(hwnd, GWL_EXSTYLE, st)
-            u.SetLayeredWindowAttributes(hwnd, 0, int(op * 255), LWA_ALPHA)
+            r, g, b = (int(self.KEY[i:i + 2], 16) for i in (1, 3, 5))
+            u.SetLayeredWindowAttributes(hwnd, (b << 16) | (g << 8) | r,
+                                         int(op * 255),
+                                         LWA_ALPHA | LWA_COLORKEY)
         except Exception as e:
             core.log_err("dock_opacity", e)
 
@@ -1318,7 +1338,7 @@ class WebDock:
         self._win = webview.create_window(
             "NovaDock", DOCK_HTML, width=w, height=h, x=x, y=y,
             frameless=True, easy_drag=False, on_top=True, hidden=True,
-            focus=False, background_color=self.BG, resizable=False,
+            focus=False, background_color=self.KEY, resizable=False,
             js_api=DockApi(self))
         # 10 s : après une mise à jour, le premier démarrage de WebView2 peut
         # être lent — révéler trop tôt montrerait le rectangle nu.
