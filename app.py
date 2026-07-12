@@ -777,6 +777,37 @@ class Pill(threading.Thread):
                   pady=3).grid(row=len(rows) + 1, column=0, sticky="w",
                                pady=(4, 0))
 
+        # Vitesse de transcription (parité avec le dock — mêmes options)
+        seps = tk.Frame(win, bg=SET_LINE, height=1)
+        seps.pack(fill="x", padx=16, pady=12)
+        tk.Label(win, text="Vitesse de transcription", bg=SET_BG, fg=SET_FG,
+                 font=("Segoe UI", 13, "bold")).pack(anchor="w", padx=16)
+        stt_cfg = core.CFG.get("stt") or {}
+        v_live = tk.BooleanVar(value=stt_cfg.get("live", True) is not False)
+        v_warm = tk.BooleanVar(value=core.stt_keep_warm())
+        v_prec = tk.BooleanVar(value=bool(stt_cfg.get("precision_max")))
+        v_qual = tk.BooleanVar(value=bool(stt_cfg.get("quality_max")))
+
+        def save_stt():
+            stt = dict(core.CFG.get("stt") or {})
+            q_changed = bool(stt.get("quality_max")) != v_qual.get()
+            stt.update({"live": v_live.get(), "keep_warm": v_warm.get(),
+                        "precision_max": v_prec.get(),
+                        "quality_max": v_qual.get()})
+            core.save_config({"stt": stt})
+            if q_changed:
+                core.sync_stt_model()
+        sf = tk.Frame(win, bg=SET_BG)
+        sf.pack(fill="x", padx=16, pady=4)
+        for var, label in ((v_live, "Pendant la dictée (recommandé)"),
+                           (v_warm, "Moteur gardé en mémoire (~0,7 Go de RAM)"),
+                           (v_prec, "Précision maximale (3-5× plus lent sur CPU)"),
+                           (v_qual, "Qualité maximale (téléchargement ~1,5 Go)")):
+            tk.Checkbutton(sf, text=label, variable=var, command=save_stt,
+                           bg=SET_BG, fg=SET_FG, selectcolor=SET_INSET,
+                           activebackground=SET_BG, activeforeground=SET_FG,
+                           anchor="w").pack(anchor="w")
+
         # Mes infos : champs de profil réutilisés par « mon adresse », « mon
         # e-mail »… dans le texte dicté (surtout le mode E-mail). 100 % local.
         sep2 = tk.Frame(win, bg=SET_LINE, height=1)
@@ -1189,6 +1220,7 @@ class DockApi:
             "mode": STATE.get("mode", modes_registry.DEFAULT_MODE_ID),
             "profile": STATE.get("profile", power_profiles.DEFAULT_ID),
             "ptt_key": core.CFG.get("ptt_key", "f9"),
+            "stt_opts": self.stt_opts(),
             "mode_hotkeys": core.CFG.get("mode_hotkeys") or {},
             "menu_hotkey": core.CFG.get("menu_hotkey", ""),
             "dock_prefs": {"position": core.CFG.get("dock_position", "bottom-center"),
@@ -1317,6 +1349,53 @@ class DockApi:
             core.save_config({"ptt_key": key})
             _rebind_ptt()
         return core.CFG.get("ptt_key")
+
+    def stt_opts(self):
+        """Options de latence de la transcription (lecture)."""
+        stt = core.CFG.get("stt") or {}
+        return {"live": stt.get("live", True) is not False,
+                "keep_warm": stt.get("keep_warm", "auto"),
+                "keep_warm_on": core.stt_keep_warm(),
+                "precision_max": bool(stt.get("precision_max")),
+                "quality_max": bool(stt.get("quality_max"))}
+
+    def set_stt_opts(self, opts):
+        """Options de latence (écriture) — validées côté Python. Activer la
+        qualité maximale pré-télécharge le grand moteur en arrière-plan pour
+        que la prochaine dictée n'attende pas ~1,5 Go."""
+        opts = opts or {}
+        stt = dict(core.CFG.get("stt") or {})
+        for k in ("live", "precision_max"):
+            if k in opts:
+                stt[k] = bool(opts[k])
+        if "keep_warm" in opts:
+            stt["keep_warm"] = opts["keep_warm"] \
+                if opts["keep_warm"] in (True, False) else "auto"
+        q_changed = "quality_max" in opts \
+            and bool(opts["quality_max"]) != bool(stt.get("quality_max"))
+        if "quality_max" in opts:
+            stt["quality_max"] = bool(opts["quality_max"])
+        core.save_config({"stt": stt})
+        if q_changed:
+            core.sync_stt_model()
+            if stt["quality_max"]:
+                threading.Thread(target=self._preload_stt, daemon=True).start()
+        return self.stt_opts()
+
+    def _preload_stt(self):
+        """Télécharge/charge le moteur choisi tout de suite (feedback bulle),
+        plutôt que de faire attendre la première dictée. Best-effort."""
+        try:
+            pill.show("thinking", "Préparation du moteur amélioré…",
+                      "téléchargement unique — environ 1,5 Go")
+            core.get_model()
+            pill.show("ok", "Moteur amélioré prêt")
+            pill.hide(2.0)
+        except Exception as e:
+            core.log_err("stt_preload", e)
+            pill.show("error", "Téléchargement du moteur impossible",
+                      "réessaiera à la prochaine dictée")
+            pill.hide(2.6)
 
     def set_mode_hotkey(self, mode_id, key):
         """Raccourci direct d'un Style ; clé vide = suppression du raccourci."""
@@ -1459,15 +1538,43 @@ def _ptt_session():
             pill.hide(2.6)
             return
         t_release = None
+        # transcription EN CONTINU (PC sans GPU) : les tranches terminées sont
+        # transcrites pendant que la touche est tenue — à la relâche il ne
+        # reste que la fin. Au moindre pépin : repli intégral classique sur le
+        # MÊME audio complet (jamais de plantage, jamais de perte).
+        frames, flock = [], threading.Lock()
+        live = None
+        if core.stt_live_enabled():
+            try:
+                live = core.LiveTranscriber(
+                    frames, flock,
+                    on_partial=lambda t: pill.show("listening", t[-70:]))
+            except Exception as e:
+                core.log_err("stt_live", e)
+                live = None
         audio = core.record_audio(on_level=pill.level, stop=_ptt_stop,
-                                  end_silence=999)
+                                  end_silence=999,
+                                  frames_out=frames if live else None,
+                                  frames_lock=flock if live else None)
         t_release = time.time()
         if audio is None:
+            if live:
+                live.finish()                     # arrête le fil de fond
             pill.show("error", "Je n'ai rien entendu")
             pill.hide(1.6)
             return
         pill.show("thinking", "Un instant…")
-        text, engine = core.transcribe_routed(audio)
+        text = engine = None
+        if live is not None:
+            t = None
+            try:
+                t = live.finish()
+            except Exception as e:
+                core.log_err("stt_live", e)
+            if t:
+                text, engine = t, "local"
+        if not text:
+            text, engine = core.transcribe_routed(audio)
         if not text:
             pill.show("error", "Je n'ai pas compris")
             pill.hide(1.6)
@@ -1478,8 +1585,9 @@ def _ptt_session():
         # Variables ne s'appliquent qu'au palier Pro
         text = core.fill_personal(text, custom_vars=licensing.has("custom_variables"))
         # gestion mémoire séquentielle : on libère le STT avant le LLM sur les
-        # petites configs, pour ne jamais tenir les deux gros modèles en RAM
-        if core.CFG.get("seq_memory"):
+        # petites configs — SAUF si « moteur en mémoire » (dès ~8 Go) : le
+        # rechargement disque coûtait 2-4 s au début de CHAQUE dictée
+        if core.CFG.get("seq_memory") and not core.stt_keep_warm():
             core.unload_whisper()
         prompt, concrete = _resolve_prompt(STATE["mode"])
         # cascade de repli universelle : IA → format_rules → texte brut. Chaque

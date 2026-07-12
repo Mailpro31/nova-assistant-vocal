@@ -593,6 +593,78 @@ def test_free_offer_sync():
           m.group(1) if m else "", str(nb))
 
 
+def test_stt_latency():
+    """Piliers de latence STT (PC 8 Go sans GPU) : découpe de la transcription
+    en continu (logique pure, transcripteur injecté), moteur gardé en mémoire,
+    beam adaptatif et relèvement « qualité maximale » du modèle."""
+    print("Latence STT — transcription en continu, keep_warm, beam, qualité")
+    import numpy as _np
+    import threading as _th
+    import core
+
+    # --- LiveTranscriber : logique de découpe, sans thread ni vrai modèle ---
+    calls = []
+
+    def fake_tx(audio, prompt):
+        calls.append((len(audio), prompt))
+        return f"seg{len(calls)}"
+
+    frames, lock = [], _th.Lock()
+    lt = core.LiveTranscriber(frames, lock, start=False, _transcribe=fake_tx)
+    core.NOISE["floor"] = 0.01                 # seuil de voix réaliste
+    quiet = _np.zeros(1600, dtype=_np.float32)             # bloc silencieux
+    loud = _np.ones(1600, dtype=_np.float32) * 0.5         # bloc de voix
+    # voix en cours, pas de pause → aucun commit
+    frames.extend([loud] * 30)
+    lt._commit(final=False)
+    check("live : pas de commit tant que la voix continue", calls, [])
+    # une pause de ~0,5 s → commit de la tranche
+    frames.extend([quiet] * 6)
+    lt._commit(final=False)
+    check("live : commit à la pause", len(calls), 1)
+    # la traîne est transcrite par finish (avec l'amorce du texte committé)
+    frames.extend([loud] * 8)
+    out = lt.finish()
+    check("live : texte final = tranches + traîne", out, "seg1 seg2")
+    check("live : la traîne reçoit l'amorce du committé",
+          calls[1][1], "seg1")
+    # fil cassé → None (l'appelant repart sur la transcription intégrale)
+    lt2 = core.LiveTranscriber([], _th.Lock(), start=False,
+                               _transcribe=fake_tx)
+    lt2.broken = True
+    check("live : cassé → None (repli intégral)", lt2.finish(), None)
+
+    # --- keep_warm : explicite > auto ---
+    old_stt = dict(core.CFG.get("stt") or {})
+    try:
+        core.CFG["stt"] = dict(old_stt, keep_warm=True)
+        check("keep_warm : explicite oui", core.stt_keep_warm(), True)
+        core.CFG["stt"] = dict(old_stt, keep_warm=False)
+        check("keep_warm : explicite non", core.stt_keep_warm(), False)
+        core.CFG["stt"] = dict(old_stt, keep_warm="auto")
+        check("keep_warm : auto → booléen",
+              core.stt_keep_warm() in (True, False), True)
+
+        # --- beam adaptatif (CPU en CI) ---
+        core.CFG["stt"] = dict(old_stt, precision_max=False)
+        check("beam : CPU rapide par défaut", core._stt_beam(), 1)
+        core.CFG["stt"] = dict(old_stt, precision_max=True)
+        check("beam : précision maximale → 5", core._stt_beam(), 5)
+
+        # --- qualité maximale : relève small, respecte large-v3 ---
+        core.CFG["stt"] = dict(old_stt, quality_max=True)
+        check("qualité max : small → grand moteur multilingue",
+              core.effective_stt_model("small"), "large-v3-turbo")
+        check("qualité max : large-v3 (Apex) inchangé",
+              core.effective_stt_model("large-v3"), "large-v3")
+        core.CFG["stt"] = dict(old_stt, quality_max=False)
+        check("qualité off : le profil décide",
+              core.effective_stt_model("small"), "small")
+    finally:
+        core.CFG["stt"] = old_stt
+        core.NOISE["floor"] = 0.0
+
+
 def test_web_dock_default():
     """L'interface web (dock.html) est l'UI par défaut pour TOUS : décision
     produit — la pilule tkinter n'est que le repli WebView2-absent. Une
@@ -617,6 +689,7 @@ if __name__ == "__main__":
     test_licensing()
     test_version_sync()
     test_free_offer_sync()
+    test_stt_latency()
     test_web_dock_default()
     print()
     if _fails:
