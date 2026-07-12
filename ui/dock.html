@@ -641,7 +641,9 @@ function sttRows(){
     +R('Précision maximale','Plus lent sur processeur — sans effet avec une carte NVIDIA (déjà au maximum)',
       '<div class="sw'+(o.precision_max?' on':'')+'" id="swPrec"></div>')
     +R('Qualité maximale','Le grand moteur multilingue local remplace le standard (téléchargement unique ~1,5 Go)',
-      '<div class="sw'+(o.quality_max?' on':'')+'" id="swQual"></div>');
+      '<div class="sw'+(o.quality_max?' on':'')+'" id="swQual"></div>')
+    +R('Collage éclair (Style Normal)','Colle immédiatement le texte nettoyé par règles, sans reformulation par l\'IA — hésitations conservées',
+      '<div class="sw'+(o.instant_normal?' on':'')+'" id="swInstant"></div>');
 }
 
 function paneLang(p){
@@ -658,12 +660,13 @@ function paneLang(p){
       'Toutes les langues sont incluses, quel que soit le palier.')
    +G('Raccourcis vocaux',add+vars,'« Quand je dis X, colle Y » — 100 % privé, jamais envoyé à une IA.')
    +G('Vitesse de transcription',sttRows(),
-      'Sur un PC 8 Go sans carte graphique : « pendant la dictée » fait passer l\'attente d\'environ 10 s à 2-3 s, sans rien changer à la qualité ; « moteur gardé en mémoire » économise 2 à 4 s par dictée mais occupe ~0,7 Go de RAM en continu ; « précision maximale » ralentit 3 à 5 fois chaque transcription ; « qualité maximale » télécharge une fois ~1,5 Go, occupe ~1,5 Go de RAM et ajoute quelques secondes par phrase — pour les dictées où chaque mot compte.');
+      'Sur un PC 8 Go sans carte graphique : « pendant la dictée » fait passer l\'attente d\'environ 10 s à 2-3 s, sans rien changer à la qualité ; « moteur gardé en mémoire » économise 2 à 4 s par dictée mais occupe ~0,7 Go de RAM en continu ; « précision maximale » ralentit 3 à 5 fois chaque transcription ; « qualité maximale » télécharge une fois ~1,5 Go, occupe ~1,5 Go de RAM et ajoute quelques secondes par phrase — pour les dictées où chaque mot compte ; « collage éclair » rend le Style Normal instantané mais sans lissage des hésitations.');
   const bindSw=(id,key)=>{const el=document.getElementById(id);if(!el)return;
     el.onclick=()=>{const want=!el.classList.contains('on');
       api('set_stt_opts',{[key]:want}).then(o=>{if(o){S.stt_opts=o;buildPane();}});};};
   bindSw('swLive','live');bindSw('swWarm','keep_warm');
   bindSw('swPrec','precision_max');bindSw('swQual','quality_max');
+  bindSw('swInstant','instant_normal');
   document.getElementById('langSel2').onchange=e=>{S.language=e.target.value;api('set_language',e.target.value);};
   document.getElementById('vAdd').onclick=()=>{const t=document.getElementById('vT').value.trim(),
     v=document.getElementById('vV').value.trim();if(!t||!v)return;

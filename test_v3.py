@@ -669,6 +669,31 @@ def test_stt_latency():
         core.CFG["stt"] = dict(old_stt, quality_max=False)
         check("qualité off : le profil décide",
               core.effective_stt_model("small"), "small")
+
+        # --- v3.1.10 : choix GPU selon la VRAM (fonction pure) ---
+        check("gpu : VRAM inconnue → float16 (comportement historique)",
+              core._pick_gpu_compute(0.0), "float16")
+        check("gpu : 1 Go → CPU d'emblée (None)",
+              core._pick_gpu_compute(1.0), None)
+        check("gpu : 2 Go → int8_float16 (vieille carte utilisable)",
+              core._pick_gpu_compute(2.0), "int8_float16")
+        check("gpu : 8 Go → float16", core._pick_gpu_compute(8.0), "float16")
+        # threads CPU bornés [2, 8]
+        check("threads STT : borne basse/haute respectée",
+              2 <= core._cpu_threads() <= 8, True)
+        # keep_alive LLM adaptatif à la RAM
+        real_ram = core._ram_total_gb
+        try:
+            core._ram_total_gb = lambda: 16.0
+            check("LLM gardé chaud dès 8 Go", core._llm_keep_alive(), "30m")
+            core._ram_total_gb = lambda: 4.0
+            check("LLM : petite RAM → défaut Ollama",
+                  core._llm_keep_alive(), "5m")
+        finally:
+            core._ram_total_gb = real_ram
+        # collage éclair : off par défaut (choix explicite de l'utilisateur)
+        check("collage éclair désactivé par défaut",
+              core.DEFAULT_CONFIG.get("instant_normal"), False)
     finally:
         core.CFG["stt"] = old_stt
         core.NOISE["floor"] = 0.0
