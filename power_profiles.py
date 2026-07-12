@@ -172,18 +172,23 @@ def apply_profile(profile_id, cfg_save):
     Retourne l'id réellement appliqué."""
     p = get_profile(profile_id)
     providers = {"ollama": {"model": p["llm"]}}
-    stt = p["stt"]
-    try:                # option « qualité maximale » : relève le modèle STT
+    payload = {"profile": p["id"], "seq_memory": p["seq_memory"],
+               "providers": providers}
+    try:
         import core     # import paresseux (core importe déjà ce module)
-        stt = core.effective_stt_model(stt)
+        # Calcul (effective_stt_model, option « qualité maximale ») + écriture de
+        # whisper_model tenus sous _stt_sync_lock — le MÊME verrou que
+        # sync_stt_model. Les DEUX seuls écrivains de whisper_model partagent
+        # ainsi un point de sérialisation : un changement de profil concurrent
+        # d'une bascule qualité ne peut plus s'écrire dans le désordre et laisser
+        # whisper_model incohérent avec le profil (grand moteur ~1,5 Go chargé —
+        # et rechargé à chaque dictée — sur une config < 12 Go qui dit « small »).
+        with core._stt_sync_lock:
+            payload["whisper_model"] = core.effective_stt_model(p["stt"])
+            cfg_save(payload)
     except Exception:
-        pass
-    cfg_save({
-        "profile": p["id"],
-        "whisper_model": stt,
-        "seq_memory": p["seq_memory"],
-        "providers": providers,
-    })
+        payload["whisper_model"] = p["stt"]   # repli : profil brut sans relèvement
+        cfg_save(payload)
     return p["id"]
 
 

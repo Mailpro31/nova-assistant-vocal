@@ -836,7 +836,7 @@ class Pill(threading.Thread):
             # quality_max=true importé d'une machine ≥12 Go — le dock, lui, ne
             # touche jamais cette clé sur un PC non supporté. On préserve donc
             # la préférence de l'utilisateur, comme le dock.
-            if core.quality_max_supported():
+            if _o["quality_supported"]:      # même source que le dock (payload state)
                 opts["quality_max"] = v_qual.get()
             # keep_warm « auto » (résolu selon la RAM et le modèle) : épinglé
             # en booléen SEULEMENT si cette case diffère de l'état résolu —
@@ -849,7 +849,7 @@ class Pill(threading.Thread):
         sf.pack(fill="x", padx=16, pady=4)
         # « Qualité maximale » grisée si la machine ne peut pas tenir le grand
         # moteur (~12 Go) — même gating que le dock, parité CLAUDE.md.
-        q_ok = core.quality_max_supported()
+        q_ok = _o["quality_supported"]        # même source que le dock (payload state)
         for var, label, dis in (
                 (v_live, "Pendant la dictée (recommandé)", False),
                 (v_warm, "Moteur gardé en mémoire (~0,7 Go de RAM)", False),

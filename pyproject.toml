@@ -7,7 +7,7 @@
 
 [project]
 name = "nova-assistant-vocal"
-version = "3.1.19"
+version = "3.1.20"
 description = "Assistant vocal Windows offline-first (bleu nuit, façon macOS)"
 readme = "README.md"
 requires-python = ">=3.11"
