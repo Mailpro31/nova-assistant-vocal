@@ -54,7 +54,7 @@ SET_INSET = "#1A1A1D"     # champs / listes / séparateurs discrets
 SET_LINE = "#2E2E30"      # hairline (rgba(255,255,255,.065) composé sur SET_BG)
 SET_ACCENT = "#0A84FF"    # accent unique (boutons d'action)
 SET_WHITE = "#FFFFFF"     # texte sur accent
-SET_OK = "#8FE7B0"        # état succès
+SET_OK = "#30D158"        # état succès (palette CLAUDE.md)
 SET_ERR = "#E7A08F"       # état erreur
 SET_DANGER_BG, SET_DANGER_FG = "#3A2620", "#E7C9BF"   # bouton destructif
 
@@ -364,7 +364,15 @@ class Pill(threading.Thread):
                     else:
                         self._dismiss()
                 elif msg[0] == "settings":
-                    self._open_settings_window()
+                    # isolé du tick : une exception pendant la CONSTRUCTION de la
+                    # fenêtre (état de licence limite, etc.) ne doit jamais casser
+                    # la boucle de la pilule — sinon self.root.after(40, _tick) plus
+                    # bas ne se replanifie pas et la pilule se fige pour la session.
+                    try:
+                        self._open_settings_window()
+                    except Exception as e:
+                        core.log_err("settings_window", e)
+                        self._settings_win = None   # fenêtre à moitié construite
         except queue.Empty:
             pass
         # animation barres + fondu
@@ -392,18 +400,64 @@ class Pill(threading.Thread):
         self._settings_win = win
         win.title("Nova — Réglages")
         win.configure(bg=SET_BG)
-        win.geometry("560x760")
+        # hauteur bornée à l'écran : la fenêtre empile beaucoup de sections et
+        # ne doit jamais dépasser le bureau (sinon les boutons du bas sortent de
+        # l'écran, inatteignables). Le conteneur défilant ci-dessous rend tout
+        # le contenu joignable quelle que soit la taille de l'écran.
+        try:
+            _sh = int(win.winfo_screenheight())
+        except Exception:
+            _sh = 760
+        win.geometry("560x%d" % max(480, min(760, _sh - 80)))
         win.attributes("-topmost", True)
+
+        # Conteneur défilant (Canvas + Scrollbar) : TOUS les widgets de contenu
+        # ci-dessous sont parentés à `body`, pas à `win` — licence, raccourcis
+        # vocaux, personnalisation, Styles, moteur, profil, vitesse, « Mes
+        # infos »… dépassent le bas sur un petit écran. Sans ce conteneur, la
+        # moitié basse (dont « Mes infos ») serait invisible et inatteignable.
+        _canvas = tk.Canvas(win, bg=SET_BG, highlightthickness=0, bd=0)
+        _vsb = tk.Scrollbar(win, orient="vertical", command=_canvas.yview)
+        _canvas.configure(yscrollcommand=_vsb.set)
+        _vsb.pack(side="right", fill="y")
+        _canvas.pack(side="left", fill="both", expand=True)
+        body = tk.Frame(_canvas, bg=SET_BG)
+        _body_id = _canvas.create_window((0, 0), window=body, anchor="nw")
+        # la zone défilable suit la hauteur réelle du contenu ; la largeur de
+        # `body` suit celle du canvas (sinon le contenu ne s'étire pas en largeur)
+        body.bind("<Configure>",
+                  lambda _e: _canvas.configure(scrollregion=_canvas.bbox("all")))
+        _canvas.bind("<Configure>",
+                     lambda e: _canvas.itemconfigure(_body_id, width=e.width))
+
+        # molette : liée tant que la fenêtre est ouverte (déliée dans on_close).
+        # PAS de <Enter>/<Leave> sur le canvas — le frame `body` couvre tout le
+        # viewport, donc le canvas reçoit un <Leave> (NotifyInferior) dès qu'on
+        # survole le contenu → la molette mourrait PILE là où il faut défiler.
+        # bind_all ne capte que les fenêtres Tk (la pilule n'est pas défilable) →
+        # aucune molette volée à une autre application.
+        def _on_wheel(e):
+            # laisser un widget déjà défilable (Listbox des variables/Styles,
+            # Text du Style sur mesure) gérer SA molette — sinon il défile ET la
+            # page défile en même temps (double défilement désorientant)
+            if isinstance(e.widget, (tk.Listbox, tk.Text)):
+                return
+            _canvas.yview_scroll(int(-(e.delta or 0) / 120), "units")
+        _canvas.bind_all("<MouseWheel>", _on_wheel)
 
         def on_close():
             self._settings_win = None
+            try:
+                _canvas.unbind_all("<MouseWheel>")   # sinon la molette resterait
+            except Exception:                        # liée après la fermeture
+                pass
             win.destroy()
         win.protocol("WM_DELETE_WINDOW", on_close)
 
         # — Licence & version —
-        tk.Label(win, text="Licence", bg=SET_BG, fg=SET_FG,
+        tk.Label(body, text="Licence", bg=SET_BG, fg=SET_FG,
                  font=("Segoe UI", 15, "bold")).pack(anchor="w", padx=16, pady=(14, 4))
-        lic_state = tk.Label(win, text="", bg=SET_BG, fg=SET_MUT,
+        lic_state = tk.Label(body, text="", bg=SET_BG, fg=SET_MUT,
                              font=("Segoe UI", 9), justify="left")
         lic_state.pack(anchor="w", padx=16)
 
@@ -424,7 +478,7 @@ class Pill(threading.Thread):
                 lic_state.config(fg=SET_OK,
                                  text=f"Version : {st['tier'].capitalize()} — {exp}.")
 
-        lic_row = tk.Frame(win, bg=SET_BG)
+        lic_row = tk.Frame(body, bg=SET_BG)
         lic_row.pack(fill="x", padx=16, pady=8)
         e_lic = tk.Entry(lic_row, width=34, bg=SET_INSET, fg=SET_FG,
                          insertbackground=SET_FG, relief="flat")
@@ -444,23 +498,23 @@ class Pill(threading.Thread):
         # stat de valeur hebdo (rétention) — même info que le dock (« Votre semaine »)
         try:
             wk = storage.week_stats()
-            tk.Label(win, text=f"Cette semaine : {wk.get('count', 0)} dictées · "
+            tk.Label(body, text=f"Cette semaine : {wk.get('count', 0)} dictées · "
                      f"≈ {wk.get('minutes', 0)} min de frappe évitées",
                      bg=SET_BG, fg=SET_MUT,
                      font=("Segoe UI", 9)).pack(anchor="w", padx=16)
         except Exception:
             pass
-        tk.Frame(win, bg=SET_INSET, height=1).pack(fill="x", padx=16, pady=(8, 2))
+        tk.Frame(body, bg=SET_INSET, height=1).pack(fill="x", padx=16, pady=(8, 2))
 
         pad = {"padx": 16, "pady": 6}
-        tk.Label(win, text="Raccourcis vocaux", bg=SET_BG, fg=SET_FG,
+        tk.Label(body, text="Raccourcis vocaux", bg=SET_BG, fg=SET_FG,
                  font=("Segoe UI", 15, "bold")).pack(anchor="w", **pad)
-        tk.Label(win, text="Quand je dis…  →  le texte collé à la place "
+        tk.Label(body, text="Quand je dis…  →  le texte collé à la place "
                  "(100 % privé, jamais envoyé à une IA)",
                  bg=SET_BG, fg=SET_MUT, font=("Segoe UI", 9)).pack(anchor="w",
                                                                         padx=16)
 
-        row = tk.Frame(win, bg=SET_BG)
+        row = tk.Frame(body, bg=SET_BG)
         row.pack(fill="x", padx=16, pady=8)
         e_trig = tk.Entry(row, width=16, bg=SET_INSET, fg=SET_FG,
                           insertbackground=SET_FG, relief="flat")
@@ -470,7 +524,7 @@ class Pill(threading.Thread):
                          insertbackground=SET_FG, relief="flat")
         e_val.pack(side="left", ipady=4)
 
-        listbox = tk.Listbox(win, height=8, bg=SET_INSET, fg=SET_FG,
+        listbox = tk.Listbox(body, height=8, bg=SET_INSET, fg=SET_FG,
                              selectbackground=SET_ACCENT, relief="flat",
                              highlightthickness=0)
         listbox.pack(fill="both", expand=True, padx=16, pady=8)
@@ -500,7 +554,7 @@ class Pill(threading.Thread):
             core.save_custom_variables(items)
             refresh()
 
-        btns = tk.Frame(win, bg=SET_BG)
+        btns = tk.Frame(body, bg=SET_BG)
         btns.pack(fill="x", padx=16)
         tk.Button(btns, text="+ Ajouter", command=add_var, bg=SET_ACCENT,
                   fg=SET_WHITE, relief="flat", padx=12, pady=4).pack(side="left")
@@ -510,15 +564,15 @@ class Pill(threading.Thread):
 
         # — Personnalisation (palier Ultra) —
         def ultra_header(title, unlocked):
-            tk.Label(win, text=title + ("" if unlocked else "   — NÉCESSITE NOVA ULTRA"),
+            tk.Label(body, text=title + ("" if unlocked else "   — NÉCESSITE NOVA ULTRA"),
                      bg=SET_BG, fg=SET_FG, font=("Segoe UI", 15, "bold")
                      ).pack(anchor="w", padx=16, pady=(0, 4))
 
-        tk.Frame(win, bg=SET_LINE, height=1).pack(fill="x", padx=16, pady=12)
+        tk.Frame(body, bg=SET_LINE, height=1).pack(fill="x", padx=16, pady=12)
         can_orb = licensing.has("orb_customization")
         can_name = licensing.has("custom_naming")
         ultra_header("Personnalisation", can_orb or can_name)
-        pcol = tk.Frame(win, bg=SET_BG)
+        pcol = tk.Frame(body, bg=SET_BG)
         pcol.pack(fill="x", padx=16, pady=4)
         tk.Label(pcol, text="Couleur de l'orbe :", bg=SET_BG,
                  fg=SET_MUT).pack(side="left")
@@ -526,7 +580,7 @@ class Pill(threading.Thread):
                            insertbackground=SET_FG, relief="flat")
         e_color.pack(side="left", padx=8, ipady=3)
         e_color.insert(0, core.CFG.get("orb_color", ""))
-        pnam = tk.Frame(win, bg=SET_BG)
+        pnam = tk.Frame(body, bg=SET_BG)
         pnam.pack(fill="x", padx=16, pady=4)
         tk.Label(pnam, text="Nom personnalisé :", bg=SET_BG,
                  fg=SET_MUT).pack(side="left")
@@ -540,7 +594,7 @@ class Pill(threading.Thread):
                 core.save_config({"orb_color": e_color.get().strip()})
             if can_name:
                 core.save_config({"custom_name": e_name.get().strip()[:40]})
-        b_perso = tk.Button(win, text="Enregistrer la personnalisation",
+        b_perso = tk.Button(body, text="Enregistrer la personnalisation",
                             command=save_perso, bg=SET_ACCENT, fg=SET_WHITE,
                             relief="flat", padx=12, pady=4)
         b_perso.pack(anchor="w", padx=16, pady=(4, 0))
@@ -550,15 +604,15 @@ class Pill(threading.Thread):
 
         # — Modes sur mesure (palier Ultra) : selon l'app / l'onglet actif,
         #   appliquer SON prompt à la reformulation —
-        tk.Frame(win, bg=SET_LINE, height=1).pack(fill="x", padx=16, pady=12)
+        tk.Frame(body, bg=SET_LINE, height=1).pack(fill="x", padx=16, pady=12)
         can_cm = licensing.has("custom_modes")
         ultra_header("Styles sur mesure", can_cm)
-        tk.Label(win, text="Quand l'app ou l'onglet actif contient un de ces "
+        tk.Label(body, text="Quand l'app ou l'onglet actif contient un de ces "
                  "mots, votre consigne reformule à votre façon.",
                  bg=SET_BG, fg=SET_MUT,
                  font=("Segoe UI", 9)).pack(anchor="w", padx=16)
 
-        cmrow = tk.Frame(win, bg=SET_BG)
+        cmrow = tk.Frame(body, bg=SET_BG)
         cmrow.pack(fill="x", padx=16, pady=(8, 2))
         e_cm_name = tk.Entry(cmrow, width=14, bg=SET_INSET, fg=SET_FG,
                              insertbackground=SET_FG, relief="flat")
@@ -568,12 +622,12 @@ class Pill(threading.Thread):
                               insertbackground=SET_FG, relief="flat")
         e_cm_match.pack(side="left", padx=8, ipady=4)
         g_cm_match = _ph(e_cm_match, "Mots-clés app/onglet (virgules)")
-        t_cm_prompt = tk.Text(win, height=3, bg=SET_INSET, fg=SET_FG,
+        t_cm_prompt = tk.Text(body, height=3, bg=SET_INSET, fg=SET_FG,
                               insertbackground=SET_FG, relief="flat",
                               font=("Segoe UI", 9), wrap="word")
         t_cm_prompt.pack(fill="x", padx=16, pady=4)
 
-        cm_list = tk.Listbox(win, height=3, bg=SET_INSET, fg=SET_FG,
+        cm_list = tk.Listbox(body, height=3, bg=SET_INSET, fg=SET_FG,
                              selectbackground=SET_ACCENT, relief="flat",
                              highlightthickness=0)
         cm_list.pack(fill="x", padx=16, pady=4)
@@ -604,7 +658,7 @@ class Pill(threading.Thread):
             core.save_custom_modes(items)
             cm_refresh()
 
-        cmb = tk.Frame(win, bg=SET_BG)
+        cmb = tk.Frame(body, bg=SET_BG)
         cmb.pack(fill="x", padx=16)
         b_cm_add = tk.Button(cmb, text="+ Créer le Style", command=cm_add,
                              bg=SET_ACCENT, fg=SET_WHITE, relief="flat",
@@ -618,9 +672,9 @@ class Pill(threading.Thread):
         _lock(can_cm, e_cm_name, e_cm_match, t_cm_prompt, b_cm_add, b_cm_del)
 
         # moteur + touche push-to-talk
-        sep = tk.Frame(win, bg=SET_LINE, height=1)
+        sep = tk.Frame(body, bg=SET_LINE, height=1)
         sep.pack(fill="x", padx=16, pady=12)
-        eng = tk.Frame(win, bg=SET_BG)
+        eng = tk.Frame(body, bg=SET_BG)
         eng.pack(fill="x", padx=16)
         cloud = tk.BooleanVar(value=bool(core.CFG.get("stt", {}).get("cloud_enabled")))
 
@@ -639,9 +693,9 @@ class Pill(threading.Thread):
                         "Activer Turbo ?", parent=win):
                     cloud.set(False)
                     return
-            stt = dict(core.CFG.get("stt", {}))
-            stt["cloud_enabled"] = bool(cloud.get())
-            core.save_config({"stt": stt})
+            # patch minimal (seule la clé changée), cf. _toggle_cloud : évite
+            # d'écraser un réglage de latence écrit en parallèle
+            core.save_config({"stt": {"cloud_enabled": bool(cloud.get())}})
         can_turbo = licensing.has("cloud_stt")
         cb_cloud = tk.Checkbutton(
             eng, text="Turbo (plus rapide, via le réseau) — sinon "
@@ -697,7 +751,7 @@ class Pill(threading.Thread):
 
         # profil de puissance : les profils trop lourds sont grisés (jamais de
         # plantage RAM). L'utilisateur ne voit aucun nom de modèle.
-        prof = tk.Frame(win, bg=SET_BG)
+        prof = tk.Frame(body, bg=SET_BG)
         prof.pack(fill="x", padx=16, pady=(10, 0))
         hw = power_profiles.detect_hardware()
         tk.Label(prof, text="Profil de puissance :", bg=SET_BG,
@@ -722,7 +776,7 @@ class Pill(threading.Thread):
                            activebackground=SET_BG, activeforeground=SET_FG,
                            relief="flat").pack(anchor="w")
 
-        kb = tk.Frame(win, bg=SET_BG)
+        kb = tk.Frame(body, bg=SET_BG)
         kb.pack(fill="x", padx=16, pady=8)
         tk.Label(kb, text="Touche de dictée :", bg=SET_BG,
                  fg=SET_FG).pack(side="left")
@@ -742,7 +796,7 @@ class Pill(threading.Thread):
         # langue de dictée (parité avec le paneLang du dock — règle CLAUDE.md :
         # toute option existe dans les DEUX écrans ; le tray n'a plus de
         # sous-menu Langue, cet écran de repli doit donc l'offrir)
-        lgf = tk.Frame(win, bg=SET_BG)
+        lgf = tk.Frame(body, bg=SET_BG)
         lgf.pack(fill="x", padx=16, pady=(0, 4))
         tk.Label(lgf, text="Langue de dictée :", bg=SET_BG,
                  fg=SET_FG).pack(side="left")
@@ -767,7 +821,7 @@ class Pill(threading.Thread):
         # raccourcis clavier : un par Style + ouverture du menu des Styles.
         # Pendant du groupe « Raccourcis clavier » du dock web (parité imposée
         # par CLAUDE.md) — champs texte simples, ex. « ctrl+alt+e », vide = off.
-        hkf = tk.Frame(win, bg=SET_BG)
+        hkf = tk.Frame(body, bg=SET_BG)
         hkf.pack(fill="x", padx=16, pady=(4, 0))
         tk.Label(hkf, text="Raccourcis clavier (ex. ctrl+alt+e — vide = aucun)",
                  bg=SET_BG, fg=SET_MUT, font=("Segoe UI", 8)).grid(
@@ -814,9 +868,9 @@ class Pill(threading.Thread):
                                pady=(4, 0))
 
         # Vitesse de transcription (parité avec le dock — mêmes options)
-        seps = tk.Frame(win, bg=SET_LINE, height=1)
+        seps = tk.Frame(body, bg=SET_LINE, height=1)
         seps.pack(fill="x", padx=16, pady=12)
-        tk.Label(win, text="Vitesse de transcription", bg=SET_BG, fg=SET_FG,
+        tk.Label(body, text="Vitesse de transcription", bg=SET_BG, fg=SET_FG,
                  font=("Segoe UI", 13, "bold")).pack(anchor="w", padx=16)
         _o = _stt_opts()                  # même source que le dock
         v_live = tk.BooleanVar(value=_o["live"])
@@ -829,32 +883,46 @@ class Pill(threading.Thread):
             # même logique que le dock (_apply_stt_opts) : fusion, synchro du
             # modèle et pré-téléchargement — aucune dérive entre les écrans.
             opts = {"live": v_live.get(), "precision_max": v_prec.get(),
-                    "quality_max": v_qual.get(),
                     "instant_normal": v_inst.get()}
+            # « Qualité maximale » : n'est renvoyée QUE si la machine la
+            # supporte (case active). Sinon la case est grisée et sa valeur
+            # masquée à False : la renvoyer inconditionnellement écraserait un
+            # quality_max=true importé d'une machine ≥12 Go — le dock, lui, ne
+            # touche jamais cette clé sur un PC non supporté. On préserve donc
+            # la préférence de l'utilisateur, comme le dock.
+            if _o["quality_supported"]:      # même source que le dock (payload state)
+                opts["quality_max"] = v_qual.get()
             # keep_warm « auto » (résolu selon la RAM et le modèle) : épinglé
             # en booléen SEULEMENT si cette case diffère de l'état résolu —
             # sinon cocher n'importe quelle AUTRE case figeait l'automatisme
             # pour toujours (aucun chemin UI ne sait revenir à « auto »)
-            if v_warm.get() != _stt_opts()["keep_warm_on"]:
+            if v_warm.get() != core.stt_keep_warm():   # = keep_warm_on, sans rebâtir le dict
                 opts["keep_warm"] = v_warm.get()
             _apply_stt_opts(opts)
-        sf = tk.Frame(win, bg=SET_BG)
+        sf = tk.Frame(body, bg=SET_BG)
         sf.pack(fill="x", padx=16, pady=4)
-        for var, label in ((v_live, "Pendant la dictée (recommandé)"),
-                           (v_warm, "Moteur gardé en mémoire (~0,7 Go de RAM)"),
-                           (v_prec, "Précision maximale (3-5× plus lent sur CPU)"),
-                           (v_qual, "Qualité maximale (~1,5 Go, dès ~8 Go de RAM)"),
-                           (v_inst, "Collage éclair pour le Style Normal (sans IA)")):
+        # « Qualité maximale » grisée si la machine ne peut pas tenir le grand
+        # moteur (~12 Go) — même gating que le dock, parité CLAUDE.md.
+        q_ok = _o["quality_supported"]        # même source que le dock (payload state)
+        for var, label, dis in (
+                (v_live, "Pendant la dictée (recommandé)", False),
+                (v_warm, "Moteur gardé en mémoire (~0,7 Go de RAM)", False),
+                (v_prec, "Précision maximale (3-5× plus lent sur processeur)", False),
+                (v_qual, "Qualité maximale (~1,5 Go, nécessite ~12 Go de RAM)",
+                 not q_ok),
+                (v_inst, "Collage éclair pour le Style Normal (sans IA)", False)):
             tk.Checkbutton(sf, text=label, variable=var, command=save_stt,
+                           state=("disabled" if dis else "normal"),
                            bg=SET_BG, fg=SET_FG, selectcolor=SET_INSET,
+                           disabledforeground=SET_MUT,
                            activebackground=SET_BG, activeforeground=SET_FG,
                            anchor="w").pack(anchor="w")
 
         # Mes infos : champs de profil réutilisés par « mon adresse », « mon
         # e-mail »… dans le texte dicté (surtout le mode E-mail). 100 % local.
-        sep2 = tk.Frame(win, bg=SET_LINE, height=1)
+        sep2 = tk.Frame(body, bg=SET_LINE, height=1)
         sep2.pack(fill="x", padx=16, pady=12)
-        tk.Label(win, text="Mes infos", bg=SET_BG, fg=SET_FG,
+        tk.Label(body, text="Mes infos", bg=SET_BG, fg=SET_FG,
                  font=("Segoe UI", 13, "bold")).pack(anchor="w", padx=16)
         info = core.personal_info()
         # clés = source unique storage.PERSONAL_FIELDS (jamais de dérive avec le
@@ -863,7 +931,7 @@ class Pill(threading.Thread):
                   "telephone": "Téléphone", "adresse": "Adresse"}
         fields = [(k, labels.get(k, k)) for k in storage.PERSONAL_FIELDS]
         entries = {}
-        me = tk.Frame(win, bg=SET_BG)
+        me = tk.Frame(body, bg=SET_BG)
         me.pack(fill="x", padx=16, pady=4)
         for i, (key, label) in enumerate(fields):
             tk.Label(me, text=label, bg=SET_BG, fg=SET_MUT, width=10,
@@ -876,7 +944,7 @@ class Pill(threading.Thread):
 
         # informations personnalisées : paires libres « ce que je dis » → valeur,
         # pendant du groupe équivalent du dock web (parité CLAUDE.md)
-        xf = tk.Frame(win, bg=SET_BG)
+        xf = tk.Frame(body, bg=SET_BG)
         xf.pack(fill="x", padx=16, pady=(8, 0))
         tk.Label(xf, text="Informations personnalisées (libellé → valeur)",
                  bg=SET_BG, fg=SET_MUT, font=("Segoe UI", 8)).grid(
@@ -896,7 +964,7 @@ class Pill(threading.Thread):
             extra_rows.append((e1, e2))
         for it in (info.get("extra") or []):
             add_extra(str(it.get("label", "")), str(it.get("value", "")))
-        tk.Button(win, text="Ajouter une information", command=add_extra,
+        tk.Button(body, text="Ajouter une information", command=add_extra,
                   bg=SET_INSET, fg=SET_FG, relief="flat", padx=10,
                   pady=3).pack(anchor="w", padx=16, pady=(4, 0))
 
@@ -908,7 +976,7 @@ class Pill(threading.Thread):
             core.save_personal(o)
             pill.show("ok", "Infos enregistrées")
             pill.hide(1.2)
-        tk.Button(win, text="Enregistrer mes infos", command=save_me,
+        tk.Button(body, text="Enregistrer mes infos", command=save_me,
                   bg=SET_ACCENT, fg=SET_WHITE, relief="flat", padx=12,
                   pady=4).pack(anchor="w", padx=16, pady=(4, 0))
 
@@ -956,6 +1024,9 @@ class WebDock:
         self._shown = False
         self._got_shape = False
         self._last_shape_n = 0     # n° de la dernière forme appliquée (dédup)
+        self._shape_epoch = 0      # id du CHARGEMENT de page courant : à chaque
+                                   # reload WebView2 le compteur JS repart de 0,
+                                   # l'epoch change → on remet _last_shape_n à 0
         self._shape_lock = threading.Lock()   # poste js_api ‖ watchdog :
                                               # jamais entrelacés (régression)
         self._push_ok = False      # un poste js_api est arrivé : pont prouvé
@@ -1073,14 +1144,28 @@ class WebDock:
                 self._apply_shape_locked(payload)
         except Exception as e:
             core.log_err("dock_shape", e)
-        self._reveal()
+        # PAS de self._reveal() ici : sur le chemin de succès, _apply_shape_locked
+        # révèle la fenêtre DÉCOUPÉE lui-même (ShowWindow). Appeler _reveal()
+        # inconditionnellement révélait la fenêtre NON découpée (carré sombre)
+        # quand _apply_shape_locked sortait tôt sur « if not hwnd » (handle
+        # WebView2 pas encore résolu au démarrage, sans poser _got_shape) — le
+        # flash de rectangle nu que l'architecture doit empêcher. Le secours
+        # « page cassée » reste porté par le Timer 10 s (voir serve()).
 
     def _apply_shape_locked(self, payload):
         n = int(payload.get("n") or 0)
-        # garde MONOTONE (pas une simple égalité) : le poste js_api et le
-        # watchdog arrivent par des fils différents — sans elle, une forme
-        # PÉRIMÉE lue avant un poste plus récent pouvait être appliquée
-        # après lui et faire régresser la région (retour du « carré »)
+        ep = int(payload.get("epoch") or 0)
+        # nouveau CHARGEMENT de page (reload WebView2 après crash du renderer,
+        # re-navigation) : le compteur JS __shapeN repart de 0, l'epoch change.
+        # Sans ce reset, la garde monotone rejetait toutes les formes du
+        # nouveau document (n=1,2,3 ≤ ancien 50) → région figée pour toujours.
+        if ep and ep != self._shape_epoch:
+            self._shape_epoch = ep
+            self._last_shape_n = 0
+        # garde MONOTONE (pas une simple égalité) : DANS un même chargement, le
+        # poste js_api et le watchdog arrivent par des fils différents — sans
+        # elle, une forme PÉRIMÉE lue avant un poste plus récent pouvait être
+        # appliquée après lui et faire régresser la région (retour du « carré »)
         if n and n <= self._last_shape_n:
             return
         hwnd = self._get_hwnd()
@@ -1211,15 +1296,23 @@ class WebDock:
         a changé ; et dès qu'UN poste arrive (_push_ok), le pont est prouvé sur
         cette machine — la boucle s'arrête, le régime de croisière n'a qu'un
         seul chemin."""
+        sig_prev = None
         while not self._push_ok:
             time.sleep(0.4)
             w = self._win
             if w is None:
                 continue
             try:
-                n = int(w.evaluate_js("(window.__novaShapes||{n:0}).n") or 0)
-                if not n or n <= self._last_shape_n:
+                # signature légère (epoch/n) : ne relit le paquet complet que
+                # s'il a changé. L'epoch fait repérer un reload de page (n
+                # repart de 0) — _apply_shape_locked remet alors le compteur à
+                # zéro, sinon la garde monotone bloquerait le nouveau document.
+                sig = w.evaluate_js(
+                    "(function(s){s=window.__novaShapes;"
+                    "return s?((s.epoch||0)+'/'+s.n):'';})()")
+                if not sig or sig == sig_prev:
                     continue
+                sig_prev = sig
                 payload = json.loads(
                     w.evaluate_js("JSON.stringify(window.__novaShapes)"))
                 self.apply_shape(payload)
@@ -1251,10 +1344,24 @@ def _stt_opts():
     le dock ET l'écran tkinter. `keep_warm_on` est résolu ici : le JS ne peut
     pas connaître la RAM de la machine."""
     stt = core.CFG.get("stt") or {}
+    q_ok = core.quality_max_supported()
     return {"live": stt.get("live", True) is not False,
             "keep_warm_on": core.stt_keep_warm(),
             "precision_max": bool(stt.get("precision_max")),
-            "quality_max": bool(stt.get("quality_max")),
+            # affiché = état EN EFFET : sur une machine qui ne peut pas tenir le
+            # grand moteur, quality_max est ignoré par le moteur
+            # (effective_stt_model re-vérifie la RAM) → l'UI le montre OFF. Sinon
+            # un quality_max=true persisté PUIS une RAM devenue insuffisante
+            # (import de config d'une machine ≥12 Go, psutil en échec →
+            # _ram_total_gb=0) laissait l'interrupteur « ON + grisé + inerte »,
+            # sans aucun moyen de le désactiver depuis les deux écrans.
+            "quality_max": bool(stt.get("quality_max")) and q_ok,
+            # résolu ici (comme keep_warm_on) : le JS ne connaît pas la RAM.
+            # Faux → l'interrupteur « Qualité maximale » est grisé EN AMONT
+            # (règle CLAUDE.md « griser les contrôles ») au lieu de basculer
+            # puis se rétracter ; le refus synchrone de _apply_stt_opts reste
+            # le filet défensif si un état d'UI périmé le rappelait quand même.
+            "quality_supported": q_ok,
             "instant_normal": bool(core.CFG.get("instant_normal"))}
 
 
@@ -1268,24 +1375,44 @@ def _apply_stt_opts(opts):
     en arrière-plan quand « qualité maximale » vient d'être activée (pour que
     la prochaine dictée n'attende pas ~1,5 Go)."""
     opts = opts or {}
+    refused_quality = False
     with _stt_opts_lock:
-        stt = dict(core.CFG.get("stt") or {})
-        was_max = bool(stt.get("quality_max"))
+        was_max = bool((core.CFG.get("stt") or {}).get("quality_max"))
+        # patch MINIMAL : UNIQUEMENT les clés que cet écran gère. Ne jamais
+        # ré-écrire tout le sous-dict stt — sinon un basculement Turbo
+        # (cloud_enabled) simultané, écrit par _toggle_cloud sur un autre fil,
+        # serait ré-écrasé par une copie périmée (lost update inter-appels).
+        stt_patch = {}
         for k in ("live", "keep_warm", "precision_max", "quality_max"):
             if k in opts:
-                stt[k] = bool(opts[k])
-        patch = {"stt": stt}
+                stt_patch[k] = bool(opts[k])
+        want_max = stt_patch.get("quality_max", was_max)
+        # « Qualité maximale » demandée sur une machine qui ne peut pas tenir le
+        # grand moteur (~1,5 Go + LLM) : refus SYNCHRONE et honnête plutôt que
+        # de cocher la case, ne rien relever, puis annoncer « moteur amélioré
+        # prêt » (l'UI mentait). La case revient à False, reflétée au retour.
+        if want_max and not was_max and not core.quality_max_supported():
+            stt_patch["quality_max"] = False
+            want_max = False
+            refused_quality = True
+        patch = {"stt": stt_patch} if stt_patch else {}
         if "instant_normal" in opts:  # option de reformulation, hors bloc stt
             patch["instant_normal"] = bool(opts["instant_normal"])
-        core.save_config(patch)
-    if bool(stt.get("quality_max")) != was_max:
+        if patch:
+            core.save_config(patch)
+    if refused_quality:
+        pill.show("error", "Mémoire insuffisante",
+                  "Le moteur amélioré demande environ 12 Go de mémoire")
+        pill.hide(2.8)
+        return _stt_opts()
+    if want_max != was_max:
         # JAMAIS sur le fil d'appel (pont js_api ou fenêtre tkinter) : la
         # synchro et le déchargement attendent le verrou du modèle, qu'un
         # chargement en cours peut tenir longtemps — l'interrupteur doit
         # répondre tout de suite, le travail lourd part en arrière-plan
         def _sync():
             core.sync_stt_model()
-            if stt.get("quality_max"):
+            if want_max:
                 _preload_stt()
         threading.Thread(target=_sync, daemon=True).start()
     return _stt_opts()
@@ -1470,9 +1597,6 @@ class DockApi:
             _rebind_ptt()
         return core.CFG.get("ptt_key")
 
-    def stt_opts(self):
-        return _stt_opts()
-
     def set_stt_opts(self, opts):
         return _apply_stt_opts(opts)
 
@@ -1611,6 +1735,12 @@ def _ptt_session():
     """Enregistre tant que la touche est tenue, puis transcrit → (Custom
     Variables) → reformate selon le mode → colle au curseur. Repli texte brut
     si l'IA échoue : le curseur n'est jamais vide (garde-fou Phase 5b)."""
+    live = None          # lié AVANT le try : le finally le référence sur TOUT
+    #                      chemin de sortie, y compris un retour anticipé (quota
+    #                      atteint) ou une exception AVANT la création du
+    #                      LiveTranscriber — sinon UnboundLocalError dans le
+    #                      finally sautait _ptt_active.clear() → PTT figé pour
+    #                      le reste de la session.
     try:
         pill.show("listening", "")
         # Palier Free : quota hebdomadaire de transcription (payant = illimité ;
@@ -1627,7 +1757,7 @@ def _ptt_session():
         # transcrites pendant que la touche est tenue — à la relâche il ne
         # reste que la fin. Au moindre pépin : repli intégral classique sur le
         # MÊME audio complet (jamais de plantage, jamais de perte).
-        live, rec_kw = None, {}
+        rec_kw = {}
         if core.stt_live_enabled():
             try:
                 frames, flock = [], threading.Lock()
@@ -1639,17 +1769,12 @@ def _ptt_session():
             except Exception as e:
                 core.log_err("stt_live", e)
                 live, rec_kw = None, {}
-        try:
-            audio = core.record_audio(on_level=pill.level, stop=_ptt_stop,
-                                      end_silence=999, **rec_kw)
-        except Exception:
-            if live:
-                live.stop()   # sinon le fil de fond scruterait le tampon
-            raise             # pour toujours (fuite d'un thread par échec)
+        # récupération : si record_audio lève, l'exception remonte au except
+        # externe (« Erreur — réessaie ») et le finally coupe le fil de fond.
+        audio = core.record_audio(on_level=pill.level, stop=_ptt_stop,
+                                  end_silence=999, **rec_kw)
         t_release = time.time()
         if audio is None:
-            if live:
-                live.stop()      # sans transcription finale : rien à garder
             pill.show("error", "Je n'ai rien entendu")
             pill.hide(1.6)
             return
@@ -1670,7 +1795,7 @@ def _ptt_session():
         # gestion mémoire séquentielle : on libère le STT avant le LLM sur les
         # petites configs — SAUF si « moteur en mémoire » (dès ~8 Go) : le
         # rechargement disque coûtait 2-4 s au début de CHAQUE dictée
-        if core.CFG.get("seq_memory") and not core.stt_keep_warm():
+        if core._seq_exclusive():        # invariant partagé (cf. core._should_warm_llm)
             core.unload_whisper()
         prompt, concrete = _resolve_prompt(STATE["mode"])
         if concrete == "voice_to_text" and core.CFG.get("instant_normal"):
@@ -1718,6 +1843,12 @@ def _ptt_session():
         pill.show("error", "Erreur — réessaie")
         pill.hide(2.0)
     finally:
+        if live:
+            live.stop()   # propriétaire UNIQUE du teardown du fil de fond :
+                          # s'exécute sur TOUT chemin de sortie (retour anticipé,
+                          # exception, succès). stop() = Event.set(), idempotent
+                          # après finish() ou une reprise micro — plus de daemon
+                          # orphelin, plus de double-arrêt à gérer ailleurs.
         _ptt_active.clear()
 
 
@@ -1853,14 +1984,16 @@ def _set_language(lang):
 def _toggle_cloud():
     """Bascule Local ↔ Cloud pour STT ET reformulation (GOAL Partie 4 : local
     par défaut, cloud proposé jamais imposé)."""
-    stt = dict(core.CFG.get("stt", {}))
-    to_cloud = not stt.get("cloud_enabled")
+    to_cloud = not (core.CFG.get("stt") or {}).get("cloud_enabled")
     if to_cloud and not licensing.has("cloud_stt"):   # Turbo réservé à Ultra
         pill.show("error", "Turbo réservé à Pro", "La vitesse maximale, via le réseau")
         pill.hide(2.2)
         return
-    stt["cloud_enabled"] = to_cloud
-    core.save_config({"stt": stt, "provider": "auto" if to_cloud else "ollama"})
+    # patch MINIMAL (seule la clé changée) : ne pas ré-écrire tout le sous-dict
+    # stt, sinon un réglage de latence écrit en parallèle (autre fil js_api)
+    # serait ré-écrasé par une copie périmée.
+    core.save_config({"stt": {"cloud_enabled": to_cloud},
+                      "provider": "auto" if to_cloud else "ollama"})
 
 
 def _set_profile(profile_id, silent=False):
@@ -1905,8 +2038,6 @@ def _app_display_name():
     """Nom affiché : personnalisé si palier Ultra + nom défini, sinon « Nova »."""
     name = (core.CFG.get("custom_name") or "").strip()
     return name if (name and licensing.has("custom_naming")) else "Nova"
-
-
 
 
 def _check_update(manual=True):

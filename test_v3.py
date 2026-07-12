@@ -667,6 +667,15 @@ def test_stt_latency():
     lt4._commit(final=False)
     check("live : tranche silencieuse → zéro inférence", calls4, [])
     check("live : le curseur avance quand même", lt4._done, 40)
+    # …mais le commit FINAL transcrit TOUJOURS la traîne, même murmurée (sous
+    # le seuil) : sinon finish() rendrait un texte non vide sans elle et
+    # l'appelant ne repasserait pas par le repli intégral → mots de fin perdus
+    calls4b = []
+    lt4b = core.LiveTranscriber([quiet] * 40, _th.Lock())
+    lt4b._transcribe = lambda a, p: calls4b.append(1) or "traîne"
+    lt4b._commit(final=True)
+    check("live : commit final transcrit même une traîne murmurée",
+          len(calls4b), 1)
 
     # --- keep_warm : explicite > auto ---
     old_stt = dict(core.CFG.get("stt") or {})
@@ -717,6 +726,16 @@ def test_stt_latency():
                   core.effective_stt_model("small"), "large-v3-turbo")
             check("qualité max : large-v3 (Apex) inchangé",
                   core.effective_stt_model("large-v3"), "large-v3")
+            check("qualité max : supportée dès 12 Go",
+                  core.quality_max_supported(), True)
+            core._ram_total_gb = lambda: 10.0
+            # 8–11,9 Go : le grand moteur ne pourrait pas rester chaud (keep_warm
+            # exige 12) → il thrasherait à chaque dictée. On aligne les deux
+            # seuils : quality_max ne s'engage que là où keep_warm le tient.
+            check("qualité max : 10 Go → refusée (aligné sur keep_warm)",
+                  core.effective_stt_model("small"), "small")
+            check("qualité max : 10 Go → non supportée",
+                  core.quality_max_supported(), False)
             core._ram_total_gb = lambda: 4.0
             check("qualité max : 4 Go → garde-fou RAM, pas de relèvement",
                   core.effective_stt_model("small"), "small")
@@ -777,6 +796,105 @@ def test_hotkey_removal():
         core.CFG = real_cfg          # _save est neutralisé en tête de fichier
 
 
+def test_save_config_atomic():
+    """save_config fait une lecture-modification-écriture du global CFG. Sans
+    verrou tenu sur TOUTE l'opération (et pas seulement l'écriture disque), deux
+    sauvegardes simultanées s'écrasent — lost update : la bascule « Qualité
+    maximale » et le fil de synchro du modèle qu'elle lance pouvaient laisser
+    quality_max=True avec whisper_model=\"small\". _lock est ré-entrant et tenu
+    sur la RMW entière. On martèle save_config depuis N fils au départ simultané
+    et on vérifie qu'AUCUNE écriture n'est perdue."""
+    import threading as _th
+    print("Config — save_config atomique sous fils concurrents")
+    real_cfg = core.CFG
+    try:
+        core.CFG = dict(real_cfg)
+        n = 40
+        gate = _th.Barrier(n)
+
+        def writer(i):
+            gate.wait()                  # départ simultané → maximise la course
+            core.save_config({f"_atomic_{i}": i})
+
+        ths = [_th.Thread(target=writer, args=(i,)) for i in range(n)]
+        for t in ths:
+            t.start()
+        for t in ths:
+            t.join()
+        survived = sum(1 for i in range(n) if core.CFG.get(f"_atomic_{i}") == i)
+        check("40 écritures concurrentes survivent (0 lost update)", survived, n)
+    finally:
+        core.CFG = real_cfg          # _save est neutralisé en tête de fichier
+
+
+def test_partial_stt_merge():
+    """Les écrans de réglages n'envoient plus qu'un patch MINIMAL du sous-dict
+    stt (seule la clé changée). save_config/_merge doit fusionner cette clé SANS
+    écraser ses voisines — sinon un basculement Turbo (cloud_enabled) et un
+    réglage de latence écrits en parallèle s'écrasent (lost update inter-appels)."""
+    print("Config — fusion partielle du sous-dict stt (anti lost-update)")
+    real_cfg = core.CFG
+    try:
+        core.CFG = core._merge(real_cfg,
+                               {"stt": {"cloud_enabled": False, "live": True}})
+        core.save_config({"stt": {"cloud_enabled": True}})    # un seul champ
+        stt = core.CFG.get("stt") or {}
+        check("cloud_enabled mis à jour", stt.get("cloud_enabled"), True)
+        check("live (voisin) préservé", stt.get("live"), True)
+        core.save_config({"stt": {"live": False}})            # un autre champ
+        stt = core.CFG.get("stt") or {}
+        check("live mis à jour", stt.get("live"), False)
+        check("cloud_enabled (voisin) préservé", stt.get("cloud_enabled"), True)
+    finally:
+        core.CFG = real_cfg          # _save est neutralisé en tête de fichier
+
+
+def test_warmup_llm_gate():
+    """Préchauffage LLM : JAMAIS en mémoire séquentielle sur petite RAM
+    (seq_memory + STT non gardé chaud). Sinon la 1re dictée chargerait le STT
+    alors que le LLM (~2 Go) est encore résident → STT+LLM coexistants → swap/OOM
+    sur 4 Go, l'inverse du but du préchauffage. Le garde-fou court-circuite avant
+    toute résolution de fournisseur (déterministe, sans réseau)."""
+    print("Préchauffage — LLM non épinglé en mémoire séquentielle (petite RAM)")
+    real_ram = core._RAM_TOTAL["gb"]
+    real_cfg = core.CFG
+    try:
+        core._RAM_TOTAL["gb"] = 4.0
+        core.CFG = core._merge(real_cfg, {"seq_memory": True,
+                                          "whisper_model": "small",
+                                          "stt": {"keep_warm": "auto"}})
+        check("seq_memory + 4 Go → STT non gardé chaud", core.stt_keep_warm(), False)
+        check("seq_memory + 4 Go → LLM NON préchauffé (anti coexistence STT+LLM)",
+              core._should_warm_llm(), False)
+    finally:
+        core._RAM_TOTAL["gb"] = real_ram
+        core.CFG = real_cfg
+
+
+def test_llm_num_ctx():
+    """Fenêtre de contexte du LLM de reformulation : assez grande pour que le
+    préfixe système (COMMON_RULES = garde-fous « ne réponds jamais / zéro
+    invention ») ne soit JAMAIS tronqué (Ollama coupe l'entrée > num_ctx en
+    partant du DÉBUT = les règles). Bornée par la RAM (le KV-cache grandit avec
+    num_ctx) — plancher sûr sur 4 Go, plus large si la RAM le permet. Latence
+    inchangée (le prefill ne coûte que les tokens réels)."""
+    print("Reformulation — fenêtre de contexte LLM bornée par la RAM")
+    _rr = core._ram_total_gb
+    try:
+        core._ram_total_gb = lambda: 4.0
+        check("4 Go → num_ctx plancher 3072 (garde-fous tiennent, KV modéré)",
+              core._llm_num_ctx(), 3072)
+        core._ram_total_gb = lambda: 8.0
+        check("8 Go → num_ctx 4096", core._llm_num_ctx(), 4096)
+        core._ram_total_gb = lambda: 16.0
+        check("16 Go → num_ctx 8192", core._llm_num_ctx(), 8192)
+        core._ram_total_gb = lambda: 3.0
+        check("num_ctx toujours ≥ 2048 (jamais sous le défaut Ollama, "
+              "garde-fous jamais tronqués)", core._llm_num_ctx() >= 2048, True)
+    finally:
+        core._ram_total_gb = _rr
+
+
 def test_web_dock_default():
     """L'interface web (dock.html) est l'UI par défaut pour TOUS : décision
     produit — la pilule tkinter n'est que le repli WebView2-absent. Une
@@ -803,6 +921,10 @@ if __name__ == "__main__":
     test_free_offer_sync()
     test_stt_latency()
     test_hotkey_removal()
+    test_save_config_atomic()
+    test_partial_stt_merge()
+    test_warmup_llm_gate()
+    test_llm_num_ctx()
     test_web_dock_default()
     print()
     if _fails:

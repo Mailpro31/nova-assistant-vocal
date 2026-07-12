@@ -77,9 +77,10 @@ class Api:
     def set_cloud(self, enabled):
         if enabled and not licensing.has("cloud_stt"):
             return False                    # Turbo verrouillé (le JS grise déjà)
-        stt = dict(core.CFG.get("stt", {}))
-        stt["cloud_enabled"] = bool(enabled)
-        core.save_config({"stt": stt, "provider": "auto" if enabled else "ollama"})
+        # patch minimal (seule la clé changée), comme _toggle_cloud : ne pas
+        # ré-écrire tout le sous-dict stt — cohérence avec les autres écrivains
+        core.save_config({"stt": {"cloud_enabled": bool(enabled)},
+                          "provider": "auto" if enabled else "ollama"})
         return bool(enabled)
 
     def finish(self):

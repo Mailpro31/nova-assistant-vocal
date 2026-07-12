@@ -23,7 +23,7 @@ import winext
 # Version de l'app — source unique. Doit rester égale au MyAppVersion de
 # installer/nova.iss (test_v3 le vérifie) ; les releases GitHub sont taguées
 # « v » + cette valeur, et updater.py s'en sert pour détecter une mise à jour.
-APP_VERSION = "3.1.11"
+APP_VERSION = "3.1.23"
 
 APP_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
 
@@ -154,7 +154,10 @@ LANGUAGES = [
     ("hi", "हिन्दी"), ("zh", "中文"), ("ja", "日本語"), ("ko", "한국어"),
 ]
 
-_lock = threading.Lock()
+_lock = threading.RLock()   # ré-entrant : save_config le tient sur toute la
+#                             lecture-modification-écriture de CFG PUIS appelle
+#                             _save (qui le reprend) — RMW atomique sans
+#                             auto-blocage, et _save reste neutralisable en test.
 
 
 # ------------------------------------------------------------------ util ----
@@ -237,7 +240,6 @@ def install_crash_logging():
     except Exception:
         pass
     try:
-        import threading
         sys.excepthook = lambda t, v, tb: log_err("crash", v)
         threading.excepthook = lambda a: log_err("crash_thread", a.exc_value)
     except Exception:
@@ -257,12 +259,22 @@ _REPLACE_KEYS = ("mode_hotkeys",)
 
 
 def save_config(new_cfg):
+    # Lecture-modification-écriture ATOMIQUE du global CFG, tenue sous _lock (le
+    # même verrou que l'écriture fichier) : deux fils qui sauvegardent en même
+    # temps — p.ex. la bascule « Qualité maximale » et le fil de synchro du modèle
+    # qu'elle déclenche — ne peuvent plus s'écraser mutuellement. Sans ça, le
+    # lost-update laissait un config incohérent (quality_max=True mais
+    # whisper_model="small"). Écriture en place plutôt qu'appel à _save : _lock
+    # n'est pas ré-entrant.
     global CFG
-    CFG = _merge(CFG, new_cfg)
-    for k in _REPLACE_KEYS:
-        if isinstance((new_cfg or {}).get(k), dict):
-            CFG[k] = dict(new_cfg[k])
-    _save("config.json", CFG)
+    with _lock:
+        merged = _merge(CFG, new_cfg)
+        for k in _REPLACE_KEYS:
+            if isinstance((new_cfg or {}).get(k), dict):
+                merged[k] = dict(new_cfg[k])
+        CFG = merged
+        _save("config.json", CFG)    # _lock est ré-entrant → _save le reprend ;
+        #                              reste neutralisable par les tests
     return CFG
 
 
@@ -522,15 +534,30 @@ def _load_whisper(name):
     """Charge un WhisperModel sur le device résolu, avec repli CPU DÉFINITIF si
     le GPU refuse (cuDNN absent, VRAM pleine…) — pour que Nova démarre toujours."""
     from faster_whisper import WhisperModel
+
+    def _mk(**kw):
+        # local_files_only=True évite la requête réseau (HEAD vers le Hub) que
+        # WhisperModel lance à CHAQUE construction (démarrage + chaque changement
+        # de modèle : profil, bascule qualité) : ~quelques centaines de ms sur bon
+        # réseau, PLUSIEURS secondes sur réseau d'entreprise/instable, et plus
+        # d'attente hors ligne. Le modèle est déjà en cache (pré-téléchargé par
+        # download_stt_model). Repli SANS le drapeau si le cache manque encore
+        # (1er lancement sans pré-téléchargement) → le téléchargement se fait alors,
+        # exactement comme avant. Mêmes octets de poids chargés → texte identique :
+        # gain de latence sans coût qualité.
+        try:
+            return WhisperModel(name, local_files_only=True, **kw)
+        except Exception:
+            return WhisperModel(name, **kw)
+
     dev, comp = _resolve_device()
     if dev == "cuda":
         try:
-            return WhisperModel(name, device="cuda", compute_type=comp)
+            return _mk(device="cuda", compute_type=comp)
         except Exception as e:
             log_err("gpu_load", e)
             _DEVICE.update(device="cpu", compute="int8")   # bascule CPU pour de bon
-    return WhisperModel(name, device="cpu", compute_type="int8",
-                        cpu_threads=_cpu_threads())
+    return _mk(device="cpu", compute_type="int8", cpu_threads=_cpu_threads())
 
 
 _RAM_TOTAL = {"gb": None}   # mémoïsé : la RAM totale ne change pas en session
@@ -559,6 +586,14 @@ def _llm_keep_alive():
     return "30m" if _ram_total_gb() >= 7.5 else "5m"
 
 
+# RAM minimale pour tenir le grand moteur multilingue (large-v3-turbo, ~1,5 Go)
+# EN PLUS du LLM de reformulation. UN SEUL littéral partagé par stt_keep_warm()
+# (le garder chaud) et quality_max_supported() (autoriser son relèvement) : les
+# deux encodent le MÊME invariant — ne jamais relever le modèle là où il ne
+# pourrait pas rester chaud (sinon rechargement de ~1,5 Go à chaque dictée).
+_RAM_TURBO_WARM_GB = 12.0
+
+
 def stt_keep_warm():
     """Garder le moteur STT en mémoire entre les dictées ? Sans ça, chaque
     dictée commençait par RECHARGER le modèle depuis le disque (2-4 s perdues
@@ -573,7 +608,7 @@ def stt_keep_warm():
     model = CFG.get("whisper_model") or ""
     if model == "large-v3":
         return False
-    need = 12.0 if model == "large-v3-turbo" else 7.5
+    need = _RAM_TURBO_WARM_GB if model == "large-v3-turbo" else 7.5
     return _ram_total_gb() >= need
 
 
@@ -586,28 +621,50 @@ def _stt_beam():
     return 5 if (CFG.get("stt") or {}).get("precision_max") else 1
 
 
+def quality_max_supported():
+    """La machine peut-elle tenir le grand moteur multilingue (~1,5 Go) EN PLUS
+    du LLM de reformulation ? MÊME seuil que keep_warm pour ce modèle
+    (_RAM_TURBO_WARM_GB) : sinon « qualité maximale » relèverait le modèle sans
+    pouvoir le garder chaud → rechargement de 1,5 Go à chaque dictée (thrash) et
+    promesse UI trompeuse. Le garde-fou RAM des profils ne doit pas être
+    contournable par une simple case."""
+    return _ram_total_gb() >= _RAM_TURBO_WARM_GB
+
+
 def effective_stt_model(profile_stt):
     """Modèle STT réellement chargé : celui du profil de puissance, RELEVÉ au
     grand moteur multilingue local (large-v3-turbo) si « qualité maximale »
     est coché — sauf si le profil embarque déjà un modèle au moins aussi bon,
-    ou si la machine n'a pas la mémoire pour le tenir (~1,5 Go) : le garde-fou
-    RAM des profils ne doit pas être contournable par une simple case."""
+    ou si la machine n'a pas la mémoire pour le tenir (quality_max_supported)."""
     if ((CFG.get("stt") or {}).get("quality_max")
             and profile_stt in ("tiny", "base", "small")
-            and _ram_total_gb() >= 7.5):
+            and quality_max_supported()):
         return "large-v3-turbo"
     return profile_stt
 
 
+_stt_sync_lock = threading.Lock()   # sérialise la lecture-calcul-écriture de
+#                                     whisper_model. Verrou FEUILLE : n'acquiert
+#                                     _lock/_model_lock qu'ensuite (via
+#                                     set_stt_model), jamais l'inverse → pas
+#                                     d'inversion d'ordre possible.
+
+
 def sync_stt_model():
     """Aligne whisper_model sur le profil courant + l'option qualité maximale
-    (appelé quand l'option change). Décharge l'ancien modèle au besoin."""
+    (appelé quand l'option change). Décharge l'ancien modèle au besoin.
+    Lecture (effective_stt_model lit quality_max + profil) ET écriture
+    (set_stt_model) tenues sous _stt_sync_lock : deux bascules rapides (Qualité
+    ON puis OFF, ou double-clic) ne peuvent plus écrire whisper_model dans le
+    désordre — plus d'état incohérent « grand moteur chargé alors que
+    quality_max=False »."""
     try:
         import power_profiles
-        p = power_profiles.get_profile(CFG.get("profile") or "normal")
-        want = effective_stt_model(p["stt"])
-        if want != CFG.get("whisper_model"):
-            set_stt_model(want)
+        with _stt_sync_lock:
+            p = power_profiles.get_profile(CFG.get("profile") or "normal")
+            want = effective_stt_model(p["stt"])
+            if want != CFG.get("whisper_model"):
+                set_stt_model(want)
     except Exception as e:
         log_err("stt_quality", e)
 
@@ -1456,6 +1513,49 @@ def _ollama_warm_model():
     return _reform_model("ollama") or ((ollama_models() or [""])[0])
 
 
+def _llm_num_ctx():
+    """Fenêtre de contexte du LLM de reformulation. Assez GRANDE pour que le
+    PRÉFIXE système (COMMON_RULES = garde-fous absolus « reformule / ne réponds
+    JAMAIS », « zéro invention ») ne soit JAMAIS tronqué : Ollama coupe
+    silencieusement l'entrée > num_ctx EN PARTANT DU DÉBUT (défaut ~2048) — il
+    supprimerait donc justement ces règles sur une dictée longue, laissant le
+    modèle RÉPONDRE à une question dictée ou inventer. Le prefill ne coûte que
+    les tokens RÉELS (pas la taille allouée) → latence inchangée ; seul le
+    KV-cache grandit, d'où le bornage par la RAM. Valeur PARTAGÉE
+    _complete_one/warmup (via le builder) : un num_ctx différent ferait charger
+    un runner distinct côté Ollama et perdrait le KV-cache préchauffé."""
+    gb = _ram_total_gb()
+    if gb >= 16:
+        return 8192
+    if gb >= 7.5:
+        return 4096
+    return 3072            # plancher ~4 Go : large pour garde-fous + dictée
+    #                        longue, KV modéré (~0,18 Go pour un 3B)
+
+
+def _ollama_chat_request(system, user, options, timeout):
+    """Requête de reformulation Ollama /api/chat — builder UNIQUE partagé par la
+    reformulation réelle (_complete_one) ET le préchauffage (warmup_engines) :
+    même endpoint, même modèle (_ollama_warm_model), même keep_alive, même
+    num_ctx, même structure de messages. Le KV-cache amorcé au warmup correspond
+    ainsi PAR CONSTRUCTION au préfixe que la dictée enverra — plus de dérive
+    silencieuse possible si l'endpoint ou la structure évolue. Seul `options`
+    varie : reformulation {temperature, top_p} ; warmup {num_predict:1}. Retourne
+    l'objet réponse requests brut (ou None si aucun modèle disponible)."""
+    import requests
+    model = _ollama_warm_model()
+    if not model:
+        return None
+    opts = {"num_ctx": _llm_num_ctx()}
+    opts.update(options)
+    return requests.post(ollama_url() + "/api/chat", timeout=timeout, json={
+        "model": model, "stream": False,
+        "keep_alive": _llm_keep_alive(),
+        "options": opts,
+        "messages": [{"role": "system", "content": system},
+                     {"role": "user", "content": user}]})
+
+
 def _complete_one(provider, system, user, timeout):
     if provider == "anthropic":
         from anthropic import Anthropic
@@ -1467,14 +1567,15 @@ def _complete_one(provider, system, user, timeout):
         return next((b.text for b in msg.content if b.type == "text"), "").strip() or None
     import requests
     if provider == "ollama":
-        model = _ollama_warm_model()
-        if not model:
+        # Reformuler n'est pas créer : température basse = sortie FIDÈLE au texte
+        # dicté (moins de dérive, meilleure « qualité métier ») ET décodage plus
+        # court/déterministe (convergence rapide vers la fin sur CPU sans GPU).
+        # Gain temps ET qualité, aucun compromis. Requête via le builder PARTAGÉ
+        # (mêmes octets que le préchauffage → KV-cache du préfixe système réutilisé).
+        r = _ollama_chat_request(system, user,
+                                 {"temperature": 0.3, "top_p": 0.9}, timeout)
+        if r is None:
             return None
-        r = requests.post(ollama_url() + "/api/chat", timeout=timeout, json={
-            "model": model, "stream": False,
-            "keep_alive": _llm_keep_alive(),
-            "messages": [{"role": "system", "content": system},
-                         {"role": "user", "content": user}]})
         r.raise_for_status()
         return (r.json()["message"]["content"] or "").strip() or None
     if provider in OPENAI_COMPAT:
@@ -1580,6 +1681,17 @@ _DEFAULT_REFORMULATE = (
     "respectant son ton et son niveau de langue, sans structure imposée.")
 
 
+def _reform_system(system_prompt=None):
+    """Prompt système de reformulation : COMMON_RULES (garde-fous) + consigne du
+    Style + vocabulaire utilisateur + « réponds uniquement… ». Extrait pour être
+    partagé par format_message_ex ET le préchauffage : le KV-cache amorcé au
+    warmup correspond alors EXACTEMENT au préfixe que la reformulation enverra."""
+    vocab = active_vocabulary()
+    system = COMMON_RULES + (system_prompt or _DEFAULT_REFORMULATE) + " " + (
+        f"Vocabulaire propre à l'utilisateur : {', '.join(vocab)}. " if vocab else "")
+    return system + "Réponds UNIQUEMENT avec le texte reformulé, rien d'autre."
+
+
 def format_message(text, system_prompt=None):
     """Moteur de reformulation générique, partagé par tous les modes du registre.
 
@@ -1598,11 +1710,7 @@ def format_message_ex(text, system_prompt=None):
     appliqué : → (texte, ia_ok). Quand l'IA échoue (modèle absent, hors ligne,
     panne), l'appelant peut l'annoncer honnêtement au lieu d'afficher le Style
     comme si tout allait bien — le texte collé, lui, n'est jamais vide."""
-    vocab = active_vocabulary()
-    system = COMMON_RULES + (system_prompt or _DEFAULT_REFORMULATE) + " " + (
-        f"Vocabulaire propre à l'utilisateur : {', '.join(vocab)}. " if vocab else "")
-    system += "Réponds UNIQUEMENT avec le texte reformulé, rien d'autre."
-    out = llm_complete(system, text)
+    out = llm_complete(_reform_system(system_prompt), text)
     if out:
         return out, True
     log_err("style_fallback", "IA indisponible → collage format_rules (le "
@@ -1947,6 +2055,13 @@ class LiveTranscriber:
         self._transcribe = transcribe     # les tests shadowent cet attribut
         self._done = 0                    # nb de blocs déjà committés
         self._epoch = _MIC_EPOCH["n"]     # détecte une reprise micro (tampon jeté)
+        # lexique figé UNE fois pour la session (noms propres, contacts,
+        # automations), invariant pendant la dictée. Calculé PARESSEUSEMENT au
+        # 1er commit (fil de fond), JAMAIS dans __init__ : ce constructeur tourne
+        # sur le fil d'appui de la touche, AVANT l'ouverture du micro — y lire le
+        # profil + commands.json + la base contacts retarderait les tout premiers
+        # phonèmes (même discipline que stt_live_enabled, non bloquant à l'appui).
+        self._lex = None
         self._parts = []
         self.broken = False
         self._stop = threading.Event()
@@ -1985,31 +2100,38 @@ class LiveTranscriber:
         pending, total = self._pending()
         if not pending:
             return
-        thr = effective_threshold()
+        # Le commit FINAL transcrit TOUJOURS la traîne : aucun minimum, aucune
+        # garde de silence. Une fin de phrase murmurée (sous le seuil) ne doit
+        # pas être jetée sans repli, car finish() rendrait alors un texte non
+        # vide et l'appelant ne repasserait pas par la transcription intégrale.
+        # Les gardes ci-dessous ne concernent donc QUE les commits intermédiaires
+        # (calcul de seuil et de RMS au court-circuit, jamais sur le final).
         if not final:
-            # assez de matière ET la voix s'est tue sur les derniers blocs —
-            # sinon on couperait un mot en plein milieu
+            # trop court : on rend la main sans même calculer les RMS
             if 0.1 * len(pending) < self.MIN_COMMIT_S + 0.1 * self.PAUSE_BLOCKS:
                 return
-            for b in pending[-self.PAUSE_BLOCKS:]:
-                if _rms(b) > thr:
-                    return
-        if not any(_rms(b) > thr for b in pending):
-            # tranche SANS voix (touche tenue en réfléchissant) : rien à
-            # transcrire — on avance le curseur sans payer d'inférence toutes
-            # les ~3 s ni risquer l'écho-hallucination (amorcé par le texte
-            # committé, le moteur le répète volontiers sur du souffle, et ce
-            # faux texte serait re-committé puis re-amorcé en boule de neige)
-            self._done = total
-            return
+            thr = effective_threshold()
+            # la voix doit s'être tue sur les derniers blocs (sinon on
+            # couperait un mot) — court-circuit dès le premier bloc encore voisé
+            if any(_rms(b) > thr for b in pending[-self.PAUSE_BLOCKS:]):
+                return
+            # tranche SANS aucune voix (touche tenue en réfléchissant) : on
+            # avance le curseur sans payer d'inférence toutes les ~3 s ni
+            # risquer l'écho-hallucination (le moteur, amorcé par le texte
+            # committé, le répète volontiers sur du souffle → re-committé en
+            # boule de neige)
+            if not any(_rms(b) > thr for b in pending):
+                self._done = total
+                return
         audio = np.concatenate(pending).flatten()
-        # amorce : le lexique utilisateur d'abord (noms propres, contacts,
-        # automations — il ne doit JAMAIS disparaître après la 1re tranche),
-        # puis le texte déjà committé (ponctuation et contexte). ~450
-        # caractères ≈ la moitié du plafond de 224 tokens : les deux tiennent.
-        lex = (stt_prompt() or "").strip()[:128]
+        # amorce : le lexique utilisateur d'abord (figé en session, il ne doit
+        # JAMAIS disparaître après la 1re tranche), puis le texte déjà committé
+        # (ponctuation et contexte). Whisper conserve la QUEUE de l'amorce : le
+        # lexique en tête + le contexte récent en fin tiennent dans les 224 tk.
+        if self._lex is None:              # lu UNE fois, ici (fil de fond)
+            self._lex = (stt_prompt() or "").strip()[:128]
         ctx = " ".join(self._parts)[-320:]
-        prompt = (lex + " " + ctx).strip() or None
+        prompt = (self._lex + " " + ctx).strip() or None
         txt = self._transcribe(audio, prompt)
         self._done = total
         if txt:
@@ -2069,7 +2191,10 @@ def stt_live_enabled():
             if integrations.is_online():
                 return False
         except Exception:
-            return False
+            # sonde de connectivité indisponible : on NE désactive PAS le live
+            # (la docstring l'exige — hors ligne, le local sert de toute façon).
+            # On retombe sur la décision par device juste en dessous.
+            pass
     try:
         if not _DEVICE["device"]:
             # device pas encore résolu (tout début de session) : on suppose
@@ -2079,6 +2204,26 @@ def stt_live_enabled():
         return _DEVICE["device"] != "cuda"
     except Exception:
         return True
+
+
+def _seq_exclusive():
+    """Mémoire séquentielle sur petite RAM : le STT et le LLM de reformulation ne
+    doivent JAMAIS coexister en mémoire. Vrai quand seq_memory est demandé ET que
+    le STT n'est pas gardé chaud (RAM contrainte, ~4-7 Go). Source UNIQUE de cet
+    invariant : la dictée décharge le STT avant le LLM (_ptt_session) ET le
+    préchauffage n'épingle pas le LLM (_should_warm_llm) sur exactement ce prédicat."""
+    return bool(CFG.get("seq_memory")) and not stt_keep_warm()
+
+
+def _should_warm_llm():
+    """Faut-il préchauffer le LLM de reformulation au démarrage ? OUI seulement là
+    où il peut rester résident sans danger. En mémoire séquentielle sur petite RAM,
+    y épingler le LLM romprait l'invariant : la 1re transcription chargerait le STT
+    alors que le LLM (~2 Go) est encore résident (keep_alive) → swap/OOM, l'exact
+    inverse du but du préchauffage."""
+    if _seq_exclusive():
+        return False
+    return resolve_provider() == "ollama"
 
 
 def warmup_engines():
@@ -2098,17 +2243,26 @@ def warmup_engines():
     try:
         if stt_keep_warm():
             get_model()
+            # Réchauffe aussi le CHEMIN de 1re inférence, pas seulement les poids :
+            # le modèle VAD Silero se charge PARESSEUSEMENT au 1er transcribe() et
+            # CTranslate2 fait son init runtime au 1er appel. Une transcription muette
+            # jetée paie ce coût au démarrage (~100-400 ms) au lieu de la 1re dictée.
+            # Buffer de zéros, résultat ignoré → texte STRICTEMENT identique (aucun
+            # paramètre de décodage réel changé). Uniquement quand le modèle est
+            # gardé chaud (RAM confortable) → sans coût mémoire.
+            transcribe(np.zeros(16000, dtype=np.float32))
     except Exception as e:
         log_err("warmup_stt", e)
     try:
-        if resolve_provider() == "ollama":
-            import requests
-            model = _ollama_warm_model()
-            if model:
-                # prompt vide = charge le modèle sans générer (contrat Ollama)
-                requests.post(ollama_url() + "/api/generate", timeout=180, json={
-                    "model": model, "prompt": "",
-                    "keep_alive": _llm_keep_alive()})
+        if _should_warm_llm():
+            # Préchauffe via le builder PARTAGÉ (mêmes endpoint/modèle/keep_alive/
+            # num_ctx/préfixe système que la reformulation réelle) : charge le
+            # modèle ET amorce le KV-cache du préfixe système constant (~250
+            # tokens). Ollama réutilise ce préfixe (plus-long-préfixe-commun, tant
+            # que keep_alive tient), donc la 1re dictée saute son pré-remplissage
+            # (~0,5-1 s gagnées sur CPU). num_predict=1 : réponse jetée, le vrai
+            # appel de reformulation reste inchangé → texte STRICTEMENT identique.
+            _ollama_chat_request(_reform_system(), "ok", {"num_predict": 1}, 180)
     except Exception as e:
         log_err("warmup_llm", e)
 
@@ -2151,5 +2305,14 @@ def transcribe_routed(audio, fast=False):
                 return t, "local-rapide"
         except Exception as e:
             log_err("stt_wake", e)
-    return transcribe(audio), "local"
+    # chemin local principal sous garde : transcribe() peut lever (TimeoutError
+    # si un worker de fond tient le verrou > 120 s, modèle corrompu…). Sans ce
+    # try, l'exception remontait à _ptt_session → « Erreur — réessaie » et tout
+    # l'audio était jeté. On rend un texte vide → l'appelant affiche « Je n'ai
+    # pas compris » (dégradé propre), sans perdre le contrôle.
+    try:
+        return transcribe(audio), "local"
+    except Exception as e:
+        log_err("stt_local", e)
+        return "", "local"
 
