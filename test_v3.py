@@ -583,8 +583,10 @@ def test_version_sync():
     check("versions identiques (core ↔ installeur)",
           m.group(1) if m else "", core.APP_VERSION)
     import updater as _upd
-    check("updater compare correctement (3.1.0 < 3.2)",
-          _upd._vtuple("v3.2") > _upd._vtuple(core.APP_VERSION), True)
+    # version-agnostique (ne se périme plus à chaque bump) : un tag franchement
+    # supérieur DOIT être vu comme plus récent que la version courante.
+    check("updater : un tag plus récent est détecté comme plus récent",
+          _upd._vtuple("v999.0.0") > _upd._vtuple(core.APP_VERSION), True)
     check("updater : version identique → pas plus récente",
           _upd._vtuple(f"v{core.APP_VERSION}") > _upd._vtuple(core.APP_VERSION),
           False)

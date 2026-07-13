@@ -9,10 +9,11 @@ bulle flottent réellement, coins arrondis, aucun rectangle POSSIBLE — et c'es
 léger (plus de moteur web en tâche de fond).
 
 Même langage visuel que `ui/dock.html` (mêmes icônes SVG, même orbe « bille de
-verre », mêmes teintes). API identique à WebDock/Pill (`show/hide/level/
-open_settings/open_modes/open_tray_menu/refresh_prefs/destroy/serve`) → `main()`
-ne teste aucun type. Tout appel venant d'un autre fil (audio, clavier) est
-marshalé vers le fil GUI par des signaux Qt (thread-safe par construction).
+verre », mêmes teintes). API compatible WebDock/Pill (`show/hide/level/
+open_settings/open_modes/refresh_prefs/destroy/serve`) → `main()` ne teste aucun
+type. Pas d'`open_tray_menu` : le menu du tray reste le menu natif pystray
+complet (Styles / Réglages / MàJ / Quitter). Tout appel venant d'un autre fil
+(audio, clavier) est marshalé vers le fil GUI par signaux Qt (thread-safe).
 """
 from __future__ import annotations
 
@@ -70,7 +71,7 @@ _SVG_CHECK = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" '
 def _svg_pixmap(svg_tpl, px, color=TXT2, dpr=2.0):
     """Rend un glyphe SVG en QPixmap net (haute densité)."""
     svg = svg_tpl.format(c=color)
-    ren = QSvgRenderer(bytearray(svg, "utf-8"))
+    ren = QSvgRenderer(svg.encode("utf-8"))
     pm = QPixmap(int(px * dpr), int(px * dpr))
     pm.fill(Qt.transparent)
     p = QPainter(pm)
@@ -110,15 +111,23 @@ class NovaOrb(QWidget):
         self._phase = 0.0          # respiration
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._tick)
-        self._timer.start(33)      # ~30 fps
+        self._timer.start(33)      # ~30 fps PENDANT l'activité (s'arrête au repos)
 
     def set_state(self, state):
         self._state = state if state in ORB_ACC else "repos"
+        self._wake()
         self.update()
 
     def set_level(self, rms):
         # même échelle que la pilule tkinter d'origine (rms*14, borné)
         self._level = max(0.0, min(1.0, float(rms) * 14.0))
+        if self._level > 0.02:
+            self._wake()
+
+    def _wake(self):
+        """Relance l'animation dès qu'il se passe quelque chose (état/niveau)."""
+        if not self._timer.isActive():
+            self._timer.start(33)
 
     def _tick(self):
         # lissage du niveau (attaque vive, chute douce) + respiration lente
@@ -127,6 +136,19 @@ class NovaOrb(QWidget):
         self._level *= 0.85        # décroissance de la cible entre deux mesures
         self._phase += 0.045
         self.update()
+        # AU REPOS, orbe stabilisée et son retombé → on ARRÊTE le timer : plus
+        # aucun réveil 30×/s en continu (batterie ; c'était le reproche « trop
+        # lourd »). Il repart au moindre changement d'état / de niveau (_wake).
+        if self._state == "repos" and self._lvl_s < 0.015 and self._level < 0.015:
+            self._timer.stop()
+
+    def showEvent(self, e):
+        self._wake()
+        super().showEvent(e)
+
+    def hideEvent(self, e):
+        self._timer.stop()         # caché (mode ghost) : aucun réveil
+        super().hideEvent(e)
 
     def paintEvent(self, _e):
         import math
@@ -262,7 +284,7 @@ class PillWindow(_Card):
     def _sep(self):
         s = QWidget()
         s.setFixedSize(1, 22)
-        s.setStyleSheet("background:rgba(255,255,255,.10)")
+        s.setStyleSheet("background:rgba(255,255,255,0.10)")
         return s
 
 
@@ -313,7 +335,7 @@ class _ModeRow(QWidget):
             badge = QLabel(mode["lock"])
             badge.setStyleSheet(
                 "color:#C9B6F0;font-size:8.5px;font-family:%s;"
-                "background:rgba(201,182,240,.14);border-radius:7px;"
+                "background:rgba(201,182,240,0.14);border-radius:7px;"
                 "padding:2px 7px" % FONT_STACK)
             lay.addWidget(badge)
         elif active:
@@ -448,8 +470,8 @@ class QtDock(QObject):
             self._app.setWindowIcon(QIcon(A.resource_path("icon.ico")))
         except Exception:
             pass
-        self._build()
-        self._connect()
+        self._connect()           # AVANT _build : aucune mise à jour d'état/niveau
+        self._build()             # précoce n'est perdue (slots déjà branchés)
         A._rebind_ptt()
         # tray en fil de fond (le fil principal est à Qt), comme WebDock
         A._tray_icon = build_tray()
@@ -516,7 +538,11 @@ class QtDock(QObject):
     # ---- placement (zone de travail = hors barre des tâches) ----
     def _anchor(self):
         scr = QGuiApplication.primaryScreen()
-        a = scr.availableGeometry()
+        if scr is not None:
+            a = scr.availableGeometry()
+        else:                      # aucun écran énuméré (session déconnectée…)
+            from PySide6.QtCore import QRect
+            a = QRect(0, 0, 1920, 1080)
         pos = str(core.CFG.get("dock_position") or "bottom-center")
         vert, _, horiz = pos.partition("-")
         return a, vert, horiz

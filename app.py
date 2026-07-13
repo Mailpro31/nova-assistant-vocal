@@ -1942,6 +1942,34 @@ def _webview2_runtime_present():
     return False
 
 
+def _qt_runtime_ok():
+    """PySide6 importable ET plugin de plateforme Qt présent dans l'empaquetage.
+    Indispensable car `QApplication()` APPELLE abort() (erreur C fatale, NON
+    rattrapable par try/except) si le plugin « platforms » (qwindows) manque de
+    l'exe PyInstaller — l'app mourrait alors SANS repli. On sonde AVANT de
+    choisir Qt : plugin introuvable → on retombe proprement sur le dock web /
+    la pilule. Symétrique de _webview2_runtime_present pour le chemin WebView2."""
+    try:
+        import PySide6  # noqa: F401
+    except Exception:
+        return False
+    if not getattr(sys, "frozen", False):
+        return True     # hors PyInstaller (dev) : PySide6 pip → plugins présents
+    base = getattr(sys, "_MEIPASS", os.path.dirname(sys.executable))
+    for d in (os.path.join(base, "PySide6", "plugins", "platforms"),
+              os.path.join(base, "_internal", "PySide6", "plugins", "platforms"),
+              os.path.join(base, "PySide6", "Qt", "plugins", "platforms")):
+        try:
+            if os.path.isdir(d) and any(
+                    f.lower().startswith("qwindows") for f in os.listdir(d)):
+                os.environ.setdefault("QT_QPA_PLATFORM_PLUGIN_PATH", d)
+                return True
+        except OSError:
+            pass
+    core.log_err("dock_ui_qt", "plugin de plateforme Qt absent → repli web/pilule")
+    return False
+
+
 def _make_ui():
     """Choisit l'UI, du meilleur au dernier repli — jamais de démarrage cassé :
       1. dock NATIF PySide6/Qt (défaut) : vraie transparence (aucun rectangle
@@ -1952,12 +1980,13 @@ def _make_ui():
     `CFG["dock_ui"]="pill"` force directement la pilule (échappatoire)."""
     if core.CFG.get("dock_ui", "web") == "pill":
         return Pill()
-    try:
-        from qtdock import QtDock   # PySide6 : vérifie la dispo avant de renoncer
-        return QtDock(on_settings=lambda: _open_settings_window(),
-                      on_select_mode=lambda mid: _set_mode(mid))
-    except Exception as e:
-        core.log_err("dock_ui_qt", e)   # PySide6 absent/cassé → dock web
+    if _qt_runtime_ok():
+        try:
+            from qtdock import QtDock
+            return QtDock(on_settings=lambda: _open_settings_window(),
+                          on_select_mode=lambda mid: _set_mode(mid))
+        except Exception as e:
+            core.log_err("dock_ui_qt", e)   # PySide6 cassé → dock web
     try:
         import webview  # noqa: F401
         if _webview2_runtime_present():
@@ -2000,13 +2029,16 @@ def _open_settings_window():
 
 
 class _SettingsHost:
-    """Hôte minimal du DockApi pour la fenêtre Réglages AUTONOME (processus
-    séparé). DockApi n'y appelle que `_set_panel` — on redimensionne la fenêtre
-    webview des Réglages (880×620, ou 1180×780 en zoom)."""
+    """Hôte du DockApi pour la fenêtre Réglages AUTONOME (processus séparé).
+    La fenêtre étant une simple fenêtre webview de taille fixe (pas de dock natif
+    à détourer/ancrer ici), on n'implémente que ce que DockApi appelle : redim.
+    via `_set_panel`, et des no-op pour `apply_shape`/`refresh_prefs`/`_push_ok`
+    (sinon AttributeError à chaque reportShape / changement de prefs du dock)."""
 
     def __init__(self):
         self._win = None
         self._panel = "settings"
+        self._push_ok = False       # DockApi.shape y écrit (pont prouvé)
 
     def _set_panel(self, name):
         self._panel = name
@@ -2017,12 +2049,21 @@ class _SettingsHost:
         except Exception:
             pass
 
+    def apply_shape(self, payload):
+        pass                        # fenêtre fixe : rien à détourer
+
+    def refresh_prefs(self):
+        pass                        # les prefs du dock ne concernent pas les Réglages
+
 
 def _run_settings_process():
     """Processus « Nova.exe --settings » : fenêtre Réglages en webview (dock.html,
     panneau Réglages ouvert d'emblée). Aucune barre, redimensionnable ; les
     changements sont écrits dans config.json et repris EN DIRECT par le dock
     natif (qui surveille le fichier)."""
+    # ce processus relit le disque avant chaque save → il n'écrase jamais un
+    # changement écrit entre-temps par le processus du dock (anti lost-update)
+    core._RELOAD_BEFORE_SAVE = True
     try:
         import webview
     except Exception as e:
