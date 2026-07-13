@@ -438,7 +438,7 @@ class Pill(threading.Thread):
             _sh = int(win.winfo_screenheight())
         except Exception:
             _sh = 760
-        win.geometry("560x%d" % max(480, min(760, _sh - 80)))
+        win.geometry("600x%d" % max(480, min(760, _sh - 80)))
         win.attributes("-topmost", True)
 
         # Conteneur défilant (Canvas + Scrollbar) : TOUS les widgets de contenu
@@ -484,9 +484,34 @@ class Pill(threading.Thread):
             win.destroy()
         win.protocol("WM_DELETE_WINDOW", on_close)
 
+        # — en-tête : identité Nova (orbe « bille de verre » façon pilule) + titre.
+        # Purement décoratif : donne à la fenêtre le même langage visuel que la
+        # pilule, sans rien changer au fonctionnement.
+        head = tk.Frame(body, bg=SET_BG)
+        head.pack(fill="x", padx=16, pady=(16, 2))
+        _orb = tk.Canvas(head, width=34, height=34, bg=SET_BG,
+                         highlightthickness=0, bd=0)
+        _orb.pack(side="left")
+        _orb.create_oval(4, 5, 30, 31, fill="#7E92D6", outline="")
+        _orb.create_oval(6, 6, 26, 25, fill="#AEBEEC", outline="")
+        _orb.create_oval(9, 8, 19, 17, fill="#DFE7FA", outline="")
+        _htx = tk.Frame(head, bg=SET_BG)
+        _htx.pack(side="left", padx=12)
+        tk.Label(_htx, text="Réglages", bg=SET_BG, fg=SET_FG,
+                 font=("Segoe UI", 19, "bold")).pack(anchor="w")
+        tk.Label(_htx, text="Nova — dictée vocale", bg=SET_BG, fg=SET_MUT,
+                 font=("Segoe UI", 9)).pack(anchor="w")
+        tk.Frame(body, bg=SET_LINE, height=1).pack(fill="x", padx=16, pady=(10, 0))
+
+        def _seclabel(text, top=18):
+            """Libellé de section façon macOS : MAJUSCULES, gris, petit. Purement
+            visuel — remplace les gros titres blancs par une hiérarchie sobre."""
+            tk.Label(body, text=text.upper(), bg=SET_BG, fg=SET_MUT,
+                     font=("Segoe UI", 10, "bold")).pack(
+                         anchor="w", padx=16, pady=(top, 5))
+
         # — Licence & version —
-        tk.Label(body, text="Licence", bg=SET_BG, fg=SET_FG,
-                 font=("Segoe UI", 15, "bold")).pack(anchor="w", padx=16, pady=(14, 4))
+        _seclabel("Licence", top=6)
         lic_state = tk.Label(body, text="", bg=SET_BG, fg=SET_MUT,
                              font=("Segoe UI", 9), justify="left")
         lic_state.pack(anchor="w", padx=16)
@@ -536,9 +561,7 @@ class Pill(threading.Thread):
             pass
         tk.Frame(body, bg=SET_INSET, height=1).pack(fill="x", padx=16, pady=(8, 2))
 
-        pad = {"padx": 16, "pady": 6}
-        tk.Label(body, text="Raccourcis vocaux", bg=SET_BG, fg=SET_FG,
-                 font=("Segoe UI", 15, "bold")).pack(anchor="w", **pad)
+        _seclabel("Raccourcis vocaux")
         tk.Label(body, text="Quand je dis…  →  le texte collé à la place "
                  "(100 % privé, jamais envoyé à une IA)",
                  bg=SET_BG, fg=SET_MUT, font=("Segoe UI", 9)).pack(anchor="w",
@@ -594,9 +617,14 @@ class Pill(threading.Thread):
 
         # — Personnalisation (palier Ultra) —
         def ultra_header(title, unlocked):
-            tk.Label(body, text=title + ("" if unlocked else "   — NÉCESSITE NOVA ULTRA"),
-                     bg=SET_BG, fg=SET_FG, font=("Segoe UI", 15, "bold")
-                     ).pack(anchor="w", padx=16, pady=(0, 4))
+            row = tk.Frame(body, bg=SET_BG)
+            row.pack(fill="x", anchor="w", padx=16, pady=(18, 5))
+            tk.Label(row, text=title.upper(), bg=SET_BG, fg=SET_MUT,
+                     font=("Segoe UI", 10, "bold")).pack(side="left")
+            if not unlocked:
+                tk.Label(row, text="NÉCESSITE NOVA ULTRA", bg="#332C46",
+                         fg="#C9B6F0", font=("Segoe UI", 8, "bold"),
+                         padx=7, pady=1).pack(side="left", padx=8)
 
         tk.Frame(body, bg=SET_LINE, height=1).pack(fill="x", padx=16, pady=12)
         can_orb = licensing.has("orb_customization")
@@ -704,6 +732,7 @@ class Pill(threading.Thread):
         # moteur + touche push-to-talk
         sep = tk.Frame(body, bg=SET_LINE, height=1)
         sep.pack(fill="x", padx=16, pady=12)
+        _seclabel("Moteur & dictée", top=0)
         eng = tk.Frame(body, bg=SET_BG)
         eng.pack(fill="x", padx=16)
         cloud = tk.BooleanVar(value=bool(core.CFG.get("stt", {}).get("cloud_enabled")))
@@ -975,8 +1004,7 @@ class Pill(threading.Thread):
         # Vitesse de transcription (parité avec le dock — mêmes options)
         seps = tk.Frame(body, bg=SET_LINE, height=1)
         seps.pack(fill="x", padx=16, pady=12)
-        tk.Label(body, text="Vitesse de transcription", bg=SET_BG, fg=SET_FG,
-                 font=("Segoe UI", 13, "bold")).pack(anchor="w", padx=16)
+        _seclabel("Vitesse de transcription", top=2)
         _o = _stt_opts()                  # même source que le dock
         v_live = tk.BooleanVar(value=_o["live"])
         v_warm = tk.BooleanVar(value=_o["keep_warm_on"])
@@ -1027,8 +1055,7 @@ class Pill(threading.Thread):
         # e-mail »… dans le texte dicté (surtout le mode E-mail). 100 % local.
         sep2 = tk.Frame(body, bg=SET_LINE, height=1)
         sep2.pack(fill="x", padx=16, pady=12)
-        tk.Label(body, text="Mes infos", bg=SET_BG, fg=SET_FG,
-                 font=("Segoe UI", 13, "bold")).pack(anchor="w", padx=16)
+        _seclabel("Mes infos", top=2)
         info = core.personal_info()
         # clés = source unique storage.PERSONAL_FIELDS (jamais de dérive avec le
         # stockage) ; libellés propres à l'UI
