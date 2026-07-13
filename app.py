@@ -1092,6 +1092,19 @@ class Pill(threading.Thread):
 DOCK_HTML = core.resource_path(os.path.join("ui", "dock.html"))
 
 
+def _dock_html():
+    """Contenu de dock.html chargé EN MÉMOIRE, injecté tel quel dans la webview
+    (paramètre `html=`) au lieu de pointer la fenêtre sur un fichier. Le serveur
+    interne de pywebview résolvait « /ui/dock.html » relativement à un dossier
+    courant qui, selon l'installation (exe vs _internal PyInstaller 6), pouvait
+    ne pas contenir ui/ → page « 404 Not Found » au démarrage. En passant le HTML
+    directement, AUCUN serveur ni chemin n'intervient : le 404 est IMPOSSIBLE.
+    dock.html est autonome (CSS/JS/SVG inline, aucune ressource externe ni requête
+    réseau) — vérifié : le rendu est identique à un chargement par fichier."""
+    with open(DOCK_HTML, "r", encoding="utf-8") as f:
+        return f.read()
+
+
 class WebDock:
     """Dock flottant rendu en webview (orbe organique WebGL, façon Speechly).
 
@@ -1522,7 +1535,7 @@ class WebDock:
         # focus=False : la bulle ne vole JAMAIS le focus clavier — la fenêtre
         # active reste celle de l'utilisateur (détection auto + collage fiables)
         self._win = webview.create_window(
-            "NovaDock", DOCK_HTML, width=w, height=h, x=x, y=y,
+            "NovaDock", html=_dock_html(), width=w, height=h, x=x, y=y,
             frameless=True, easy_drag=False, on_top=True, hidden=True,
             focus=False, transparent=True, background_color=self.KEY,
             resizable=False, js_api=DockApi(self))
@@ -2142,9 +2155,9 @@ def _run_settings_process():
         return
     host = _SettingsHost()
     host._win = webview.create_window(
-        _app_display_name() + " — Réglages", DOCK_HTML, width=880, height=620,
-        min_size=(720, 500), frameless=True, easy_drag=False, resizable=True,
-        background_color="#1F1F22", js_api=DockApi(host))
+        _app_display_name() + " — Réglages", html=_dock_html(), width=880,
+        height=620, min_size=(720, 500), frameless=True, easy_drag=False,
+        resizable=True, background_color="#1F1F22", js_api=DockApi(host))
 
     def _open():
         try:
