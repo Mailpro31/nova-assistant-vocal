@@ -248,6 +248,12 @@ function api(m){try{return Promise.race([
       .catch(function(){return null;}),
     new Promise(function(res){setTimeout(function(){res(null);},10000);})]);}
   catch(e){return Promise.resolve(null);}}
+// battement du fil UI (~1×/s) → détecteur de gel côté Python : si le fil
+// principal se bloque (« ne répond pas »), ces battements s'arrêtent et le
+// watchdog vide les piles dans nova-crash.log. Appel direct minimal (jamais
+// d'erreur si le pont n'est pas prêt).
+setInterval(function(){try{var a=window.pywebview&&window.pywebview.api;
+  if(a&&a.heartbeat)a.heartbeat();}catch(e){}},1000);
 let S={modes:[],profiles:[],languages:[],mode:'auto',ptt_key:'f9',mode_hotkeys:{},menu_hotkey:'',language:'fr',cloud_enabled:false,autostart:false,auto_update:true,app_version:'',
   dock_prefs:{position:'bottom-center',scale:1,opacity:1},
   personal:{},custom_vars:[],hardware:{},tier:'free',lic:null,perso:{},custom_modes:[],

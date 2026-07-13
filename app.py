@@ -1467,6 +1467,11 @@ class WebDock:
         # nu) ; dès que la page peint, la bulle apparaît.
         threading.Timer(15.0, self._reveal).start()
         threading.Thread(target=self._shape_watchdog, daemon=True).start()
+        # détecteur de GEL : si le fil principal (webview.start, ci-dessous) se
+        # bloque, la page ne peut plus battre → le watchdog vide les piles dans
+        # nova-crash.log (un « ne répond pas » n'est ni exception ni plantage,
+        # donc rien n'atterrissait dans les journaux jusqu'ici)
+        core.install_freeze_watchdog()
         webview.start()
 
     def _shape_watchdog(self):
@@ -1721,6 +1726,13 @@ class DockApi:
         """Le dock signale quel panneau nommé est ouvert (modes, settings…) ;
         fermé = retour au dock compact. Un seul protocole de redimensionnement."""
         self._dock._set_panel(name if open_ else "compact")
+
+    def heartbeat(self):
+        """Battement du fil UI (~1×/s depuis dock.html). Ce message n'est reçu
+        que si la boucle de messages du fil principal pompe → prouve que l'UI
+        n'est pas gelée. Le détecteur de gel (core) s'en sert pour vider les
+        piles si les battements s'arrêtent. Volontairement minimal."""
+        core.heartbeat()
 
     def engine_setup_status(self):
         """État de la reformulation locale (prête / absente / installation en
