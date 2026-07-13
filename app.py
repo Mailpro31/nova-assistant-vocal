@@ -379,16 +379,25 @@ class Pill(threading.Thread):
                         self._settings_win = None   # fenêtre à moitié construite
         except queue.Empty:
             pass
-        # animation barres + fondu
-        if self._visible:
-            if self._state == "listening":
-                self._redraw()
-            self._alpha += (self._alpha_target - self._alpha) * 0.25
-            try:
-                self.root.attributes("-alpha", round(self._alpha, 2))
-            except Exception:
-                pass
-        self.root.after(40, self._tick)
+        except Exception as e:
+            core.log_err("pill_tick", e)      # jamais tuer la boucle de la pilule
+        # animation barres + fondu — gardée : une exception ici ne doit PAS
+        # empêcher la replanification (sinon la pilule se fige pour la session)
+        try:
+            if self._visible:
+                if self._state == "listening":
+                    self._redraw()
+                self._alpha += (self._alpha_target - self._alpha) * 0.25
+                try:
+                    self.root.attributes("-alpha", round(self._alpha, 2))
+                except Exception:
+                    pass
+        except Exception as e:
+            core.log_err("pill_tick", e)
+        try:
+            self.root.after(40, self._tick)   # TOUJOURS replanifier
+        except Exception:
+            pass
 
     # ---- fenêtre Réglages (Custom Variables + moteur + touche) ----
     def _open_settings_window(self):
@@ -1115,6 +1124,15 @@ class WebDock:
         self._shape_lock = threading.Lock()   # poste js_api ‖ watchdog :
                                               # jamais entrelacés (régression)
         self._push_ok = False      # un poste js_api est arrivé : pont prouvé
+        # pont Python→JS NON bloquant : evaluate_js est un aller-retour SYNCHRONE
+        # vers le fil UI (il PEND si le rendu rame/gèle). On empile et un fil
+        # dédié draine → les fils AUDIO (level, ~30×/s) et CLAVIER (raccourcis)
+        # ne bloquent JAMAIS sur l'UI. novaLevel est coalescé (seule la dernière
+        # valeur compte) ; file bornée (anti-fuite si l'UI est wedgée).
+        self._js_q = collections.deque()
+        self._js_lock = threading.Lock()
+        self._js_evt = threading.Event()
+        self._js_pump_on = False
 
     # ---- API compatible Pill ----
     def show(self, state, text="", sub=""):
@@ -1183,13 +1201,43 @@ class WebDock:
 
     # ---- pont Python → JS ----
     def _js(self, fn, *args):
+        # NON bloquant : on empile et le fil pousseur draine (voir __init__).
+        # JAMAIS d'evaluate_js synchrone ici — un appelant sur le fil audio ou
+        # clavier gèlerait la dictée/les raccourcis si l'UI rame.
         if self._win is None:
             return
-        try:
-            payload = ",".join(json.dumps(a) for a in args)
-            self._win.evaluate_js(f"{fn}({payload})")
-        except Exception:
-            pass
+        with self._js_lock:
+            if fn == "window.novaLevel":          # coalescing : un seul, le dernier
+                self._js_q = collections.deque(
+                    q for q in self._js_q if q[0] != "window.novaLevel")
+            if len(self._js_q) > 200:             # garde-fou anti-fuite (UI wedgée)
+                self._js_q.clear()
+            self._js_q.append((fn, args))
+            if not self._js_pump_on:
+                self._js_pump_on = True
+                threading.Thread(target=self._js_pump, daemon=True,
+                                 name="js-pump").start()
+        self._js_evt.set()
+
+    def _js_pump(self):
+        """Draine la file des appels JS : le SEUL endroit qui appelle evaluate_js
+        (aller-retour synchrone vers le fil UI). S'il pend, seul CE fil attend —
+        jamais l'audio ni le clavier ; la file coalescée/bornée ne fuit pas."""
+        while True:
+            self._js_evt.wait()
+            self._js_evt.clear()
+            while True:
+                with self._js_lock:
+                    if not self._js_q:
+                        break
+                    fn, args = self._js_q.popleft()
+                try:
+                    payload = ",".join(json.dumps(a) for a in args)
+                    win = self._win
+                    if win is not None:
+                        win.evaluate_js(f"{fn}({payload})")
+                except Exception:
+                    pass
 
     # ---- géométrie ----
     def _screen(self):
@@ -1867,15 +1915,44 @@ class DockApi:
         _request_quit(_tray_icon)
 
 
+def _webview2_runtime_present():
+    """Le MODULE pywebview s'importe toujours ; mais le RUNTIME WebView2
+    (Evergreen, composant OS distinct) peut manquer — Windows LTSC/Server/N,
+    poste neuf ou verrouillé par stratégie — et alors webview.start() PLANTE sans
+    repli. On sonde la clé registre du runtime. Hors Windows (dev) : présent."""
+    if sys.platform != "win32":
+        return True
+    try:
+        import winreg
+    except Exception:
+        return True
+    G = r"{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+    for root, sub in (
+        (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\EdgeUpdate\Clients\\" + G),
+        (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\\" + G),
+        (winreg.HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\EdgeUpdate\Clients\\" + G),
+    ):
+        try:
+            with winreg.OpenKey(root, sub) as k:
+                pv, _ = winreg.QueryValueEx(k, "pv")
+                if pv and pv != "0.0.0.0":
+                    return True
+        except OSError:
+            continue
+    return False
+
+
 def _make_ui():
     """Choisit l'UI selon `CFG["dock_ui"]` : "web" (défaut) = le dock et les
     fenêtres du site (webview), "pill" = pilule tkinter. Repli automatique sur
-    la pilule si le dock web ne peut pas être instancié (pywebview/WebView2
-    absent ou cassé) — jamais de démarrage cassé."""
+    la pilule si le dock web ne peut pas être instancié (pywebview absent) OU si
+    le RUNTIME WebView2 manque — jamais de démarrage cassé."""
     if core.CFG.get("dock_ui", "web") != "pill":
         try:
             import webview  # noqa: F401 — vérifie la dispo AVANT de renoncer à la pilule
-            return WebDock()
+            if _webview2_runtime_present():
+                return WebDock()
+            core.log_err("dock_ui", "runtime WebView2 absent → repli pilule tkinter")
         except Exception as e:
             core.log_err("dock_ui", e)   # pywebview absent/cassé → repli sur la pilule
     return Pill()
@@ -2063,15 +2140,24 @@ def _on_ptt_press(_e=None):
     # l'auto-répétition clavier pendant une session ET se ré-arme tout seul à la
     # fin de chaque session : jamais bloqué même si un événement « touche
     # relâchée » est perdu (changement de focus, glitch de hook…).
-    if _ptt_active.is_set():
-        return
-    _ptt_active.set()
-    _ptt_stop.clear()
-    threading.Thread(target=_ptt_session, daemon=True).start()
+    # gardé comme chord_press : une exception dans un hook `keyboard` remonterait
+    # dans le fil de la lib et pourrait casser TOUS les raccourcis
+    try:
+        if _ptt_active.is_set():
+            return
+        _ptt_active.set()
+        _ptt_stop.clear()
+        threading.Thread(target=_ptt_session, daemon=True).start()
+    except Exception as e:
+        core.log_err("ptt_press", e)
+        _ptt_active.clear()        # jamais coincé « actif » sur un échec
 
 
 def _on_ptt_release(_e=None):
-    _ptt_stop.set()
+    try:
+        _ptt_stop.set()
+    except Exception as e:
+        core.log_err("ptt_release", e)
 
 
 def _rebind_ptt():
@@ -2399,10 +2485,16 @@ def main():
     # profil de puissance : bootstrap AVANT tout le reste, y compris l'onboarding
     # (best-effort, peut échouer ou être fermé sans être terminé) — la garantie
     # « jamais de saturation RAM » ne doit jamais dépendre de l'écran d'accueil.
-    hw = power_profiles.detect_hardware()
-    safe = power_profiles.select_and_apply(core.CFG.get("profile", "normal"),
-                                           core.save_config, _profiles_paid())
-    core.log_err("startup", f"matériel={hw} → profil={safe}")
+    # GARDÉ : un échec (écriture config disque, sonde matériel) ne doit JAMAIS
+    # empêcher Nova de démarrer.
+    safe = core.CFG.get("profile", "normal")
+    try:
+        hw = power_profiles.detect_hardware()
+        safe = power_profiles.select_and_apply(safe, core.save_config,
+                                               _profiles_paid())
+        core.log_err("startup", f"matériel={hw} → profil={safe}")
+    except Exception as e:
+        core.log_err("startup_profile", e)
 
     if onboarding.needs_onboarding():
         try:
@@ -2422,7 +2514,25 @@ def main():
 
     # Chaque UI possède sa propre boucle (pilule tkinter ou dock webview) via
     # `serve()` : main() n'a aucun type à tester. Bloquant jusqu'à la fermeture.
-    pill.serve(_build_tray)
+    global pill
+    try:
+        pill.serve(_build_tray)
+    except Exception as e:
+        # DERNIER FILET : si le dock web échoue à l'exécution (runtime WebView2
+        # présent mais cassé, échec de create_window/start), on ne MEURT pas — on
+        # bascule sur la pilule tkinter (garde-fou « JAMAIS de plantage »).
+        core.log_err("serve_fallback", e)
+        try:
+            if _tray_icon is not None:
+                _tray_icon.stop()          # l'ancien tray du dock est déjà lancé
+        except Exception:
+            pass
+        if not isinstance(pill, Pill):
+            try:
+                pill = Pill()
+                pill.serve(_build_tray)    # reconstruit son propre tray
+            except Exception as e2:
+                core.log_err("serve_fallback2", e2)
     os._exit(0)
 
 

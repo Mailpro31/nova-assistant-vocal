@@ -23,7 +23,7 @@ import winext
 # Version de l'app — source unique. Doit rester égale au MyAppVersion de
 # installer/nova.iss (test_v3 le vérifie) ; les releases GitHub sont taguées
 # « v » + cette valeur, et updater.py s'en sert pour détecter une mise à jour.
-APP_VERSION = "3.1.27"
+APP_VERSION = "3.1.28"
 
 APP_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
 
@@ -170,19 +170,32 @@ def _load(name, default):
     try:
         with open(_path(name), "r", encoding="utf-8") as f:
             return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
+    except (OSError, ValueError):
+        # OSError : absent/permission/dossier ; ValueError : JSON/Unicode invalide.
+        # Un fichier corrompu ne doit JAMAIS avorter l'import du module (→ app
+        # qui ne démarre plus) — on retombe sur le défaut.
         return default
 
 
 def _save(name, data):
+    # écriture disque défensive : un échec (disque plein, dossier en lecture
+    # seule, antivirus) ne doit jamais remonter et tuer le démarrage. La config
+    # reste correcte EN MÉMOIRE pour la session ; on ne fait que journaliser.
     with _lock:
-        with open(_path(name), "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        try:
+            with open(_path(name), "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+        except OSError as e:
+            log_err("config_save", e)
 
 
 def _merge(base, override):
     out = dict(base)
-    for k, v in (override or {}).items():
+    if not isinstance(override, dict):
+        # config.json valide en JSON mais non-objet (liste/chaîne) : on ignore
+        # l'override plutôt que de planter sur .items()
+        return out
+    for k, v in override.items():
         if isinstance(v, dict) and isinstance(out.get(k), dict):
             out[k] = _merge(out[k], v)
         else:
@@ -348,7 +361,10 @@ def _migrate_plaintext_keys():
         _save("config.json", CFG)
 
 
-_migrate_plaintext_keys()
+try:
+    _migrate_plaintext_keys()             # jamais bloquant au démarrage
+except Exception as e:
+    log_err("migrate_keys", e)
 
 # gemini-2.0-flash n'a plus de quota gratuit (429 permanent) : on migre
 if CFG["providers"].get("gemini", {}).get("model") == "gemini-2.0-flash":
@@ -598,7 +614,15 @@ def _load_whisper(name):
         try:
             return WhisperModel(name, local_files_only=True, **kw)
         except Exception:
-            return WhisperModel(name, **kw)
+            # cache absent : NE JAMAIS télécharger ici. get_model tient
+            # _model_lock → un téléchargement de ~1,5 Go gèlerait la dictée ET
+            # les réglages pendant des minutes (« ne répond pas »). On lance le
+            # téléchargement EN FOND (hors verrou) et on relève : get_model garde
+            # l'ancien modèle ou remonte proprement (dégradé « Je n'ai pas
+            # compris »), et le prochain essai réussit sans réseau une fois prêt.
+            threading.Thread(target=download_stt_model, args=(name,),
+                             daemon=True, name="stt-download").start()
+            raise
 
     dev, comp = _resolve_device()
     if dev == "cuda":
@@ -1363,7 +1387,7 @@ def _vision_raw(provider, sys_txt, content, image, target):
     prov = CFG["providers"]
     if provider == "anthropic":
         from anthropic import Anthropic
-        client = Anthropic(api_key=get_api_key("anthropic") or None)
+        client = Anthropic(api_key=get_api_key("anthropic") or None, timeout=30)
         msg = client.messages.create(
             model=prov["anthropic"]["model"] or "claude-haiku-4-5",
             max_tokens=300, system=sys_txt,
@@ -1412,7 +1436,7 @@ def _ask_one(provider, text, context=None, image=None):
                                              "data": image}},
                 {"type": "text", "text": text},
             ]}
-        client = Anthropic(api_key=get_api_key("anthropic") or None)
+        client = Anthropic(api_key=get_api_key("anthropic") or None, timeout=30)
         msg = client.messages.create(
             model=prov["anthropic"]["model"] or "claude-haiku-4-5",
             max_tokens=700 if image else 300,
@@ -1609,7 +1633,10 @@ def _ollama_chat_request(system, user, options, timeout):
 def _complete_one(provider, system, user, timeout):
     if provider == "anthropic":
         from anthropic import Anthropic
-        client = Anthropic(api_key=get_api_key("anthropic") or None)
+        # transmettre le budget de temps au SDK : sans lui, il hérite du défaut
+        # ~10 min → le fil de reformulation pouvait pendre (les autres
+        # fournisseurs passent déjà timeout à requests)
+        client = Anthropic(api_key=get_api_key("anthropic") or None, timeout=timeout)
         msg = client.messages.create(
             model=_reform_model("anthropic") or "claude-haiku-4-5",
             max_tokens=400, system=system,
