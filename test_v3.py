@@ -359,31 +359,22 @@ def test_power_profiles():
 
 # --------------------------------------------------- onboarding (accueil) ----
 def test_onboarding():
-    """L'assistant de bienvenue ne doit dépendre de pywebview qu'à l'usage réel
-    (run()), jamais au chargement du module — sinon la CI (sans pywebview
-    installé) casserait juste en import. `import onboarding` a déjà réussi plus
-    haut : c'est la première preuve. Ici on vérifie la logique (Api, drapeau)."""
-    print("Onboarding — drapeau 1er lancement + pont API (sans pywebview)")
+    """L'assistant de bienvenue est 100 % NATIF (tkinter) : aucune dépendance
+    web, aucun import lourd au chargement du module (tkinter n'est importé que
+    dans run()). Sa logique de configuration réutilise celle du tray / des
+    Réglages (setters de module). On teste le drapeau 1er lancement + les
+    setters, sans ouvrir de fenêtre."""
+    print("Onboarding — drapeau 1er lancement + setters natifs (sans WebView)")
     core.CFG["onboarding_done"] = False
     check("pas encore fait → nécessaire", onboarding.needs_onboarding(), True)
     core.CFG["onboarding_done"] = True
     check("déjà fait → plus nécessaire", onboarding.needs_onboarding(), False)
 
-    check("vidéo absente → url vide (pas d'erreur)", onboarding.video_url(), "")
-
-    api = onboarding.Api()
-    st = api.state()
-    check("state() expose tous les modes (source modes_registry)",
-          len(st["modes"]), len(modes_registry.all_modes()))
-    check("state() expose les langues (source core.LANGUAGES)",
-          len(st["languages"]), len(core.LANGUAGES))
-    check("state() expose tous les profils (source power_profiles)",
-          len(st["profiles"]), len(power_profiles.PROFILES))
-
-    check("set_ptt_key persiste", api.set_ptt_key("F8"), "f8")
+    check("set_ptt_key persiste (normalisé en minuscules)",
+          onboarding.set_ptt_key("F8"), "f8")
     check("set_ptt_key ignore une valeur vide (garde l'ancienne)",
-          api.set_ptt_key(""), "f8")
-    check("set_language persiste", api.set_language("ja"), "ja")
+          onboarding.set_ptt_key(""), "f8")
+    check("set_language persiste", onboarding.set_language("ja"), "ja")
     # Turbo n'est pas proposé à l'installation sans droit Ultra : refus net,
     # provider inchangé. Les deux cas sont SIMULÉS (has patché) pour ne pas
     # dépendre de l'état de licence de la machine qui exécute les tests
@@ -394,16 +385,19 @@ def test_onboarding():
     try:
         _lic.has = lambda f: False
         check("set_cloud→True SANS droit Ultra → refusé",
-              (api.set_cloud(True), core.CFG.get("provider")), (False, _prov0))
+              (onboarding.set_cloud(True), core.CFG.get("provider")),
+              (False, _prov0))
         _lic.has = lambda f: True
         check("set_cloud→True AVEC droit Ultra → provider auto",
-              (api.set_cloud(True), core.CFG.get("provider")), (True, "auto"))
+              (onboarding.set_cloud(True), core.CFG.get("provider")),
+              (True, "auto"))
     finally:
         _lic.has = _has0
     check("set_cloud→False repasse en local (ollama)",
-          (api.set_cloud(False), core.CFG.get("provider")), (False, "ollama"))
+          (onboarding.set_cloud(False), core.CFG.get("provider")),
+          (False, "ollama"))
     # même garde-fou que le tray : une sélection impossible retombe sur un profil sûr
-    got = api.set_profile("ultra")
+    got = onboarding.set_profile("ultra")
     check("set_profile jamais un profil verrouillé sur cette machine",
           power_profiles.is_available(got, power_profiles.detect_hardware()), True)
 
