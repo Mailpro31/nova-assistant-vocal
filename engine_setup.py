@@ -211,10 +211,17 @@ def _download_setup(dest):
         r.raise_for_status()
         total = int(r.headers.get("content-length") or 0)
         got = 0
+        t0 = time.monotonic()
         with open(dest, "wb") as f:
             for chunk in r.iter_content(1024 * 256):
                 f.write(chunk)
                 got += len(chunk)
+                # borne TOTALE : un serveur qui livre au goutte-à-goutte
+                # (« half-open ») ne doit pas laisser l'install coincée pour
+                # toujours à phase=download — l'exception retombe dans _run → error
+                if got > 1_500_000_000 or time.monotonic() - t0 > 15 * 60:
+                    raise RuntimeError("Téléchargement du composant anormalement "
+                                       "long — vérifiez la connexion puis réessayez")
                 if total:
                     _state["progress"] = .45 * got / total
                 else:
@@ -254,11 +261,20 @@ def _pull_model(target):
     scale = max(1e9, _model_gb(target) * 0.6e9)   # échelle ≈ taille réelle
     got = 0
     seen = {}                                     # digest -> dernier `completed`
+    # timeout=(connexion, LECTURE) : une lecture bloquée lève ReadTimeout au bout
+    # de 3 min (au lieu de pendre jusqu'à 1 h) → retombe dans _run → error retriable
+    t0 = time.monotonic()
+    last_advance = t0
     with requests.post(core.ollama_url() + "/api/pull",
                        json={"name": target},
-                       stream=True, timeout=3600) as r:
+                       stream=True, timeout=(10, 180)) as r:
         r.raise_for_status()
         for line in r.iter_lines():
+            # garde de NON-PROGRESSION : si aucun octet n'a avancé depuis 5 min
+            # (service coincé, débit nul), on abandonne au lieu de pendre
+            if time.monotonic() - last_advance > 5 * 60:
+                raise RuntimeError("Le téléchargement de l'intelligence est "
+                                   "bloqué — réessayez")
             if not line:
                 continue
             try:
@@ -274,7 +290,10 @@ def _pull_model(target):
             dig = d.get("digest")
             done = int(d.get("completed") or 0)
             if dig:
-                got += max(0, done - seen.get(dig, 0))   # somme des deltas ≥ 0
+                delta = max(0, done - seen.get(dig, 0))
+                if delta:
+                    last_advance = time.monotonic()      # progrès réel : on ré-arme la garde
+                got += delta                             # somme des deltas ≥ 0
                 seen[dig] = done
                 _state["progress"] = .6 + .38 * (1 - scale / (scale + got))
     # vérification tolérante : le modèle qu'on VIENT de télécharger doit

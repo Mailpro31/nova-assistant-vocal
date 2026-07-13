@@ -73,8 +73,11 @@ def _load_secrets():
     global _secrets
     try:
         with open(_secrets_file, "r", encoding="utf-8") as f:
-            _secrets = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
+            data = json.load(f)
+        # un coffre illisible/corrompu doit DÉGRADER vers « aucun secret »,
+        # JAMAIS faire échouer l'import de winext (→ app qui ne démarre pas)
+        _secrets = data if isinstance(data, dict) else {}
+    except (OSError, ValueError):   # OSError: permission/dossier ; ValueError: JSON/Unicode
         _secrets = {}
 
 
@@ -82,10 +85,16 @@ _load_secrets()
 
 
 def _persist_secrets():
-    tmp = _secrets_file + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(_secrets, f)
-    os.replace(tmp, _secrets_file)
+    # ne JAMAIS laisser une erreur disque (plein, permission, dossier en lecture
+    # seule) remonter jusqu'à l'appelant et casser le démarrage : on journalise
+    # et on garde les secrets en mémoire pour la session
+    try:
+        tmp = _secrets_file + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(_secrets, f)
+        os.replace(tmp, _secrets_file)
+    except OSError:
+        pass
 
 
 def set_secret(key, value):

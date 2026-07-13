@@ -919,13 +919,22 @@ const ORB=(function(){
     function sh(t,s){const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);return o;}
     const pr=gl.createProgram();gl.attachShader(pr,sh(gl.VERTEX_SHADER,'attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}'));
     gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,F));gl.linkProgram(pr);gl.useProgram(pr);
+    // WebGL peut « réussir » mais tourner en LOGICIEL (SwiftShader/llvmpipe sous
+    // RDP, pilote blocklisté, Optimus) → le shader continu plante le rendu comme
+    // sans GPU. On lit le renderer réel et on retombe sur l'orbe CSS si logiciel.
+    try{const dbg=gl.getExtension('WEBGL_debug_renderer_info');
+      const rn=dbg?String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL)||''):'';
+      if(/swiftshader|software|llvmpipe|basic render|microsoft basic|paravirtual/i.test(rn)){cssOrb();return;}
+    }catch(e){cssOrb();return;}
     const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
     const l=gl.getAttribLocation(pr,'p');gl.enableVertexAttribArray(l);gl.vertexAttribPointer(l,2,gl.FLOAT,false,0,0);
     gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
     const uR=gl.getUniformLocation(pr,'uRes'),uT=gl.getUniformLocation(pr,'uT'),uV=gl.getUniformLocation(pr,'uVol'),
           uSw=gl.getUniformLocation(pr,'uSwell'),uP=gl.getUniformLocation(pr,'uPulse'),uM=gl.getUniformLocation(pr,'uMode'),uA=gl.getUniformLocation(pr,'uAcc');
     const DPR=Math.min(2,devicePixelRatio||1),t0=performance.now();
-    function fit(){const r=cv.getBoundingClientRect();cv.width=Math.max(1,r.width*DPR);cv.height=Math.max(1,r.height*DPR);gl.viewport(0,0,cv.width,cv.height);}
+    // if(!gl) : après une perte de contexte (cssOrb met gl=null) le listener
+    // 'resize' survivrait et déréférencerait gl → TypeError à chaque resize
+    function fit(){if(!gl)return;const r=cv.getBoundingClientRect();cv.width=Math.max(1,r.width*DPR);cv.height=Math.max(1,r.height*DPR);gl.viewport(0,0,cv.width,cv.height);}
     fit();addEventListener('resize',fit);
     const SETEL=document.getElementById('settings');
     let covered=false;running=true;
