@@ -2027,30 +2027,42 @@ def _qt_probe_subprocess():
 
 
 def _make_ui():
-    """Choisit l'UI, du meilleur au dernier repli — jamais de démarrage cassé :
-      1. dock NATIF PySide6/Qt (défaut) : vraie transparence (aucun rectangle
-         possible), léger (fin du lag Chromium) ;
-      2. dock WEB (webview) si PySide6 est absent/cassé OU le runtime WebView2
-         est présent ;
-      3. pilule tkinter en tout dernier recours.
-    `CFG["dock_ui"]="pill"` force directement la pilule (échappatoire)."""
-    if core.CFG.get("dock_ui", "web") == "pill":
+    """Choisit l'UI, du meilleur au dernier repli — jamais de démarrage cassé.
+    Ordre par DÉFAUT : dock WEB (webview) → pilule tkinter. Le dock NATIF Qt est
+    en OPT-IN (`dock_ui="qt"`) tant qu'il n'est pas fiable partout : sur certaines
+    machines `QApplication()` avorte (abort C, non rattrapable) au moment de
+    charger son plugin de plateforme APRÈS le démarrage — conflit de DLL avec les
+    moteurs STT/LLM déjà chargés, que la sonde en processus neuf ne reproduit
+    pas. Le dock web, lui, démarre chez tous ceux qui tournaient déjà en 3.1.x.
+    `dock_ui="pill"` force la pilule. On journalise le dock retenu (diagnostic)."""
+    ui = core.CFG.get("dock_ui", "web")
+    if ui == "pill":
+        core.log_err("dock_ui_chosen", "pill (forcé)")
         return Pill()
-    if _qt_runtime_ok():
+    if ui == "qt" and _qt_runtime_ok():
         try:
-            from qtdock import QtDock
-            return QtDock(on_settings=lambda: _open_settings_window(),
-                          on_select_mode=lambda mid: _set_mode(mid))
+            dock = _new_qt_dock()
+            core.log_err("dock_ui_chosen", "qt")
+            return dock
         except Exception as e:
             core.log_err("dock_ui_qt", e)   # PySide6 cassé → dock web
     try:
         import webview  # noqa: F401
         if _webview2_runtime_present():
+            core.log_err("dock_ui_chosen", "web")
             return WebDock()
         core.log_err("dock_ui", "runtime WebView2 absent → repli pilule tkinter")
     except Exception as e:
         core.log_err("dock_ui", e)   # pywebview absent/cassé → repli sur la pilule
+    core.log_err("dock_ui_chosen", "pill (repli)")
     return Pill()
+
+
+def _new_qt_dock():
+    """Instancie le dock natif Qt (import paresseux de PySide6)."""
+    from qtdock import QtDock
+    return QtDock(on_settings=lambda: _open_settings_window(),
+                  on_select_mode=lambda mid: _set_mode(mid))
 
 
 def _resync_state_from_config():
