@@ -36,6 +36,23 @@ import winext
 
 APP_NAME = "Nova"
 
+# Sonde Qt (sous-processus JETABLE, lancé par _qt_runtime_ok) : tente juste de
+# construire QApplication puis sort — 0 = Qt utilisable. Le fichier du plugin de
+# plateforme Qt peut être présent mais échouer à CHARGER (DLL dépendante ou
+# runtime VC++ absent) ; QApplication appelle alors abort(), une erreur C fatale
+# NON rattrapable par try/except, qui tuerait Nova SANS repli. En la testant
+# dans cet enfant qu'on peut laisser mourir, le processus principal survit et
+# retombe proprement sur le dock web. DOIT court-circuiter AVANT le mutex
+# d'instance unique (sinon l'enfant sortirait 0 sans rien tester) et AVANT tout
+# le reste du démarrage (_make_ui, onboarding, warmup…).
+if "--qt-probe" in sys.argv:
+    try:
+        from PySide6.QtWidgets import QApplication
+        QApplication([]).quit()
+    except BaseException:
+        os._exit(1)
+    os._exit(0)
+
 # instance unique (Windows) : une 2e exécution se referme aussitôt
 try:
     _mutex = ctypes.windll.kernel32.CreateMutexW(None, False, "NovaSpeechlyLiteMutex")
@@ -1943,12 +1960,14 @@ def _webview2_runtime_present():
 
 
 def _qt_runtime_ok():
-    """PySide6 importable ET plugin de plateforme Qt présent dans l'empaquetage.
-    Indispensable car `QApplication()` APPELLE abort() (erreur C fatale, NON
-    rattrapable par try/except) si le plugin « platforms » (qwindows) manque de
-    l'exe PyInstaller — l'app mourrait alors SANS repli. On sonde AVANT de
-    choisir Qt : plugin introuvable → on retombe proprement sur le dock web /
-    la pilule. Symétrique de _webview2_runtime_present pour le chemin WebView2."""
+    """PySide6 importable, plugin de plateforme Qt présent ET QApplication qui se
+    construit VRAIMENT. `QApplication()` APPELLE abort() (erreur C fatale, NON
+    rattrapable par try/except) si le plugin « platforms » (qwindows) manque OU
+    échoue à charger (DLL dépendante / runtime VC++ absent) — l'app mourrait
+    alors SANS repli. Le fichier présent ne suffit donc pas : on sonde le vrai
+    QApplication dans un sous-processus jetable (voir --qt-probe en tête de
+    module) AVANT de choisir Qt ; échec → dock web / pilule. Symétrique de
+    _webview2_runtime_present pour le chemin WebView2."""
     try:
         import PySide6  # noqa: F401
     except Exception:
@@ -1956,17 +1975,54 @@ def _qt_runtime_ok():
     if not getattr(sys, "frozen", False):
         return True     # hors PyInstaller (dev) : PySide6 pip → plugins présents
     base = getattr(sys, "_MEIPASS", os.path.dirname(sys.executable))
+    plugin_dir = None
     for d in (os.path.join(base, "PySide6", "plugins", "platforms"),
               os.path.join(base, "_internal", "PySide6", "plugins", "platforms"),
               os.path.join(base, "PySide6", "Qt", "plugins", "platforms")):
         try:
             if os.path.isdir(d) and any(
                     f.lower().startswith("qwindows") for f in os.listdir(d)):
-                os.environ.setdefault("QT_QPA_PLATFORM_PLUGIN_PATH", d)
-                return True
+                plugin_dir = d
+                break
         except OSError:
             pass
-    core.log_err("dock_ui_qt", "plugin de plateforme Qt absent → repli web/pilule")
+    if plugin_dir is None:
+        core.log_err("dock_ui_qt", "plugin de plateforme Qt absent → repli web/pilule")
+        return False
+    # serve() en aura besoin, y compris quand la sonde est déjà en cache
+    os.environ.setdefault("QT_QPA_PLATFORM_PLUGIN_PATH", plugin_dir)
+    # fichier présent ≠ charge : QApplication se construit-il vraiment ? Résultat
+    # mémoïsé sur disque PAR VERSION → une seule sonde après chaque mise à jour
+    # (un lancement froid n'attend pas le spawn d'un enfant à chaque fois).
+    cached = core._load("qt_probe.json", None)
+    if isinstance(cached, dict) and cached.get("ver") == core.APP_VERSION \
+            and isinstance(cached.get("ok"), bool):
+        return cached["ok"]
+    ok = _qt_probe_subprocess()
+    core._save("qt_probe.json", {"ver": core.APP_VERSION, "ok": ok})
+    return ok
+
+
+def _qt_probe_subprocess():
+    """Lance « Nova.exe --qt-probe » : un enfant qui tente QApplication() puis
+    sort (0 = OK). Tout autre code — dont l'abort C d'un plugin qui ne charge
+    pas — signifie « Qt inutilisable ici » → repli web. On journalise la raison
+    Qt (stderr sous QT_DEBUG_PLUGINS) pour diagnostiquer la dépendance manquante
+    lors d'une prochaine itération, sans jamais faire planter le processus."""
+    import subprocess
+    env = dict(os.environ)
+    env["QT_DEBUG_PLUGINS"] = "1"          # Qt détaille l'échec de chargement
+    flags = 0x08000000 if os.name == "nt" else 0   # CREATE_NO_WINDOW
+    try:
+        p = subprocess.run([sys.executable, "--qt-probe"], env=env,
+                           capture_output=True, timeout=30, creationflags=flags)
+    except Exception as e:
+        core.log_err("qt_probe", e)         # spawn/timeout impossible → prudence
+        return False
+    if p.returncode == 0:
+        return True
+    tail = (p.stderr or b"")[-1200:].decode("utf-8", "replace").strip()
+    core.log_err("qt_probe", f"QApplication KO (code {p.returncode}) → dock web. {tail}")
     return False
 
 
