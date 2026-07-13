@@ -23,7 +23,7 @@ import winext
 # Version de l'app — source unique. Doit rester égale au MyAppVersion de
 # installer/nova.iss (test_v3 le vérifie) ; les releases GitHub sont taguées
 # « v » + cette valeur, et updater.py s'en sert pour détecter une mise à jour.
-APP_VERSION = "3.1.26"
+APP_VERSION = "3.1.27"
 
 APP_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
 
@@ -242,6 +242,56 @@ def install_crash_logging():
     try:
         sys.excepthook = lambda t, v, tb: log_err("crash", v)
         threading.excepthook = lambda a: log_err("crash_thread", a.exc_value)
+    except Exception:
+        pass
+
+
+# battement de cœur du fil UI : la page (dock.html) appelle heartbeat() ~1×/s
+# via le pont. Le message n'est traité QUE si la boucle de messages du fil
+# principal (webview.start) pompe → un battement PROUVE que l'UI n'est pas gelée.
+_BEAT = {"ts": 0.0, "seen": False}
+
+
+def heartbeat():
+    _BEAT["ts"] = time.time()
+    _BEAT["seen"] = True
+
+
+def install_freeze_watchdog(threshold=8.0):
+    """Détecte un GEL du fil principal (« L'application ne répond pas ») — INVISIBLE
+    pour excepthook ET faulthandler.enable() : le fil est bloqué, il ne lève ni
+    exception ni signal fatal, donc RIEN n'atterrissait dans les journaux. Ici un
+    fil de fond compare le dernier battement (posé par l'UI) à l'horloge ; passé
+    `threshold` secondes sans battement, il vide les piles de TOUS les fils dans
+    nova-crash.log — on voit alors EXACTEMENT où le fil UI est coincé. Un seul
+    vidage par épisode (anti-spam) ; n'arme qu'après le 1er battement (pas de
+    faux positif le temps que WebView2 et la page se chargent)."""
+    import faulthandler
+
+    def loop():
+        dumped = False
+        while True:
+            time.sleep(2.0)
+            if not _BEAT["seen"]:
+                continue                     # UI pas encore prouvée vivante
+            late = time.time() - _BEAT["ts"]
+            if late > threshold:
+                if not dumped:
+                    dumped = True
+                    try:
+                        with open(_path("nova-crash.log"), "a",
+                                  encoding="utf-8", errors="replace") as f:
+                            f.write(f"\n{time.strftime('%Y-%m-%d %H:%M:%S')}  "
+                                    f"GEL DÉTECTÉ (UI muette depuis {late:.0f} s) "
+                                    f"— piles de tous les fils :\n")
+                            faulthandler.dump_traceback(file=f, all_threads=True)
+                            f.write("\n")
+                    except Exception:
+                        pass
+            else:
+                dumped = False               # l'UI est repartie : prêt à re-dumper
+    try:
+        threading.Thread(target=loop, daemon=True, name="freeze-watchdog").start()
     except Exception:
         pass
 

@@ -25,7 +25,7 @@
   /* ---- le dock flottant (bas-centre) ---- */
   #dock{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);
     display:flex;align-items:center;gap:6px;height:56px;padding:0 10px;border-radius:28px;
-    background:rgba(18,20,26,.72);border:1px solid var(--edge);
+    background:rgba(18,20,26,.94);border:1px solid var(--edge);
     -webkit-backdrop-filter:blur(24px) saturate(150%);backdrop-filter:blur(24px) saturate(150%);
     box-shadow:0 1px 0 rgba(255,255,255,.06) inset,0 18px 44px rgba(0,0,0,.55)}
   .z{width:44px;height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;cursor:pointer}
@@ -33,12 +33,20 @@
   .sep{width:1px;height:22px;background:rgba(255,255,255,.1)}
   .gi{width:19px;height:19px;color:var(--txt2);stroke:currentColor;fill:none;stroke-width:1.6}
   #orb{width:40px;height:40px;display:block}
+  /* orbe de repli (sans WebGL) : respiration douce composée par le navigateur */
+  #orb.orbcss{animation:orbBreath 4.8s var(--ease) infinite}
+  @keyframes orbBreath{0%,100%{transform:scale(.93);filter:brightness(.97)}
+    50%{transform:scale(1);filter:brightness(1.08)}}
+  /* machine sans GPU : rendu allégé — on retire le flou GPU coûteux (les fonds
+     des surfaces sont déjà quasi opaques, le flou n'apportait plus rien) */
+  body.lite #dock,body.lite #bubble,body.lite #modes,body.lite #traymenu{
+    -webkit-backdrop-filter:none !important;backdrop-filter:none !important}
 
   /* ---- bulle d'état AU-DESSUS du dock (jamais sur l'orbe) ---- */
   #bubble{position:fixed;left:50%;bottom:80px;transform:translateX(-50%) translateY(6px);
     max-width:340px;padding:10px 17px;border-radius:999px;font-size:13px;white-space:nowrap;
     display:flex;align-items:baseline;
-    background:rgba(20,23,32,.82);border:1px solid var(--edge);color:#ECEFF7;
+    background:rgba(20,23,32,.96);border:1px solid var(--edge);color:#ECEFF7;
     -webkit-backdrop-filter:blur(20px) saturate(150%);backdrop-filter:blur(20px) saturate(150%);
     box-shadow:0 12px 34px #0009;opacity:0;pointer-events:none;transition:.28s var(--ease)}
   #bubble.on{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -58,7 +66,7 @@
 
   /* ---- menu des modes ---- */
   #modes{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);width:262px;
-    background:rgba(20,23,32,.86);border:1px solid var(--edge);border-radius:24px;padding:8px;
+    background:rgba(20,23,32,.97);border:1px solid var(--edge);border-radius:24px;padding:8px;
     -webkit-backdrop-filter:blur(28px) saturate(150%);backdrop-filter:blur(28px) saturate(150%);
     box-shadow:0 28px 66px #000b;display:none}
   #modes.on{display:block;animation:pop .34s var(--spring)}
@@ -80,7 +88,7 @@
   /* ---- menu Nova du tray (clic sur l'icône de la zone de notification) —
      remplace le menu natif Windows, avec le langage visuel du dock ---- */
   #traymenu{position:fixed;right:14px;bottom:14px;width:258px;
-    background:rgba(20,23,32,.86);border:1px solid var(--edge);border-radius:24px;padding:8px;
+    background:rgba(20,23,32,.97);border:1px solid var(--edge);border-radius:24px;padding:8px;
     -webkit-backdrop-filter:blur(28px) saturate(150%);backdrop-filter:blur(28px) saturate(150%);
     box-shadow:0 28px 66px #000b;display:none}
   #traymenu.on{display:block;animation:tpop .34s var(--spring)}
@@ -248,6 +256,12 @@ function api(m){try{return Promise.race([
       .catch(function(){return null;}),
     new Promise(function(res){setTimeout(function(){res(null);},10000);})]);}
   catch(e){return Promise.resolve(null);}}
+// battement du fil UI (~1×/s) → détecteur de gel côté Python : si le fil
+// principal se bloque (« ne répond pas »), ces battements s'arrêtent et le
+// watchdog vide les piles dans nova-crash.log. Appel direct minimal (jamais
+// d'erreur si le pont n'est pas prêt).
+setInterval(function(){try{var a=window.pywebview&&window.pywebview.api;
+  if(a&&a.heartbeat)a.heartbeat();}catch(e){}},1000);
 let S={modes:[],profiles:[],languages:[],mode:'auto',ptt_key:'f9',mode_hotkeys:{},menu_hotkey:'',language:'fr',cloud_enabled:false,autostart:false,auto_update:true,app_version:'',
   dock_prefs:{position:'bottom-center',scale:1,opacity:1},
   personal:{},custom_vars:[],hardware:{},tier:'free',lic:null,perso:{},custom_modes:[],
@@ -843,12 +857,28 @@ function paneInfos(p){
 
 // ---------- bille de verre (WebGL transparent) : intérieur vivant réfracté, réactif à l'état + voix ----------
 const ORB=(function(){
-  const cv=document.getElementById('orb');const gl=cv.getContext('webgl',{alpha:true,premultipliedAlpha:false,antialias:true});
+  const cv=document.getElementById('orb');
   const ACC={repos:[0.56,0.64,0.85],listening:[0.42,0.70,1.0],thinking:[0.76,0.70,0.93],ok:[0.58,0.87,0.71],error:[0.90,0.62,0.42]};
   const MODE={repos:0,listening:1,thinking:2,ok:3,error:0};
   let state='repos',micTgt=0,level=0,sPos=0,sVel=0,pulse=0,tgtA=ACC.repos,curA=ACC.repos.slice(),accentOverride=null;
-  if(!gl){cv.style.cssText+='background:radial-gradient(38% 34% at 40% 32%,#fff,#aab3c6 78%,#7c8496);border-radius:50%';return{setState(s){state=s;},level(){},setAccent(){}}; }
-  const F=`precision highp float;uniform vec2 uRes;uniform float uT,uVol,uSwell,uPulse;uniform int uMode;uniform vec3 uAcc;
+  let gl=null,running=false,booted=false;
+  function rgbCss(a){return 'rgb('+Math.round(a[0]*255)+','+Math.round(a[1]*255)+','+Math.round(a[2]*255)+')';}
+  // repli SANS WebGL : orbe « verre » composé par le navigateur (dégradé +
+  // respiration CSS) → ne peut PAS planter le moteur de rendu. Mode par défaut,
+  // et SEUL mode sans GPU (le WebGL LOGICIEL y plante le rendu en continu →
+  // « ça crash h24 », carrés blancs, fenêtres qui peinent à s'afficher).
+  function cssOrb(){running=false;gl=null;
+    cv.style.background='radial-gradient(42% 38% at 40% 32%, #eef2ff 0%, '+rgbCss(accentOverride||tgtA||ACC.repos)+' 58%, #6f7aa0 92%)';
+    cv.style.borderRadius='50%';cv.style.boxShadow='inset 0 1px 4px rgba(255,255,255,.5),0 0 12px rgba(150,160,225,.30)';
+    cv.classList.add('orbcss');}
+  function bootGL(){
+    cv.classList.remove('orbcss');cv.style.background='none';cv.style.boxShadow='none';
+    try{gl=cv.getContext('webgl',{alpha:true,premultipliedAlpha:false,antialias:true});}catch(e){gl=null;}
+    if(!gl){cssOrb();return;}
+    // perte de contexte (crash/réinit GPU) : bascule DÉFINITIVE sur le repli CSS
+    // (ne PAS retenter WebGL, ça reboucle en plantant) — jamais d'orbe vide
+    cv.addEventListener('webglcontextlost',function(e){e.preventDefault();cssOrb();},false);
+    const F=`precision highp float;uniform vec2 uRes;uniform float uT,uVol,uSwell,uPulse;uniform int uMode;uniform vec3 uAcc;
   float hs(vec3 p){p=fract(p*0.3183099+.1);p*=17.;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}
   float nz(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.-2.*f);
    return mix(mix(mix(hs(i),hs(i+vec3(1,0,0)),f.x),mix(hs(i+vec3(0,1,0)),hs(i+vec3(1,1,0)),f.x),f.y),
@@ -886,39 +916,47 @@ const ORB=(function(){
    float glow=smoothstep(R*1.55,R,r);float e=(uMode==3)?max(react,uPulse):react;
    col+=uAcc*glow*glow*(0.05+0.24*e);alpha=max(alpha,glow*glow*(0.4+0.6*e));
    gl_FragColor=vec4(pow(max(col,0.0),vec3(0.90)),clamp(alpha,0.0,1.0));}`;
-  function sh(t,s){const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);return o;}
-  const pr=gl.createProgram();gl.attachShader(pr,sh(gl.VERTEX_SHADER,'attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}'));
-  gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,F));gl.linkProgram(pr);gl.useProgram(pr);
-  const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
-  const l=gl.getAttribLocation(pr,'p');gl.enableVertexAttribArray(l);gl.vertexAttribPointer(l,2,gl.FLOAT,false,0,0);
-  gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
-  const uR=gl.getUniformLocation(pr,'uRes'),uT=gl.getUniformLocation(pr,'uT'),uV=gl.getUniformLocation(pr,'uVol'),
-        uSw=gl.getUniformLocation(pr,'uSwell'),uP=gl.getUniformLocation(pr,'uPulse'),uM=gl.getUniformLocation(pr,'uMode'),uA=gl.getUniformLocation(pr,'uAcc');
-  const DPR=Math.min(2,devicePixelRatio||1),t0=performance.now();
-  function fit(){const r=cv.getBoundingClientRect();cv.width=Math.max(1,r.width*DPR);cv.height=Math.max(1,r.height*DPR);gl.viewport(0,0,cv.width,cv.height);}
-  fit();addEventListener('resize',fit);
-  const SETEL=document.getElementById('settings');
-  let covered=false;
-  (function f(now){const t=(now-t0)/1000;
-    // réglages ouverts : #settings couvre tout le dock → on saute le rendu GL
-    if(SETEL.classList.contains('on')){covered=true;requestAnimationFrame(f);return;}
-    // au retour, on repart d'un état transitoire posé : une pulsation « succès »
-    // ou un niveau micro reçus pendant les réglages ne sont pas rejoués en retard
-    if(covered){covered=false;pulse=0;micTgt=0;level=0;sVel=0;sPos=0;
-      for(let i=0;i<3;i++)curA[i]=tgtA[i];}
-    // le micro ne pilote le volume QU'EN écoute ; sinon l'anim est intrinsèque (repos/traitement/succès)
-    const target=(state==='listening')?micTgt:0;
-    level+=(target-level)*(target>level?0.30:0.10);
-    sVel+=(level-sPos)*0.14;sVel*=0.80;sPos+=sVel;
-    micTgt*=0.90;pulse*=0.95;
-    for(let i=0;i<3;i++)curA[i]+=(tgtA[i]-curA[i])*0.08;
-    gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.uniform2f(uR,cv.width,cv.height);gl.uniform1f(uT,t);gl.uniform1f(uV,level);gl.uniform1f(uSw,sPos);
-    gl.uniform1f(uP,pulse);gl.uniform1i(uM,MODE[state]||0);gl.uniform3fv(uA,curA);
-    gl.drawArrays(gl.TRIANGLES,0,3);requestAnimationFrame(f);})(t0);
-  return {setState(s){state=s;tgtA=accentOverride||ACC[s]||ACC.repos;if(s==='ok'||s==='error')pulse=1.0;},
-          level(rms){micTgt=Math.min(1,rms*12);},
-          setAccent(rgb){accentOverride=rgb;tgtA=rgb||ACC[state]||ACC.repos;}};
+    function sh(t,s){const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);return o;}
+    const pr=gl.createProgram();gl.attachShader(pr,sh(gl.VERTEX_SHADER,'attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}'));
+    gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,F));gl.linkProgram(pr);gl.useProgram(pr);
+    const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
+    const l=gl.getAttribLocation(pr,'p');gl.enableVertexAttribArray(l);gl.vertexAttribPointer(l,2,gl.FLOAT,false,0,0);
+    gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+    const uR=gl.getUniformLocation(pr,'uRes'),uT=gl.getUniformLocation(pr,'uT'),uV=gl.getUniformLocation(pr,'uVol'),
+          uSw=gl.getUniformLocation(pr,'uSwell'),uP=gl.getUniformLocation(pr,'uPulse'),uM=gl.getUniformLocation(pr,'uMode'),uA=gl.getUniformLocation(pr,'uAcc');
+    const DPR=Math.min(2,devicePixelRatio||1),t0=performance.now();
+    function fit(){const r=cv.getBoundingClientRect();cv.width=Math.max(1,r.width*DPR);cv.height=Math.max(1,r.height*DPR);gl.viewport(0,0,cv.width,cv.height);}
+    fit();addEventListener('resize',fit);
+    const SETEL=document.getElementById('settings');
+    let covered=false;running=true;
+    (function f(now){if(!running||!gl)return;const t=(now-t0)/1000;
+      // réglages ouverts : #settings couvre tout le dock → on saute le rendu GL
+      if(SETEL.classList.contains('on')){covered=true;requestAnimationFrame(f);return;}
+      // au retour, on repart d'un état transitoire posé : une pulsation « succès »
+      // ou un niveau micro reçus pendant les réglages ne sont pas rejoués en retard
+      if(covered){covered=false;pulse=0;micTgt=0;level=0;sVel=0;sPos=0;
+        for(let i=0;i<3;i++)curA[i]=tgtA[i];}
+      // le micro ne pilote le volume QU'EN écoute ; sinon l'anim est intrinsèque
+      const target=(state==='listening')?micTgt:0;
+      level+=(target-level)*(target>level?0.30:0.10);
+      sVel+=(level-sPos)*0.14;sVel*=0.80;sPos+=sVel;
+      micTgt*=0.90;pulse*=0.95;
+      for(let i=0;i<3;i++)curA[i]+=(tgtA[i]-curA[i])*0.08;
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.uniform2f(uR,cv.width,cv.height);gl.uniform1f(uT,t);gl.uniform1f(uV,level);gl.uniform1f(uSw,sPos);
+      gl.uniform1f(uP,pulse);gl.uniform1i(uM,MODE[state]||0);gl.uniform3fv(uA,curA);
+      gl.drawArrays(gl.TRIANGLES,0,3);requestAnimationFrame(f);})(t0);
+  }
+  cssOrb();                               // ligne de base immédiate (jamais d'orbe vide)
+  return {
+    // décision prise avec l'état RÉEL : WebGL UNIQUEMENT si la machine a un GPU,
+    // sinon repli CSS. Tant que l'info matériel n'est pas là, on ne verrouille
+    // pas → une resynchro (pont tardif) peut encore activer WebGL sur un vrai GPU.
+    boot(hw){if(booted)return;const known=hw&&typeof hw.has_gpu!=='undefined';
+      if(!known){cssOrb();return;}booted=true;if(hw.has_gpu)bootGL();else cssOrb();},
+    setState(s){state=s;tgtA=accentOverride||ACC[s]||ACC.repos;if(s==='ok'||s==='error')pulse=1.0;if(!running)cssOrb();},
+    level(rms){micTgt=Math.min(1,rms*12);},
+    setAccent(rgb){accentOverride=rgb;tgtA=rgb||ACC[state]||ACC.repos;if(!running)cssOrb();}};
 })();
 
 // Personnalisation Ultra : couleur d'orbe « #rrggbb » → accent partagé.
@@ -928,6 +966,11 @@ function applyOrbColor(h){ORB.setAccent(hexToRgb(h));}
 
 // ---------- init ----------
 function init(){api('state').then(st=>{if(st){S=Object.assign(S,st);if(S.orb_color)applyOrbColor(S.orb_color);}
+  // GPU présent ? → orbe WebGL riche ; SANS GPU → orbe CSS (jamais de plantage
+  // du moteur de rendu) + mode « léger » (sans flou GPU). Décidé sur l'état RÉEL.
+  try{const hw=S.hardware||null;
+    document.body.classList.toggle('lite',!(hw&&hw.has_gpu));
+    ORB.boot(hw);}catch(e){}
   applyDockPrefs();   // ancrage + taille + PREMIER rapport de formes → révèle la fenêtre
 });}
 // Démarrage robuste : l'événement pywebviewready peut être MANQUÉ (course
