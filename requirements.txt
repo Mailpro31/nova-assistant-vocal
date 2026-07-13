@@ -8,11 +8,18 @@ faster-whisper>=1.0.0
 sounddevice>=0.4.6
 numpy>=1.24.0
 
-# --- Interface (pilule flottante tkinter + icône barre des tâches) ---
+# --- Interface : dock NATIF (PySide6/Qt) = défaut ---
+# Vraie transparence par pixel (aucun rectangle) + léger (pas de moteur web en
+# tâche de fond) : c'est le dock principal. WebView2 (pywebview) et la pilule
+# tkinter ne sont plus que des replis automatiques si PySide6 manque.
+# « Essentials » = QtCore/Gui/Widgets/Svg SANS les add-ons lourds (surtout PAS
+# QtWebEngine, qui embarquerait un second Chromium) → installeur raisonnable.
+PySide6-Essentials>=6.6.0
 pystray>=0.19.0
 Pillow>=10.0.0
 
-# --- Onboarding 1er lancement (vidéo + assistant, écran ponctuel uniquement) ---
+# --- Onboarding + fenêtre Réglages (webview ; Réglages encore web pour l'instant,
+#     portage Qt à suivre) ---
 pywebview>=4.0.0
 
 # --- Windows : push-to-talk, presse-papiers, fenêtre active ---

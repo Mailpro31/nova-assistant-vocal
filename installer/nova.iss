@@ -13,7 +13,7 @@
 #define MyAppName "Nova"
 ; Doit rester égal à core.APP_VERSION (test_v3 le vérifie) — c'est ce que
 ; l'updater intégré compare au tag de la release GitHub.
-#define MyAppVersion "3.1.28"
+#define MyAppVersion "3.2.0"
 #define MyAppPublisher "Nova"
 #define MyAppExeName "Nova.exe"
 
@@ -67,6 +67,12 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
   Flags: uninsdeletevalue; Tasks: autostart
 
 [Run]
+; Rafraîchit le cache d'icônes de Windows : après une mise à jour EN PLACE, la
+; barre des tâches et les raccourcis gardaient parfois l'ANCIENNE icône (le shell
+; met les icônes en cache de façon obstinée). ie4uinit -show force la
+; reconstruction → la nouvelle « bille de verre » apparaît sans redémarrage.
+Filename: "{sys}\ie4uinit.exe"; Parameters: "-show"; \
+  Flags: runhidden skipifdoesntexist
 ; Pré-télécharge le modèle de l'Intelligence privée (profil adapté à la machine)
 ; pour que la première dictée fonctionne immédiatement, même hors ligne.
 Filename: "{app}\{#MyAppExeName}"; Parameters: "--preload-models"; \

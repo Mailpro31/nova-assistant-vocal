@@ -1943,19 +1943,107 @@ def _webview2_runtime_present():
 
 
 def _make_ui():
-    """Choisit l'UI selon `CFG["dock_ui"]` : "web" (défaut) = le dock et les
-    fenêtres du site (webview), "pill" = pilule tkinter. Repli automatique sur
-    la pilule si le dock web ne peut pas être instancié (pywebview absent) OU si
-    le RUNTIME WebView2 manque — jamais de démarrage cassé."""
-    if core.CFG.get("dock_ui", "web") != "pill":
-        try:
-            import webview  # noqa: F401 — vérifie la dispo AVANT de renoncer à la pilule
-            if _webview2_runtime_present():
-                return WebDock()
-            core.log_err("dock_ui", "runtime WebView2 absent → repli pilule tkinter")
-        except Exception as e:
-            core.log_err("dock_ui", e)   # pywebview absent/cassé → repli sur la pilule
+    """Choisit l'UI, du meilleur au dernier repli — jamais de démarrage cassé :
+      1. dock NATIF PySide6/Qt (défaut) : vraie transparence (aucun rectangle
+         possible), léger (fin du lag Chromium) ;
+      2. dock WEB (webview) si PySide6 est absent/cassé OU le runtime WebView2
+         est présent ;
+      3. pilule tkinter en tout dernier recours.
+    `CFG["dock_ui"]="pill"` force directement la pilule (échappatoire)."""
+    if core.CFG.get("dock_ui", "web") == "pill":
+        return Pill()
+    try:
+        from qtdock import QtDock   # PySide6 : vérifie la dispo avant de renoncer
+        return QtDock(on_settings=lambda: _open_settings_window(),
+                      on_select_mode=lambda mid: _set_mode(mid))
+    except Exception as e:
+        core.log_err("dock_ui_qt", e)   # PySide6 absent/cassé → dock web
+    try:
+        import webview  # noqa: F401
+        if _webview2_runtime_present():
+            return WebDock()
+        core.log_err("dock_ui", "runtime WebView2 absent → repli pilule tkinter")
+    except Exception as e:
+        core.log_err("dock_ui", e)   # pywebview absent/cassé → repli sur la pilule
     return Pill()
+
+
+def _resync_state_from_config():
+    """Recale l'état runtime (mode/profil) sur la config rechargée : la fenêtre
+    Réglages (processus séparé tant que le dock est natif) a pu les changer.
+    Appelé par le dock Qt quand il détecte une écriture de config.json."""
+    STATE["mode"] = core.CFG.get("mode", modes_registry.DEFAULT_MODE_ID)
+    if not licensing.mode_allowed(STATE["mode"]):
+        STATE["mode"] = modes_registry.DEFAULT_MODE_ID
+    STATE["profile"] = core.CFG.get("profile", STATE.get("profile"))
+
+
+def _open_settings_window():
+    """Ouvre les Réglages. Le dock natif (Qt) possède le fil principal ; la
+    fenêtre Réglages est encore en webview et pywebview veut AUSSI le fil
+    principal → on la lance dans un PROCESSUS séparé (les deux boucles ne
+    cohabitent pas). L'échange se fait par config.json, que le dock surveille."""
+    import subprocess
+    try:
+        if getattr(sys, "frozen", False):
+            args = [sys.executable, "--settings"]
+        else:
+            args = [sys.executable, os.path.abspath(__file__), "--settings"]
+        subprocess.Popen(args, close_fds=True)
+    except Exception as e:
+        core.log_err("settings_win", e)
+        try:
+            pill.show("error", "Réglages indisponibles — réessaie")
+            pill.hide(2.4)
+        except Exception:
+            pass
+
+
+class _SettingsHost:
+    """Hôte minimal du DockApi pour la fenêtre Réglages AUTONOME (processus
+    séparé). DockApi n'y appelle que `_set_panel` — on redimensionne la fenêtre
+    webview des Réglages (880×620, ou 1180×780 en zoom)."""
+
+    def __init__(self):
+        self._win = None
+        self._panel = "settings"
+
+    def _set_panel(self, name):
+        self._panel = name
+        w, h = {"settings_max": (1180, 780)}.get(name, (880, 620))
+        try:
+            if self._win is not None:
+                self._win.resize(w, h)
+        except Exception:
+            pass
+
+
+def _run_settings_process():
+    """Processus « Nova.exe --settings » : fenêtre Réglages en webview (dock.html,
+    panneau Réglages ouvert d'emblée). Aucune barre, redimensionnable ; les
+    changements sont écrits dans config.json et repris EN DIRECT par le dock
+    natif (qui surveille le fichier)."""
+    try:
+        import webview
+    except Exception as e:
+        core.log_err("settings_proc", e)
+        return
+    if not os.path.isfile(DOCK_HTML):
+        core.log_err("settings_proc", "dock.html introuvable")
+        return
+    host = _SettingsHost()
+    host._win = webview.create_window(
+        _app_display_name() + " — Réglages", DOCK_HTML, width=880, height=620,
+        min_size=(720, 500), frameless=True, easy_drag=False, resizable=True,
+        background_color="#1F1F22", js_api=DockApi(host))
+
+    def _open():
+        try:
+            host._win.evaluate_js("window.__openSettings&&window.__openSettings()")
+        except Exception:
+            pass
+
+    webview.start(_open)
 
 
 pill = _make_ui()
@@ -2555,5 +2643,10 @@ def _preload_models():
 if __name__ == "__main__":
     if "--preload-models" in sys.argv:
         _preload_models()
+        sys.exit(0)
+    if "--settings" in sys.argv:
+        # fenêtre Réglages autonome (webview), ouverte par le dock natif Qt qui
+        # possède le fil principal dans l'autre processus — voir _open_settings_window
+        _run_settings_process()
         sys.exit(0)
     main()

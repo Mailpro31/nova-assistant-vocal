@@ -23,7 +23,7 @@ import winext
 # Version de l'app — source unique. Doit rester égale au MyAppVersion de
 # installer/nova.iss (test_v3 le vérifie) ; les releases GitHub sont taguées
 # « v » + cette valeur, et updater.py s'en sert pour détecter une mise à jour.
-APP_VERSION = "3.1.28"
+APP_VERSION = "3.2.0"
 
 APP_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
 
@@ -338,6 +338,17 @@ def save_config(new_cfg):
         CFG = merged
         _save("config.json", CFG)    # _lock est ré-entrant → _save le reprend ;
         #                              reste neutralisable par les tests
+    return CFG
+
+
+def reload_config():
+    """Relit config.json dans CFG (sous _lock). Utilisé quand un AUTRE processus
+    a modifié la config — p.ex. la fenêtre Réglages (webview) tourne dans son
+    propre processus tant que le dock est natif Qt : le dock surveille le fichier
+    et rappelle ceci pour refléter position/taille/opacité/orbe en direct."""
+    global CFG
+    with _lock:
+        CFG = _merge(DEFAULT_CONFIG, _load("config.json", {}))
     return CFG
 
 
