@@ -15,6 +15,7 @@ branche d'archive `v2-full-archive`. Ajouter un mode = une entrée dans
 import collections
 import ctypes
 import json
+import math
 import os
 import queue
 import sys
@@ -161,6 +162,10 @@ class Pill(threading.Thread):
         self._alpha = 0.0
         self._alpha_target = 0.0
         self._hide_job = None
+        # frontières des zones cliquables du dock de repos (recalculées à chaque
+        # dessin) : par défaut tout le dock renvoie au comportement « écarter ».
+        self._zone_gear = 0
+        self._zone_star = self.W
 
     # ---- API thread-safe ----
     def show(self, state, text="", sub=""):
@@ -226,7 +231,7 @@ class Pill(threading.Thread):
         self.font_badge = tkfont.Font(family="Segoe UI", size=9, weight="bold")
         self._settings_win = None
         self._make_draggable(self.canvas, self.root, "pill_pos",
-                             on_click=lambda _e: self._dismiss())
+                             on_click=self._on_pill_click)
         self.root.after(50, self._tick)
         self.root.mainloop()
 
@@ -255,6 +260,23 @@ class Pill(threading.Thread):
         widget.bind("<B1-Motion>", motion)
         widget.bind("<ButtonRelease-1>", release)
         widget.configure(cursor="fleur")
+
+    def _on_pill_click(self, e):
+        """Clic simple (sans glisser) : sur le dock de repos, la roue dentée
+        ouvre les Réglages et l'étoile oriente vers les Styles ; partout ailleurs
+        (bulles transitoires), un clic écarte la bulle — comportement historique.
+        Toujours défensif : un souci ici ne doit jamais figer la pilule."""
+        try:
+            if self._state == "repos":
+                if e.x <= self._zone_gear:
+                    self.open_settings()
+                    return
+                if e.x >= self._zone_star:
+                    self.open_modes()
+                    return
+        except Exception as ex:
+            core.log_err("pill_click", ex)
+        self._dismiss()
 
     def _saved_pos(self, cfg_key, w, h, sw, sh):
         pos = core.CFG.get(cfg_key)
@@ -291,33 +313,88 @@ class Pill(threading.Thread):
                x2 - r, y2, x1 + r, y2, x1, y2, x1, y2 - r, x1, y1 + r, x1, y1]
         return c.create_polygon(pts, smooth=True, **kw)
 
-    # ---- dessin des 5 états ----
+    # ---- petite boîte à outils « verre » (Canvas, sans dépendance, sans lag) ----
+    @staticmethod
+    def _lerp(a, b, t):
+        """Mélange deux couleurs hex — sert à FAUSSER une lueur radiale en
+        empilant des ovales dégradés (tkinter ne sait pas faire d'alpha)."""
+        a, b = a.lstrip("#"), b.lstrip("#")
+        return "#%02x%02x%02x" % tuple(
+            max(0, min(255, round(int(a[i:i + 2], 16)
+                                  + (int(b[i:i + 2], 16) - int(a[i:i + 2], 16)) * t)))
+            for i in (0, 2, 4))
+
+    def _glow_orb(self, c, cx, cy, r, base):
+        """Bille de verre + halo bleu façon site. Le halo est une pile d'ovales
+        interpolés vers `base` (le fond de la capsule) → dégradé doux, opaque,
+        zéro coût perceptible (≈10 ovales)."""
+        for k in range(6, 0, -1):
+            rr = r * (1 + 0.12 * k)
+            col = self._lerp(base, "#8AA0EA", (7 - k) / 9)
+            c.create_oval(cx - rr, cy - rr, cx + rr, cy + rr, fill=col, outline="")
+        c.create_oval(cx - r, cy - r, cx + r, cy + r, fill="#7E92D6", outline="")
+        c.create_oval(cx - r + 2, cy - r + 1, cx + r - 3, cy + r - 4,
+                      fill="#AEBEEC", outline="")
+        c.create_oval(cx - r + 4, cy - r + 3, cx - r + 11, cy - r + 10,
+                      fill="#DFE7FA", outline="")
+
+    def _gear_icon(self, c, cx, cy, col, r=6):
+        """Roue dentée au trait (réglages) — anneau + 8 dents + moyeu."""
+        for a in range(0, 360, 45):
+            dx, dy = math.cos(math.radians(a)), math.sin(math.radians(a))
+            c.create_line(cx + dx * r, cy + dy * r,
+                          cx + dx * (r + 3), cy + dy * (r + 3),
+                          fill=col, width=2, capstyle="round")
+        c.create_oval(cx - r, cy - r, cx + r, cy + r, outline=col, width=2)
+        c.create_oval(cx - 2, cy - 2, cx + 2, cy + 2, fill=col, outline="")
+
+    def _star_icon(self, c, cx, cy, col, r=8):
+        """Étoile 5 branches au trait (Styles)."""
+        pts = []
+        for k in range(10):
+            rad = r if k % 2 == 0 else r * 0.42
+            a = math.radians(-90 + k * 36)
+            pts += [cx + math.cos(a) * rad, cy + math.sin(a) * rad]
+        c.create_polygon(pts, outline=col, fill="", width=2, joinstyle="round")
+
+    def _draw_dock(self, c, cy):
+        """État de repos : dock compact « verre » — Réglages · bille de verre ·
+        Styles, centré dans la fenêtre. Le reste de la fenêtre est transparent
+        (clé de couleur) donc rien n'est capté hors de la capsule. Les icônes
+        gauche/droite sont cliquables (zones mémorisées pour _on_pill_click)."""
+        wc = 176
+        x0 = (self.W - wc) // 2
+        x1 = x0 + wc
+        self._rounded(c, x0, cy - 26, x1, cy + 26, 26,
+                      fill="#212127", outline="#33333A", width=1)
+        gx = x0 + 34                 # centre roue dentée (Réglages)
+        sx = x1 - 34                 # centre étoile (Styles)
+        ox = self.W // 2             # centre de la bille de verre
+        for dvx in (gx + 24, sx - 24):
+            c.create_line(dvx, cy - 13, dvx, cy + 13, fill="#34343C", width=1)
+        self._gear_icon(c, gx, cy, "#9AA0AE")
+        self._glow_orb(c, ox, cy, 12, "#212127")
+        self._star_icon(c, sx, cy, "#9AA0AE")
+        self._zone_gear = gx + 12    # clic ≤ ici → Réglages
+        self._zone_star = sx - 12    # clic ≥ ici → Styles
+
+    # ---- dessin des états ----
     def _redraw(self):
         c = self.canvas
         c.delete("all")
         st = self._state
-        self._rounded(c, 2, 2, self.W - 2, self.H - 2, self.R,
-                      fill=self.BG, outline=self.BORDERS.get(st, "#3A3D46"), width=1)
         cy = self.H // 2
 
         if st == "repos":
-            # point-orbe : la bille de verre du site, version tkinter (3 ovales)
-            c.create_oval(18, cy - 7, 32, cy + 7, fill="#7E92D6", outline="")
-            c.create_oval(19, cy - 6, 30, cy + 5, fill="#AEBEEC", outline="")
-            c.create_oval(21, cy - 5, 26, cy, fill="#DFE7FA", outline="")
-            label = _mode_label(STATE["mode"])   # gère les modes sur mesure (custom:)
-            c.create_text(44, cy, anchor="w", fill="#7C8398", font=self.font,
-                          text=f"{label} — prête")
-            key = (core.CFG.get("ptt_key") or "").upper()
-            if key:
-                tw = self.font_badge.measure(key)
-                x2 = self.W - 18
-                self._rounded(c, x2 - tw - 16, cy - 11, x2, cy + 11, 6,
-                              fill="#26272E", outline="#3A3D46")
-                c.create_text(x2 - 8 - tw / 2, cy, fill="#9AA0AE",
-                              font=self.font_badge, text=key)
+            # dock compact centré (capsule à sa propre géométrie) — on ne dessine
+            # PAS la capsule pleine largeur des bulles transitoires.
+            self._draw_dock(c, cy)
+            return
 
-        elif st == "listening":
+        self._rounded(c, 2, 2, self.W - 2, self.H - 2, self.R,
+                      fill=self.BG, outline=self.BORDERS.get(st, "#3A3D46"), width=1)
+
+        if st == "listening":
             # barres d'égaliseur périwinkle alternées, bouts ronds — la bulle du site
             for i in range(self.N_BARS):
                 x = 20 + i * 6
