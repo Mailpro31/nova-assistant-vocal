@@ -930,37 +930,38 @@ def test_llm_num_ctx():
         core._ram_total_gb = _rr
 
 
-def test_web_dock_default():
-    """L'interface web (dock.html) est l'UI par défaut pour TOUS : décision
-    produit — la pilule tkinter n'est que le repli WebView2-absent. Une
-    régression ici renverrait les utilisateurs à « l'interface pas belle »."""
-    print("UI — dock web par défaut pour tous")
-    check("config : dock_ui vaut « web » par défaut",
-          core.DEFAULT_CONFIG.get("dock_ui"), "web")
+def test_ui_default_native():
+    """Décision produit (demandée par l'utilisateur) : l'UI par défaut est la
+    pilule tkinter NATIVE — 100 % Python, AUCUN WebView (fini les « 404 Not
+    Found » et les plantages du moteur web), aucun conflit de DLL Qt → elle
+    démarre PARTOUT. Le dock web n'est plus auto-sélectionné ; le dock natif Qt
+    reste un opt-in explicite (dock_ui="qt"). Une régression qui remettrait le
+    WebView dans le chemin par défaut renverrait les plantages."""
+    print("UI — pilule native par défaut (sans WebView)")
+    check("config : dock_ui vaut « pill » par défaut",
+          core.DEFAULT_CONFIG.get("dock_ui"), "pill")
     import licensing as _lic
-    check("licensing : web_dock offert en Free",
+    check("licensing : web_dock défini (dormant si le web est réactivé)",
           _lic.FEATURES.get("web_dock"), _lic.FREE)
-    # transparence RÉELLE : le « carré » autour de la bulle ne disparaît de façon
-    # fiable qu'avec transparent=True (WebView2 compose en alpha) + un fond de
-    # page alpha 0. La clé de couleur et la découpe par région échouent sur la
-    # vue WebView2 (DirectComposition). Les DEUX moitiés doivent tenir ensemble,
-    # sinon le rectangle revient. app.py n'est pas importable ici (Win32) →
-    # comparaison SOURCE.
+    # app.py n'est pas importable ici (Win32) → comparaison SOURCE.
     import os
-    import re
     _here = os.path.dirname(os.path.abspath(__file__))
     _app = open(os.path.join(_here, "app.py"), encoding="utf-8").read()
     _dock = open(os.path.join(_here, "ui", "dock.html"), encoding="utf-8").read()
-    # 1) la fenêtre du dock est créée transparente
-    check("transparence : create_window(transparent=True)",
-          bool(re.search(r"transparent\s*=\s*True", _app)), True)
-    # 2) la page peint un fond TRANSPARENT (html,body), jamais une couleur opaque
-    check("transparence : dock.html html,body en background:transparent",
-          bool(re.search(r"html,body\{[^}]*background:transparent", _dock)), True)
-    # 3) plus AUCUNE clé de couleur (LWA_COLORKEY) : elle créait des trous
-    #    cliquables et ne marchait pas avec WebView2
-    check("transparence : plus de LWA_COLORKEY dans app.py",
-          "LWA_COLORKEY" not in _app, True)
+    # défaut RÉEL : _make_ui retombe sur la pilule native (return Pill) et n'a
+    # plus aucune branche de sélection AUTOMATIQUE de WebDock
+    check("UI : défaut = pilule native (return Pill + log 'pill')",
+          "return Pill()" in _app and 'dock_ui_chosen", "pill"' in _app, True)
+    check("UI : WebDock() plus jamais instancié automatiquement",
+          "return WebDock()" not in _app, True)
+    # dock Qt disponible UNIQUEMENT en opt-in explicite
+    check("UI : dock Qt en opt-in explicite (dock_ui == \"qt\")",
+          'core.CFG.get("dock_ui") == "qt"' in _app, True)
+    # dock.html reste autonome (injecté en mémoire, sans serveur → jamais de 404)
+    check("dock : dock.html injecté en mémoire (html=_dock_html())",
+          "html=_dock_html()" in _app, True)
+    check("dock.html : html,body en background:transparent (si web réactivé)",
+          "html,body{" in _dock and "background:transparent" in _dock, True)
 
 
 if __name__ == "__main__":
@@ -981,7 +982,7 @@ if __name__ == "__main__":
     test_partial_stt_merge()
     test_warmup_llm_gate()
     test_llm_num_ctx()
-    test_web_dock_default()
+    test_ui_default_native()
     print()
     if _fails:
         print(f"❌ {len(_fails)} échec(s) : {', '.join(_fails)}")

@@ -23,7 +23,7 @@ import winext
 # Version de l'app — source unique. Doit rester égale au MyAppVersion de
 # installer/nova.iss (test_v3 le vérifie) ; les releases GitHub sont taguées
 # « v » + cette valeur, et updater.py s'en sert pour détecter une mise à jour.
-APP_VERSION = "3.2.3"
+APP_VERSION = "3.2.4"
 
 APP_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
 
@@ -45,8 +45,10 @@ DEFAULT_CONFIG = {
     "instant_normal": False,  # Style Normal collé par règles pures, sans IA
     "onboarding_done": False, # assistant de bienvenue affiché une seule fois
     "auto_update": True,      # mise à jour silencieuse au lancement (updater.py)
-    "dock_ui": "web",         # interface : "web" = dock/fenêtres du site (défaut),
-                              # "pill" = pilule tkinter (repli sans WebView2)
+    "dock_ui": "pill",        # interface : "pill" = pilule tkinter NATIVE (défaut,
+                              # sans WebView, sans conflit Qt — démarre partout) ;
+                              # "qt" = dock natif PySide6 (opt-in test). Le dock
+                              # web n'est plus sélectionné automatiquement.
     "mode_hotkeys": {},       # raccourci clavier par Style : {mode_id: "ctrl+alt+e"}
     "menu_hotkey": "",        # raccourci qui ouvre le menu des Styles ("" = aucun)
     "settings_hotkey": "",    # combinaison qui ouvre la fenêtre Réglages
