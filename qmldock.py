@@ -221,17 +221,52 @@ class QmlDock(QObject):
         import app as A
         self._sync_prefs()
         self._engine = QQmlApplicationEngine()
+        self._add_qml_import_paths()
+        # Avertissements du moteur QML (module introuvable, plugin illisible,
+        # erreur de binding…) : sous --noconsole ils partent dans un stderr
+        # PERDU → le rendu échoue « sans raison ». On les mémorise et on les
+        # journalise pour diagnostiquer un échec de chargement sans console.
+        warns = []
+
+        def _on_warn(errs):
+            for e in errs:
+                try:
+                    warns.append(e.toString())
+                except Exception:
+                    warns.append(str(e))
+            core.log_err("qml_warn", " | ".join(warns[-6:]))
+        self._engine.warnings.connect(_on_warn)
         self._engine.rootContext().setContextProperty("nova", self._bridge)
         qml = A.resource_path(os.path.join("qml", "Main.qml"))
         self._engine.load(QUrl.fromLocalFile(qml))
         if not self._engine.rootObjects():
-            raise RuntimeError("QML Main.qml non chargé (voir stderr Qt)")
+            detail = " | ".join(warns) or "aucun détail Qt (stderr perdu)"
+            raise RuntimeError(f"QML Main.qml non chargé : {detail}")
         self._bridge.gearClicked.connect(self.open_settings)
         self._bridge.starClicked.connect(self._toggle_menu)
         self._bridge.modePicked.connect(self._pick_mode)
         self._ready = True
         self._arm_launch_guard()
         self._install_config_watch()
+
+    def _add_qml_import_paths(self):
+        """Enregistre le dossier des plugins QML embarqués. Dans l'exe figé
+        (PyInstaller), les modules QML (QtQuick, QtQuick.Window…) vivent sous
+        _MEIPASS/PySide6/qml, mais le moteur ne cherche PAS toujours là par
+        défaut → « import QtQuick » échoue et Main.qml ne se charge pas (repli
+        pilule). On ajoute donc explicitement les emplacements possibles. En dev
+        (PySide6 pip) le moteur les trouve seul : ce sont des no-op sans effet."""
+        base = getattr(sys, "_MEIPASS", None)
+        if not base:
+            return
+        for sub in (("PySide6", "qml"), ("PySide6", "Qt", "qml"),
+                    ("_internal", "PySide6", "qml")):
+            d = os.path.join(base, *sub)
+            try:
+                if os.path.isdir(d):
+                    self._engine.addImportPath(d)
+            except Exception:
+                pass
 
     def _arm_launch_guard(self):
         """Auto-réparation : efface le marqueur de crash QML DÈS la 1re frame

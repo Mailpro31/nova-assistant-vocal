@@ -13,7 +13,7 @@
 #define MyAppName "Nova"
 ; Doit rester égal à core.APP_VERSION (test_v3 le vérifie) — c'est ce que
 ; l'updater intégré compare au tag de la release GitHub.
-#define MyAppVersion "3.2.9"
+#define MyAppVersion "3.2.10"
 #define MyAppPublisher "Nova"
 #define MyAppExeName "Nova.exe"
 

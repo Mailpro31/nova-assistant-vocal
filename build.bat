@@ -7,6 +7,7 @@ pyinstaller --noconfirm --noconsole --onedir --name Nova --icon icon.ico ^
   --collect-all ctranslate2 ^
   --collect-all webview ^
   --collect-all cryptography ^
+  --collect-all PySide6 ^
   --hidden-import pystray._win32 ^
   --add-data "icon.png;." ^
   --add-data "onboarding;onboarding" ^
