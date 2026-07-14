@@ -53,6 +53,7 @@ jobs:
           --add-data "onboarding;onboarding"
           --add-data "assets;assets"
           --add-data "ui;ui"
+          --add-data "qml;qml"
           app.py
 
       # Pas de config.json à copier : il est gitignoré (données perso + clés

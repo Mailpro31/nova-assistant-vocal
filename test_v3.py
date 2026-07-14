@@ -951,6 +951,21 @@ def test_ui_default_native():
     # dock Qt disponible UNIQUEMENT en opt-in explicite
     check("UI : dock Qt en opt-in explicite (dock_ui == \"qt\")",
           'core.CFG.get("dock_ui") == "qt"' in _app, True)
+    # dock QML (Qt Quick) : opt-in explicite (dock_ui == "qml"), défaut inchangé
+    check("UI : dock QML en opt-in explicite (dock_ui == \"qml\")",
+          'core.CFG.get("dock_ui") == "qml"' in _app and "_new_qml_dock" in _app, True)
+    # le dock QML fabrique QApplication AVANT les moteurs (correctif du crash).
+    # Lu en SOURCE (comme app.py) : pas d'import Qt dans l'env de test.
+    _qmls = open(os.path.join(_here, "qmldock.py"), encoding="utf-8").read()
+    check("QML : QApplication construit tôt (_ensure_qapp dans __init__)",
+          "self._app = _ensure_qapp()" in _qmls and "def _ensure_qapp" in _qmls, True)
+    check("QML : API compatible (show/hide/level/serve/open_settings/open_modes)",
+          all(("def %s(" % m) in _qmls for m in
+              ("show", "hide", "level", "serve", "open_settings", "open_modes")), True)
+    # les fichiers QML embarqués existent (bundlés par --add-data "qml;qml")
+    check("QML : qml/Main.qml et qml/Orb.qml présents",
+          os.path.isfile(os.path.join(_here, "qml", "Main.qml"))
+          and os.path.isfile(os.path.join(_here, "qml", "Orb.qml")), True)
     # dock.html reste autonome (injecté en mémoire, sans serveur → jamais de 404)
     check("dock : dock.html injecté en mémoire (html=_dock_html())",
           "html=_dock_html()" in _app, True)

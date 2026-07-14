@@ -2152,6 +2152,16 @@ def _make_ui():
     dock WEB n'est PLUS sélectionné automatiquement — retiré du chemin par défaut
     car trop instable selon les machines (la classe WebDock reste en place pour
     un éventuel opt-in futur). On journalise le dock retenu (diagnostic)."""
+    # dock QML (Qt Quick) : coins ronds natifs + animations, QApplication
+    # construit TÔT (ici, à l'import — donc AVANT _warmup_engines) → l'ordre de
+    # chargement des DLL est bon, le crash historique disparaît. Opt-in.
+    if core.CFG.get("dock_ui") == "qml" and _qt_runtime_ok():
+        try:
+            dock = _new_qml_dock()
+            core.log_err("dock_ui_chosen", "qml")
+            return dock
+        except Exception as e:
+            core.log_err("dock_ui_qml", e)   # QML cassé → dock Qt puis pilule
     if core.CFG.get("dock_ui") == "qt" and _qt_runtime_ok():
         try:
             dock = _new_qt_dock()
@@ -2168,6 +2178,13 @@ def _new_qt_dock():
     from qtdock import QtDock
     return QtDock(on_settings=lambda: _open_settings_window(),
                   on_select_mode=lambda mid: _set_mode(mid))
+
+
+def _new_qml_dock():
+    """Instancie le dock QML (import paresseux de PySide6/Qt Quick)."""
+    from qmldock import QmlDock
+    return QmlDock(on_settings=lambda: _open_settings_window(),
+                   on_select_mode=lambda mid: _set_mode(mid))
 
 
 def _resync_state_from_config():

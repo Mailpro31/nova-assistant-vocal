@@ -12,6 +12,7 @@ pyinstaller --noconfirm --noconsole --onedir --name Nova --icon icon.ico ^
   --add-data "onboarding;onboarding" ^
   --add-data "assets;assets" ^
   --add-data "ui;ui" ^
+  --add-data "qml;qml" ^
   app.py
 
 rem --- DLLs CUDA (accélération GPU) : copiées à côté de l'exe pour que
