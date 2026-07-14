@@ -975,6 +975,19 @@ def test_ui_default_native():
     check("QML Réglages : réutilise les setters de app.py (pas de dup config)",
           "_toggle_cloud" in _qsets and "_set_profile" in _qsets
           and "_apply_stt_opts" in _qsets, True)
+    # Onboarding QML : fenêtre présente, réutilise les setters onboarding.py, et
+    # onboarding.run() l'emploie en mode QML avec repli tkinter.
+    _qonb = open(os.path.join(_here, "qmlonboarding.py"), encoding="utf-8").read()
+    _onb = open(os.path.join(_here, "onboarding.py"), encoding="utf-8").read()
+    check("QML : onboarding présent (qml/Onboarding.qml + run_qml)",
+          os.path.isfile(os.path.join(_here, "qml", "Onboarding.qml"))
+          and "def run_qml" in _qonb, True)
+    check("QML onboarding : réutilise onboarding.set_* (pas de dup config)",
+          "onboarding.set_ptt_key" in _qonb and "onboarding.set_profile" in _qonb
+          and "onboarding.set_language" in _qonb and "onboarding.set_cloud" in _qonb, True)
+    check("onboarding.run : QML si dock_ui==qml, repli tkinter sinon",
+          'core.CFG.get("dock_ui") == "qml"' in _onb
+          and "qmlonboarding" in _onb and "_run_wizard()" in _onb, True)
     # dock.html reste autonome (injecté en mémoire, sans serveur → jamais de 404)
     check("dock : dock.html injecté en mémoire (html=_dock_html())",
           "html=_dock_html()" in _app, True)

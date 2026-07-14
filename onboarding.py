@@ -81,6 +81,15 @@ def run():
     l'onboarding « fait » à la sortie — jamais de reboucle. Toute erreur tkinter
     est avalée : l'app démarre ensuite normalement avec les valeurs par défaut."""
     try:
+        # dock QML actif → assistant QML EN PROCESS (mêmes setters). Repli
+        # automatique sur l'assistant tkinter si le QML échoue.
+        if core.CFG.get("dock_ui") == "qml":
+            try:
+                import qmlonboarding
+                qmlonboarding.run_qml()
+                return                         # finally marque quand même « fait »
+            except Exception as e:
+                core.log_err("onboarding_qml", e)
         _run_wizard()
     except Exception as e:
         core.log_err("onboarding", e)
