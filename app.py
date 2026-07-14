@@ -114,8 +114,12 @@ if core.CFG.get("dock_ui") == "qml" \
         try:
             import qmldock
             qmldock._ensure_qapp()       # construit Qt MAINTENANT (état « sonde »)
-        except Exception:
-            pass                         # PySide6 absent/cassé → pilule via _make_ui
+            core.log_err("qml_early_ok", f"moteur Qt construit tôt ({_qml_stage})")
+        except Exception as e:
+            # PySide6/QtQuick ne s'initialise pas ici → pilule via _make_ui. On
+            # JOURNALISE la cause exacte (import DLL manquante, mémoire, plugin…) :
+            # sans ça l'échec était muet. Le repli reste garanti (jamais de crash).
+            core.log_err("qml_early_fail", e)
 
 BLUE, GREEN, ORANGE = "#3FA9FF", "#22C55E", "#E0913A"
 
