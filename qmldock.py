@@ -160,6 +160,7 @@ class QmlDock(QObject):
     _sig_level = Signal(float)
     _sig_modes = Signal()
     _sig_prefs = Signal()
+    _sig_settings = Signal()
     _sig_quit = Signal()
 
     def __init__(self, on_settings, on_select_mode):
@@ -173,6 +174,7 @@ class QmlDock(QObject):
         self._ready = False
         self._hide_timer = None
         self._watcher = None
+        self._settings_view = None
 
     # ---- API thread-safe (émet ; le slot s'exécute sur le fil GUI) ----
     def show(self, state, text="", sub=""):
@@ -185,10 +187,9 @@ class QmlDock(QObject):
         self._sig_level.emit(float(rms))
 
     def open_settings(self):
-        try:
-            self._on_settings()
-        except Exception as e:
-            core.log_err("qml_settings", e)
+        # marshalé vers le fil GUI : le tray (autre fil) peut l'appeler, or une
+        # fenêtre Qt ne se crée QUE sur le fil GUI.
+        self._sig_settings.emit()
 
     def open_modes(self):
         self._sig_modes.emit()
@@ -237,7 +238,29 @@ class QmlDock(QObject):
         self._sig_level.connect(self._do_level)
         self._sig_modes.connect(self._toggle_menu)
         self._sig_prefs.connect(self._sync_prefs)
+        self._sig_settings.connect(self._do_open_settings)
         self._sig_quit.connect(self._do_quit)
+
+    def _do_open_settings(self):
+        """Ouvre les Réglages QML EN PROCESS (fil GUI). Repli : ancienne fenêtre
+        (processus webview) si le QML échoue → « jamais de plantage »."""
+        try:
+            if self._settings_view is not None:
+                self._settings_view.show()
+                self._settings_view.raise_()
+                return
+        except Exception:
+            self._settings_view = None
+        try:
+            import qmlsettings
+            self._settings_view = qmlsettings.open_settings(self._app)
+            return
+        except Exception as e:
+            core.log_err("qml_settings_open", e)
+        try:
+            self._on_settings()                 # repli webview (processus séparé)
+        except Exception as e:
+            core.log_err("qml_settings_fallback", e)
 
     # ---- préférences (config → pont) ----
     def _sync_prefs(self):

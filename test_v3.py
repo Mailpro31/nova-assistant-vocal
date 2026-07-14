@@ -966,6 +966,15 @@ def test_ui_default_native():
     check("QML : qml/Main.qml et qml/Orb.qml présents",
           os.path.isfile(os.path.join(_here, "qml", "Main.qml"))
           and os.path.isfile(os.path.join(_here, "qml", "Orb.qml")), True)
+    # Réglages QML en process : la fenêtre existe et réutilise les fonctions de
+    # app.py (aucune logique de config dupliquée → rien de cassé).
+    _qsets = open(os.path.join(_here, "qmlsettings.py"), encoding="utf-8").read()
+    check("QML : fenêtre Réglages présente (qml/Settings.qml + open_settings)",
+          os.path.isfile(os.path.join(_here, "qml", "Settings.qml"))
+          and "def open_settings" in _qsets, True)
+    check("QML Réglages : réutilise les setters de app.py (pas de dup config)",
+          "_toggle_cloud" in _qsets and "_set_profile" in _qsets
+          and "_apply_stt_opts" in _qsets, True)
     # dock.html reste autonome (injecté en mémoire, sans serveur → jamais de 404)
     check("dock : dock.html injecté en mémoire (html=_dock_html())",
           "html=_dock_html()" in _app, True)
