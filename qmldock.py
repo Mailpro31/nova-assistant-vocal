@@ -230,7 +230,36 @@ class QmlDock(QObject):
         self._bridge.starClicked.connect(self._toggle_menu)
         self._bridge.modePicked.connect(self._pick_mode)
         self._ready = True
+        self._arm_launch_guard()
         self._install_config_watch()
+
+    def _arm_launch_guard(self):
+        """Auto-réparation : efface le marqueur de crash QML DÈS la 1re frame
+        rendue. Un abort GPU, s'il a lieu, survient PENDANT ce premier rendu —
+        recevoir frameSwapped prouve donc que le rendu (matériel ou logiciel)
+        tient. On connecte toutes les fenêtres (la première à peindre gagne) et
+        on n'efface qu'une fois (drapeau) pour ne pas retirer un fichier à chaque
+        frame. Best-effort : un échec ici ne doit jamais empêcher le dock."""
+        try:
+            import app as A
+            done = {"v": False}
+
+            def _ok():
+                if done["v"]:
+                    return
+                done["v"] = True
+                A._qml_launch_ok()
+            for obj in self._engine.rootObjects():
+                sig = getattr(obj, "frameSwapped", None)
+                if sig is not None:
+                    sig.connect(_ok)
+            # Filet temporel : en mode fantôme la pilule démarre masquée → aucun
+            # rendu → frameSwapped ne viendrait jamais. Or une fenêtre masquée ne
+            # sollicite pas le GPU (aucun abort possible) : si la boucle tient
+            # 6 s, le lancement est sain — on efface aussi par ce biais.
+            QTimer.singleShot(6000, _ok)
+        except Exception as e:
+            core.log_err("qml_guard", e)
 
     def _connect(self):
         self._sig_show.connect(self._do_show)

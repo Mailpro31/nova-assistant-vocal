@@ -2143,6 +2143,41 @@ def _qt_probe_subprocess():
     return False
 
 
+# ---- Auto-réparation du dock QML -----------------------------------------
+# Le RENDU QML (scène graphique) peut appeler abort() — erreur C que try/except
+# NE PEUT PAS rattraper et qui ne laisse AUCUN log (le process meurt avant tout
+# écrit Python). La sonde _qt_runtime_ok teste QApplication mais PAS le rendu :
+# un pilote GPU récalcitrant tue donc Nova au premier repaint, sans repli. Parade
+# increvable : un marqueur sur disque écrit AVANT de tenter QML et effacé
+# SEULEMENT une fois le dock rendu (signal frameSwapped) survit à un tel crash.
+# Au lancement suivant on MONTE d'un cran :
+#   rendu matériel (défaut) → rendu logiciel (QT_QUICK_BACKEND=software) → pilule.
+# Activer le QML ne peut ainsi JAMAIS bloquer Nova, et une machine dont le GPU
+# refuse le rendu matériel bascule seule sur le rendu logiciel (le QML marche
+# quand même). Marqueur versionné → une mise à jour repart au rendu matériel.
+_QML_GUARD = "qml_pending.json"
+
+
+def _qml_next_stage():
+    """Étage QML à tenter, ou None si tous ont déjà planté (→ pilule). Sans
+    marqueur pour CETTE version → 'hw' ; marqueur 'hw' resté (l'essai matériel a
+    planté) → 'sw' ; marqueur 'sw' resté → None."""
+    d = core._load(_QML_GUARD, None)
+    if not (isinstance(d, dict) and d.get("ver") == core.APP_VERSION):
+        return "hw"
+    return {"hw": "sw"}.get(d.get("stage"))   # 'sw' ou étage inconnu → None
+
+
+def _qml_launch_ok():
+    """Le dock QML s'est rendu sans crash : on efface le marqueur pour que le
+    prochain lancement reparte au rendu matériel. Idempotent (appelé à chaque
+    frame ; ENOENT après la 1re est sans effet)."""
+    try:
+        os.remove(core._path(_QML_GUARD))
+    except OSError:
+        pass
+
+
 def _make_ui():
     """Choisit l'UI. DÉFAUT = pilule tkinter NATIVE : 100 % Python, AUCUN WebView
     (fini les « 404 Not Found » et les plantages du moteur web) ni conflit de DLL
@@ -2154,14 +2189,29 @@ def _make_ui():
     un éventuel opt-in futur). On journalise le dock retenu (diagnostic)."""
     # dock QML (Qt Quick) : coins ronds natifs + animations, QApplication
     # construit TÔT (ici, à l'import — donc AVANT _warmup_engines) → l'ordre de
-    # chargement des DLL est bon, le crash historique disparaît. Opt-in.
+    # chargement des DLL est bon, le crash historique disparaît. Opt-in, protégé
+    # par l'échelle d'auto-réparation (matériel → logiciel → pilule).
     if core.CFG.get("dock_ui") == "qml" and _qt_runtime_ok():
-        try:
-            dock = _new_qml_dock()
-            core.log_err("dock_ui_chosen", "qml")
-            return dock
-        except Exception as e:
-            core.log_err("dock_ui_qml", e)   # QML cassé → dock Qt puis pilule
+        stage = _qml_next_stage()
+        if stage is None:
+            # Rendus matériel ET logiciel ont déjà planté pour cette version : on
+            # ne retente pas — repli pilule (l'app reste lançable).
+            core.log_err("dock_ui_qml", "essais QML épuisés (hw+sw) → repli pilule")
+        else:
+            if stage == "sw":
+                # rendu logiciel : aucun GPU sollicité → increvable sur pilote
+                # récalcitrant (plus lent, mais le dock s'affiche vraiment).
+                os.environ["QT_QUICK_BACKEND"] = "software"
+            core._save(_QML_GUARD, {"ver": core.APP_VERSION, "stage": stage})
+            try:
+                dock = _new_qml_dock()
+                core.log_err("dock_ui_chosen", f"qml/{stage}")
+                return dock
+            except Exception as e:
+                # exception Python (rattrapée) ≠ abort C : pas un crash au repaint,
+                # on efface le marqueur et on retombe proprement sur pilule.
+                _qml_launch_ok()
+                core.log_err("dock_ui_qml", e)
     if core.CFG.get("dock_ui") == "qt" and _qt_runtime_ok():
         try:
             dock = _new_qt_dock()
