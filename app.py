@@ -2923,6 +2923,9 @@ def main():
     # abonnement : renouvelle le jeton de licence s'il approche de l'expiration
     # (best-effort, en fond — hors ligne, la période de grâce du jeton suffit)
     threading.Thread(target=licensing.refresh_if_needed, daemon=True).start()
+    # essai inversé : synchronise la date de début par empreinte machine
+    # (ferme la faille « réinstaller = essai neuf » ; best-effort, en fond)
+    threading.Thread(target=licensing.sync_trial, daemon=True).start()
 
     # Chaque UI possède sa propre boucle (pilule tkinter ou dock webview) via
     # `serve()` : main() n'a aucun type à tester. Bloquant jusqu'à la fermeture.

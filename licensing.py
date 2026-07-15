@@ -45,6 +45,13 @@ PUBLIC_KEY_B64 = "Q+U/LqaeFgLSDkvqiAXRcHQ8DSwqU9NcrHiPt8A6EJE="
 ACTIVATION_URL = ("https://cvpucqsxgjczkdskohte.supabase.co"
                   "/functions/v1/license/activate")
 
+# Serveur d'essai inversé : mémorise la date de début d'essai PAR EMPREINTE
+# MACHINE. Réinstaller / effacer les données locales ne redonne donc pas un
+# essai neuf — le serveur renvoie toujours la date d'origine. Best-effort :
+# hors-ligne, on garde le repli local (cf. sync_trial / _install_ts).
+TRIAL_URL = ("https://cvpucqsxgjczkdskohte.supabase.co"
+             "/functions/v1/trial")
+
 FREE, PRO, ULTRA, BUSINESS = "free", "pro", "ultra", "business"
 # Niveau de fonctionnalités : Business = niveau Pro (mêmes fonctions), mais
 # licence multi-postes moins chère par siège.
@@ -155,10 +162,11 @@ def _status(tier, active, trial_days_left=0):
 
 
 def _install_ts():
-    """Horodatage de première utilisation (essai inversé), stocké CHIFFRÉ pour
-    survivre à un effacement de config. Posé paresseusement au 1er appel.
-    → epoch (int), ou 0 si indisponible (→ pas d'essai, on retombe en Free :
-    fail-safe, jamais Pro à tort)."""
+    """Horodatage de début d'essai (essai inversé), stocké CHIFFRÉ. Posé
+    paresseusement au 1er appel, mais AUTORITÉ = le serveur : sync_trial()
+    l'écrase avec la date renvoyée par empreinte machine (ferme la faille
+    « réinstaller = essai neuf »). → epoch (int), ou 0 si indisponible (→ pas
+    d'essai, on retombe en Free : fail-safe, jamais Pro à tort)."""
     try:
         import winext
         raw = winext.get_secret("install")
@@ -180,6 +188,29 @@ def _trial_days_left():
         return 0
     left = TRIAL_DAYS - (time.time() - ts) / 86400.0
     return int(left) + 1 if left > 0 else 0
+
+
+def sync_trial():
+    """Synchronise la date de début d'essai avec le SERVEUR, par empreinte
+    machine, et l'écrit en cache local (coffre chiffré). C'est ce qui ferme la
+    faille « réinstaller / effacer les données = essai neuf » : le serveur
+    renvoie toujours la date d'origine de CETTE machine. Best-effort, appelé
+    au démarrage dans un thread : hors-ligne ou serveur muet → on garde le
+    repli local. Ne lève jamais."""
+    try:
+        if not enabled():
+            return                          # dormant → pas d'essai à gérer
+        machine = _machine_fingerprint()
+        if not machine:
+            return
+        import requests
+        r = requests.post(TRIAL_URL, timeout=8, json={"machine": machine})
+        started = int((r.json() or {}).get("started", 0) or 0)
+        if started > 0:
+            import winext
+            winext.set_secret("install", json.dumps({"ts": started, "srv": 1}))
+    except Exception:
+        pass
 
 
 def status():

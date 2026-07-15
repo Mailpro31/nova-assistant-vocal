@@ -470,6 +470,9 @@ def test_licensing():
         check("dormant → can_reformulate", L.can_reformulate(), True)
         check("transcription illimitée à tous les paliers",
               L.can_transcribe(), True)
+        # sync_trial : no-op sûr en dormant (aucun appel réseau, ne lève jamais)
+        check("essai inversé : sync_trial no-op en dormant",
+              L.sync_trial(), None)
     finally:
         L.PUBLIC_KEY_B64 = _pub
     # clé publique réelle présente → le système est ACTIF dans les builds
