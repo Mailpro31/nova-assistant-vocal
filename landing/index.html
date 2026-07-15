@@ -528,6 +528,37 @@
   .faq details p a{color:var(--blue)}
   .faq details p b{color:var(--txt);font-weight:600}
 
+  /* --------------------------------------------------- mises à jour ------ */
+  .updates{position:relative;padding:40px 6vw 120px;text-align:center}
+  .maj-sub{margin:12px auto 0;max-width:52ch;color:var(--mut);font-size:14.5px;line-height:1.6}
+  .timeline{max-width:720px;margin:44px auto 0;text-align:left;position:relative;
+    padding-left:26px}
+  .timeline::before{content:"";position:absolute;left:5px;top:8px;bottom:8px;width:2px;
+    background:linear-gradient(180deg,var(--blue),var(--line) 85%)}
+  .rel{position:relative;padding:0 0 30px}
+  .rel:last-child{padding-bottom:0}
+  .rel::before{content:"";position:absolute;left:-26px;top:5px;width:12px;height:12px;
+    border-radius:50%;background:var(--blue);box-shadow:0 0 0 4px rgba(10,132,255,.16)}
+  .rel.evergreen::before{background:var(--mint);box-shadow:0 0 0 4px rgba(174,226,204,.16)}
+  .rel-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+  .rel .ver{font-size:16px;font-weight:700;letter-spacing:-.3px;color:var(--txt)}
+  .rel .when{font-size:12.5px;color:var(--mut);font-variant-numeric:tabular-nums}
+  .tags{display:flex;gap:7px;flex-wrap:wrap;margin:9px 0 11px}
+  .tag{font-size:10.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;
+    padding:3px 9px;border-radius:999px;border:1px solid transparent}
+  .tag.new{color:var(--blue);background:rgba(10,132,255,.12);border-color:rgba(10,132,255,.28)}
+  .tag.premium{color:var(--ultra);background:rgba(201,182,240,.12);border-color:rgba(201,182,240,.3)}
+  .tag.opt{color:var(--peri-d);background:rgba(174,190,236,.14);border-color:rgba(174,190,236,.3)}
+  .tag.power{color:var(--lav);background:rgba(199,185,234,.14);border-color:rgba(199,185,234,.3)}
+  .tag.rgpd{color:var(--ok);background:rgba(48,209,88,.12);border-color:rgba(48,209,88,.3)}
+  .light .tag.opt{color:#5566b0}.light .tag.power{color:#7a63c0}
+  .rel-body{list-style:none;display:flex;flex-direction:column;gap:8px}
+  .rel-body li{position:relative;padding-left:18px;font-size:13.7px;line-height:1.6;color:var(--mut)}
+  .rel-body li::before{content:"";position:absolute;left:2px;top:9px;width:5px;height:5px;
+    border-radius:50%;background:var(--line)}
+  .rel-body li b{color:var(--txt);font-weight:600}
+  @media(max-width:520px){.timeline{padding-left:22px}.rel::before{left:-22px}}
+
   /* ------------------------------------------------------- nouveautés ---- */
   .wl{margin:64px auto 0;max-width:520px}
   .wlt{font-size:12px;letter-spacing:2.5px;text-transform:uppercase;color:var(--mut);
@@ -634,6 +665,8 @@
     <a href="#film" data-t="nav_film">Le film</a>
     <a href="#tons" data-t="nav_demo">La démo</a>
     <a href="#tarifs" data-t="nav_pricing">Tarifs</a>
+    <a href="#faq" data-t="nav_faq">FAQ</a>
+    <a href="#maj" data-t="nav_maj">Mises à jour</a>
   </div>
   <div class="navr">
     <button id="langBtn" aria-label="Switch language">EN</button>
@@ -922,6 +955,68 @@
         poste inutilisé pendant 30&nbsp;jours libère sa place automatiquement —
         pratique quand on change de machine.</p>
     </details>
+  </div>
+</section>
+
+<section class="updates" id="maj">
+  <p class="kicker rv" data-t="maj_kicker">Mises à jour</p>
+  <h2 class="rv" data-t="maj_h2">Ce qui change, en clair.</h2>
+  <p class="maj-sub rv" data-t="maj_sub">Chaque version, sa date, et ce qu'elle vous apporte vraiment — rien d'autre.</p>
+  <div class="timeline rv">
+
+    <article class="rel">
+      <div class="rel-head"><span class="ver">v3.2.13</span>
+        <time class="when" data-t="maj_v13_when">15 juillet 2026 · 10:57</time></div>
+      <div class="tags"><span class="tag new" data-t="tag_new">Nouveau</span>
+        <span class="tag premium" data-t="tag_premium">Premium</span></div>
+      <ul class="rel-body" data-t="maj_v13_body">
+        <li>Nouvelle offre, plus généreuse : la <b>dictée est désormais illimitée pour tous</b>, même en version gratuite.</li>
+        <li><b>10 reformulations par jour</b> offertes en gratuit, et <b>14 jours de Nova Pro</b> débloqués dès l'installation — sans carte.</li>
+        <li>L'intelligence en ligne (Turbo &amp; transcription en ligne) réunie dans <b>Nova Ultra</b>, pour la qualité maximale quand vous la voulez.</li>
+      </ul>
+    </article>
+
+    <article class="rel">
+      <div class="rel-head"><span class="ver">v3.2.12</span>
+        <time class="when" data-t="maj_v12_when">14 juillet 2026 · 14:32</time></div>
+      <div class="tags"><span class="tag opt" data-t="tag_opt">Optimisation</span>
+        <span class="tag premium" data-t="tag_premium">Premium</span></div>
+      <ul class="rel-body" data-t="maj_v12_body">
+        <li>Interface repensée en natif : transparence parfaite, coins arrondis, et <b>zéro ralentissement</b> — l'app reste vive à chaque clic.</li>
+        <li>Empreinte mémoire réduite : Nova est plus léger en fond de tâche.</li>
+      </ul>
+    </article>
+
+    <article class="rel">
+      <div class="rel-head"><span class="ver">v3.2.6</span>
+        <time class="when" data-t="maj_v6_when">14 juillet 2026 · 11:20</time></div>
+      <div class="tags"><span class="tag opt" data-t="tag_opt">Optimisation</span>
+        <span class="tag power" data-t="tag_power">Puissance</span></div>
+      <ul class="rel-body" data-t="maj_v6_body">
+        <li>Démarrage encore plus robuste : fiable sur toutes les machines, y compris les postes sans carte graphique dédiée.</li>
+        <li>Nova mesure votre machine et <b>choisit seul le profil de puissance</b> le plus adapté (Nova Air · Aura · Apex).</li>
+      </ul>
+    </article>
+
+    <article class="rel">
+      <div class="rel-head"><span class="ver">v3.1.28</span>
+        <time class="when" data-t="maj_v128_when">13 juillet 2026 · 07:41</time></div>
+      <div class="tags"><span class="tag opt" data-t="tag_opt">Optimisation</span></div>
+      <ul class="rel-body" data-t="maj_v128_body">
+        <li>Stabilité renforcée : correction de gels et de plantages rares. La dictée ne fige jamais, et le texte se colle toujours.</li>
+      </ul>
+    </article>
+
+    <article class="rel evergreen">
+      <div class="rel-head"><span class="ver" data-t="maj_priv_ver">Confidentialité</span>
+        <time class="when" data-t="maj_priv_when">garantie, depuis le premier jour</time></div>
+      <div class="tags"><span class="tag rgpd" data-t="tag_rgpd">RGPD</span></div>
+      <ul class="rel-body" data-t="maj_priv_body">
+        <li>Avec l'Intelligence privée, votre audio, vos textes et votre vocabulaire <b>ne quittent jamais votre ordinateur</b> — nous ne pouvons pas les lire.</li>
+        <li>Aucun compte requis, aucun cookie de suivi. <b>Conforme au RGPD par conception.</b></li>
+      </ul>
+    </article>
+
   </div>
 </section>
 
@@ -1279,6 +1374,7 @@ const I18N = {
     _video: CDN + "nova-film2.mp4", _poster: CDN + "film2-poster.jpg",
     _track: "<span><b>Français</b></span><span>English</span><span>Español</span><span>Deutsch</span><span>Italiano</span><span>Português</span><span>Nederlands</span><span>Polski</span><span>Русский</span><span>العربية</span><span>Türkçe</span><span>हिन्दी</span><span>中文</span><span>日本語</span><span>한국어</span>",
     nav_film: "Le film", nav_demo: "La démo", nav_pricing: "Tarifs", nav_get: "Obtenir Nova",
+    nav_faq: "FAQ", nav_maj: "Mises à jour",
     hint_idle: "<b>Maintenez la touche</b> — comme dans Nova.",
     key_hold: "MAINTENIR",
     hero_dl: "Télécharger gratuitement", hero_pricing: "Voir les tarifs",
@@ -1370,6 +1466,20 @@ const I18N = {
     dl_err_net: "Petit souci de connexion — réessayez.",
     final_h2: "Votre voix tape plus vite<br>que vos doigts.",
     final_btn: "Télécharger Nova gratuitement",
+    maj_kicker: "Mises à jour", maj_h2: "Ce qui change, en clair.",
+    maj_sub: "Chaque version, sa date, et ce qu'elle vous apporte vraiment — rien d'autre.",
+    tag_new: "Nouveau", tag_premium: "Premium", tag_opt: "Optimisation",
+    tag_power: "Puissance", tag_rgpd: "RGPD",
+    maj_v13_when: "15 juillet 2026 · 10:57",
+    maj_v13_body: "<li>Nouvelle offre, plus généreuse : la <b>dictée est désormais illimitée pour tous</b>, même en version gratuite.</li><li><b>10 reformulations par jour</b> offertes en gratuit, et <b>14 jours de Nova Pro</b> débloqués dès l'installation — sans carte.</li><li>L'intelligence en ligne (Turbo &amp; transcription en ligne) réunie dans <b>Nova Ultra</b>, pour la qualité maximale quand vous la voulez.</li>",
+    maj_v12_when: "14 juillet 2026 · 14:32",
+    maj_v12_body: "<li>Interface repensée en natif : transparence parfaite, coins arrondis, et <b>zéro ralentissement</b> — l'app reste vive à chaque clic.</li><li>Empreinte mémoire réduite : Nova est plus léger en fond de tâche.</li>",
+    maj_v6_when: "14 juillet 2026 · 11:20",
+    maj_v6_body: "<li>Démarrage encore plus robuste : fiable sur toutes les machines, y compris les postes sans carte graphique dédiée.</li><li>Nova mesure votre machine et <b>choisit seul le profil de puissance</b> le plus adapté (Nova Air · Aura · Apex).</li>",
+    maj_v128_when: "13 juillet 2026 · 07:41",
+    maj_v128_body: "<li>Stabilité renforcée : correction de gels et de plantages rares. La dictée ne fige jamais, et le texte se colle toujours.</li>",
+    maj_priv_ver: "Confidentialité", maj_priv_when: "garantie, depuis le premier jour",
+    maj_priv_body: "<li>Avec l'Intelligence privée, votre audio, vos textes et votre vocabulaire <b>ne quittent jamais votre ordinateur</b> — nous ne pouvons pas les lire.</li><li>Aucun compte requis, aucun cookie de suivi. <b>Conforme au RGPD par conception.</b></li>",
     foot_demo: "La démo", foot_pricing: "Tarifs", foot_faq: "FAQ",
     foot_terms: "Conditions", foot_privacy: "Confidentialité",
     foot_copy: "© 2026 Nova — dictée vocale pour Windows"
@@ -1387,6 +1497,7 @@ const I18N = {
     _video: CDN + "nova-film2-en.mp4", _poster: CDN + "film2-poster-en.jpg",
     _track: "<span>Français</span><span><b>English</b></span><span>Español</span><span>Deutsch</span><span>Italiano</span><span>Português</span><span>Nederlands</span><span>Polski</span><span>Русский</span><span>العربية</span><span>Türkçe</span><span>हिन्दी</span><span>中文</span><span>日本語</span><span>한국어</span>",
     nav_film: "The film", nav_demo: "The demo", nav_pricing: "Pricing", nav_get: "Get Nova",
+    nav_faq: "FAQ", nav_maj: "Updates",
     hint_idle: "<b>Hold the key</b> — just like in Nova.",
     key_hold: "HOLD",
     hero_dl: "Download for free", hero_pricing: "See pricing",
@@ -1478,6 +1589,20 @@ const I18N = {
     dl_err_net: "Small connection hiccup — try again.",
     final_h2: "Your voice types faster<br>than your fingers.",
     final_btn: "Download Nova for free",
+    maj_kicker: "Updates", maj_h2: "What changes, in plain words.",
+    maj_sub: "Every version, its date, and what it actually gives you — nothing else.",
+    tag_new: "New", tag_premium: "Premium", tag_opt: "Optimization",
+    tag_power: "Power", tag_rgpd: "GDPR",
+    maj_v13_when: "July 15, 2026 · 10:57",
+    maj_v13_body: "<li>A more generous plan: <b>dictation is now unlimited for everyone</b>, even on the free tier.</li><li><b>10 rewrites per day</b> on free, and <b>14 days of Nova Pro</b> unlocked on install — no card.</li><li>Online intelligence (Turbo &amp; online transcription) brought together in <b>Nova Ultra</b>, for maximum quality when you want it.</li>",
+    maj_v12_when: "July 14, 2026 · 14:32",
+    maj_v12_body: "<li>Rebuilt native interface: perfect transparency, rounded corners, and <b>zero lag</b> — the app stays snappy on every click.</li><li>Lower memory footprint: Nova is lighter in the background.</li>",
+    maj_v6_when: "July 14, 2026 · 11:20",
+    maj_v6_body: "<li>Even more robust startup: reliable on every machine, including PCs with no dedicated graphics card.</li><li>Nova measures your machine and <b>picks the best power profile on its own</b> (Nova Air · Aura · Apex).</li>",
+    maj_v128_when: "July 13, 2026 · 07:41",
+    maj_v128_body: "<li>Stronger stability: fixed rare freezes and crashes. Dictation never hangs, and text always pastes.</li>",
+    maj_priv_ver: "Privacy", maj_priv_when: "guaranteed, from day one",
+    maj_priv_body: "<li>With Private Intelligence, your audio, text and vocabulary <b>never leave your computer</b> — we can't read them.</li><li>No account required, no tracking cookie. <b>GDPR-compliant by design.</b></li>",
     foot_demo: "The demo", foot_pricing: "Pricing", foot_faq: "FAQ",
     foot_terms: "Terms", foot_privacy: "Privacy",
     foot_copy: "© 2026 Nova — voice dictation for Windows"
