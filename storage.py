@@ -101,7 +101,7 @@ def week_stats():
     depuis lundi 00:00 (heure locale) — la stat de valeur affichée dans les
     Réglages (rétention : rappeler chaque semaine ce que Nova écrit pour vous).
     Borne volontairement simple (lundi local) : stat d'affichage, indépendante
-    de la semaine ISO + grâce horloge du quota Free (licensing._effective_week).
+    du quota Free (reformulations/jour, licensing._effective_day).
     Conversion : ~5 caractères/mot, ~40 mots/min au clavier — source unique."""
     now = time.localtime()
     monday = time.mktime((now.tm_year, now.tm_mon, now.tm_mday - now.tm_wday,

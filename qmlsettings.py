@@ -82,8 +82,8 @@ class SettingsBridge(QObject):
                 self._licColor = "#98989F"
             elif st.get("tier") == licensing.FREE:
                 q = licensing.quota_status()
-                self._licText = ("Version : Gratuit — %s/%s caractères transcrits "
-                                 "cette semaine." % (q.get("used", 0), q.get("limit", 0)))
+                self._licText = ("Version : Gratuit — %s/%s reformulations aujourd'hui "
+                                 "· dictée illimitée." % (q.get("used", 0), q.get("limit", 0)))
                 self._licColor = "#98989F"
             else:
                 exp = ("licence perpétuelle" if not st.get("expiry")

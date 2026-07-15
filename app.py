@@ -661,7 +661,7 @@ class Pill(threading.Thread):
                 q = licensing.quota_status()
                 lic_state.config(fg=SET_MUT,
                                  text=f"Version : Gratuit — {q['used']}/{q['limit']} "
-                                      "caractères transcrits cette semaine.")
+                                      "reformulations aujourd'hui · dictée illimitée.")
             else:
                 exp = ("licence perpétuelle" if not st["expiry"] else
                        "expire le " + time.strftime("%d/%m/%Y",
@@ -2429,15 +2429,9 @@ def _ptt_session():
     #                      le reste de la session.
     try:
         pill.show("listening", "")
-        # Palier Free : quota hebdomadaire de transcription (payant = illimité ;
-        # dormant = illimité → aucun effet tant que les licences ne sont pas
-        # activées par l'éditeur).
-        if not licensing.can_transcribe():
-            q = licensing.quota_status()
-            pill.show("error", "Quota gratuit atteint",
-                      f"{q['used']}/{q['limit']} car. cette semaine — passez à Pro")
-            pill.hide(2.6)
-            return
+        # La dictée (transcription) est ILLIMITÉE à tous les paliers — on ne
+        # bride jamais la voix. Le seul plafond Free porte sur la reformulation
+        # IA (cf. plus bas, licensing.can_reformulate()).
         t_release = None
         # transcription EN CONTINU (PC sans GPU) : les tranches terminées sont
         # transcrites pendant que la touche est tenue — à la relâche il ne
@@ -2474,7 +2468,6 @@ def _ptt_session():
             pill.hide(1.6)
             return
         pill.show("thinking", f"« {text[:60]} »")
-        licensing.record_transcription(text)          # comptabilise le quota Free
         # champs de profil toujours substitués (fonction de base) ; les Custom
         # Variables ne s'appliquent qu'au palier Pro
         text = core.fill_personal(text, custom_vars=licensing.has("custom_variables"))
@@ -2484,11 +2477,18 @@ def _ptt_session():
         if core._seq_exclusive():        # invariant partagé (cf. core._should_warm_llm)
             core.unload_whisper()
         prompt, concrete = _resolve_prompt(STATE["mode"])
+        reform_capped = False
         if concrete == "voice_to_text" and core.CFG.get("instant_normal"):
             # collage éclair (réglage, off par défaut) : le Style Normal par
             # règles pures, SANS IA — latence quasi nulle, choix explicite de
-            # l'utilisateur, donc styled=True (c'est le résultat demandé)
+            # l'utilisateur, donc styled=True (c'est le résultat demandé).
+            # Ne consomme pas de quota (pas d'IA).
             out, styled = core.format_rules(text) or text, True
+        elif not licensing.can_reformulate():
+            # Palier Free : plafond quotidien de reformulations IA atteint. On
+            # colle le texte brut (règles pures, SANS IA) — curseur jamais vide —
+            # et on invite à passer à Pro. La dictée, elle, reste illimitée.
+            out, styled, reform_capped = core.format_rules(text) or text, False, True
         else:
             # cascade de repli universelle : IA → format_rules → texte brut.
             # Chaque étage est protégé : jamais de plantage, jamais de
@@ -2501,9 +2501,18 @@ def _ptt_session():
                 out = ""
             if not out:
                 out = core.format_rules(text) or text
+            if styled:
+                licensing.record_reformulation()   # 1 reformulation IA réussie
         pasted = winext.paste_into_active_app(out)
         dt = time.time() - t_release
-        if pasted and not styled:
+        if pasted and reform_capped:
+            # plafond gratuit du jour atteint : texte collé (brut), invitation
+            # sobre à passer à Pro pour retrouver les reformulations illimitées
+            q = licensing.quota_status()
+            pill.show("error", "Limite gratuite atteinte",
+                      f"{q['used']}/{q['limit']} reformulations aujourd'hui — passez à Pro")
+            pill.hide(2.8)
+        elif pasted and not styled:
             # honnêteté : le texte est collé mais SANS le Style demandé —
             # le dire, plutôt que d'afficher le Style comme si tout allait bien
             pill.show("error", "Collé sans Style — IA indisponible",

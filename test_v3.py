@@ -433,15 +433,16 @@ def test_licensing():
     check("free : pas de cloud", L.has("cloud_stt", L.FREE), False)
     check("free : dictée locale de base ok", L.has("cloud_stt", L.FREE) is False
           and L.mode_allowed("email", L.FREE), True)
-    check("pro : tout l'usage débloqué", L.has("unlimited_stt", L.PRO), True)
+    check("pro : reformulations illimitées",
+          L.has("unlimited_reformulation", L.PRO), True)
     check("pro : pas de Turbo (Ultra only)", L.has("cloud_stt", L.PRO), False)
     check("pro : pas la perso Ultra", L.has("custom_modes", L.PRO), False)
     check("pro : pas la meilleure IA", L.has("best_models", L.PRO), False)
     check("ultra : Turbo débloqué", L.has("cloud_stt", L.ULTRA), True)
     check("ultra : meilleure IA", L.has("best_models", L.ULTRA), True)
     check("ultra : personnalisation", L.has("orb_customization", L.ULTRA), True)
-    check("business = niveau Pro (fonctions)", L.has("unlimited_stt", L.BUSINESS),
-          True)
+    check("business = niveau Pro (fonctions)",
+          L.has("unlimited_reformulation", L.BUSINESS), True)
     check("business : pas la perso Ultra", L.has("custom_modes", L.BUSINESS),
           False)
     # modes offerts en Free : le quotidien (décision produit) — Normal,
@@ -464,23 +465,41 @@ def test_licensing():
     try:
         check("dormant → licences désactivées", L.enabled(), False)
         check("dormant → has True partout", L.has("custom_modes"), True)
-        check("dormant → transcription illimitée",
+        check("dormant → reformulation illimitée",
               L.quota_status()["limit"], None)
-        check("dormant → can_transcribe", L.can_transcribe(), True)
+        check("dormant → can_reformulate", L.can_reformulate(), True)
+        check("transcription illimitée à tous les paliers",
+              L.can_transcribe(), True)
     finally:
         L.PUBLIC_KEY_B64 = _pub
     # clé publique réelle présente → le système est ACTIF dans les builds
     check("licences actives (clé publique en place)",
           L.enabled(), bool(L._HAVE_CRYPTO))
-    # quota Free simulé sur un tier explicite (via record) — vérifie le calcul
+    # quota Free simulé (repli config) — calcul journalier des reformulations ;
+    # la dictée, elle, reste illimitée (can_transcribe True partout).
     _saved = core.CFG.get("usage")
-    core.CFG["usage"] = {"week": L._week_key(), "chars": L.FREE_WEEKLY_CHARS}
+    core.CFG["usage"] = {"day": L._day_key(), "count": L.FREE_DAILY_REFORMULATIONS}
     check("quota calc : used=limit → remaining 0 (tier free simulé)",
-          max(0, L.FREE_WEEKLY_CHARS - L._usage_used()), 0)
+          max(0, L.FREE_DAILY_REFORMULATIONS - L._usage_used()), 0)
+    core.CFG["usage"] = {"day": "2000-01-01", "count": 99}
+    check("quota : jour différent → compteur remis à 0", L._usage_used(), 0)
     if _saved is None:
         core.CFG.pop("usage", None)
     else:
         core.CFG["usage"] = _saved
+    # essai inversé : arithmétique des jours restants (indépendante de winext)
+    _its = L._install_ts
+    try:
+        L._install_ts = lambda: int(time.time()) - 3 * 86400
+        check("essai inversé : 3 j écoulés → 11 j restants",
+              L._trial_days_left(), 11)
+        L._install_ts = lambda: int(time.time()) - (L.TRIAL_DAYS + 1) * 86400
+        check("essai inversé : expiré → 0 j", L._trial_days_left(), 0)
+        L._install_ts = lambda: 0
+        check("essai inversé : install indispo → 0 j (fail-safe Free)",
+              L._trial_days_left(), 0)
+    finally:
+        L._install_ts = _its
     # v3.1.24 : la persistance du quota passe par winext.set_secret("usage").
     # « usage » DOIT figurer dans SECRET_KEYS du vrai winext.py, sinon
     # set_secret lève ValueError — avalée par _usage_write → compteur figé à
@@ -508,7 +527,7 @@ def test_licensing():
         return True
     _w.set_secret, _w.get_secret = _vault_set, lambda k: _store.get(k, "")
     try:
-        L._usage_write(L._week_key(), 123)
+        L._usage_write(L._day_key(), 123)
         check("quota : écrit puis relu via le coffre chiffré",
               L._usage_used(), 123)
     finally:
