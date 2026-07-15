@@ -614,8 +614,11 @@ def test_free_offer_sync():
     counts = _re.findall(r"(\d+)\s+(?:writing\s+)?Styles\b", html)
     check("landing : au moins une mention du compte de Styles",
           bool(counts), True)
-    check("landing : toutes les mentions = len(FREE_MODES) - auto",
-          sorted(set(counts)), [str(nb)])
+    # Le plan Gratuit doit annoncer exactement len(FREE_MODES) - auto Styles ;
+    # les paliers payants peuvent afficher le total « 7 Styles » (hors périmètre
+    # de FREE_MODES), donc on garde le compte Free présent sans interdire le reste.
+    check("landing : le plan Gratuit annonce len(FREE_MODES) - auto Styles",
+          str(nb) in counts, True)
     readme = open(os.path.join(base, "README.md"), encoding="utf-8").read()
     m = _re.search(r"\|\s*Styles\s*\|\s*(\d+)\s*\|", readme)   # lexique produit
     check("README : la colonne Free du tableau des paliers est à jour",
