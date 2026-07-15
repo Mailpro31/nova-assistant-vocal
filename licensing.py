@@ -7,12 +7,17 @@ vérifié LOCALEMENT avec la clé publique ci-dessous — aucun serveur, marche
 détient, cf. `tools/mint_license.py`).
 
 Paliers :
-  • FREE     — dictée locale, quota ~2500 caractères transcrits / semaine.
-  • PRO      — tout l'usage quotidien débloqué, transcription illimitée.
-  • ULTRA    — Pro + Turbo (moteur en ligne) + meilleure IA + personnalisation
-               (couleurs, noms…) + nouveautés en avant-première.
+  • FREE     — dictée locale ILLIMITÉE + ~10 reformulations IA / jour + 3 Styles.
+  • PRO      — reformulations illimitées + les 7 Styles + profils de puissance
+               + variables personnalisées (tout le local, sans limite).
+  • ULTRA    — Pro + Turbo (moteur en ligne) + transcription en ligne + meilleure
+               IA + personnalisation (couleurs, noms…) + avant-première.
   • BUSINESS — mêmes fonctions que Pro, licence multi-postes (`seats`), tarif
                par siège plus bas (abonnement équipe).
+
+Essai inversé : les TRIAL_DAYS premiers jours après l'installation, l'app passe
+en PRO sans clé (reformulations illimitées, 7 Styles) puis retombe en FREE — la
+reformulation redevient ~10/jour ; la dictée reste illimitée dans tous les cas.
 
 État DORMANT : tant que `PUBLIC_KEY_B64` est vide (dépôt de dev) ou que le
 paquet `cryptography` est absent, tout est débloqué et illimité — l'app tourne
@@ -45,8 +50,12 @@ FREE, PRO, ULTRA, BUSINESS = "free", "pro", "ultra", "business"
 # licence multi-postes moins chère par siège.
 _LEVEL = {FREE: 0, BUSINESS: 1, PRO: 1, ULTRA: 2}
 
-# Quota hebdomadaire de caractères transcrits en Free (payant = illimité).
-FREE_WEEKLY_CHARS = 2500
+# Plafond quotidien de reformulations IA en Free (payant = illimité). La dictée
+# (transcription) reste ILLIMITÉE à TOUS les paliers — on ne bride jamais la voix.
+FREE_DAILY_REFORMULATIONS = 10
+
+# Essai inversé : jours de Pro offerts après l'installation, puis bascule Free.
+TRIAL_DAYS = 14
 
 # Fonctionnalité → palier minimum requis. (Ajuster ici = changer l'offre.)
 FEATURES = {
@@ -58,7 +67,7 @@ FEATURES = {
     "web_dock":          FREE,    # dock web « bille de verre » = l'interface
                                   # principale de Nova (la pilule tkinter n'est
                                   # qu'un repli si WebView2 manque)
-    "unlimited_stt":     PRO,     # transcription sans quota hebdo
+    "unlimited_reformulation": PRO,  # reformulations IA sans plafond quotidien
     "best_models":       ULTRA,   # meilleure IA / meilleure qualité
     "custom_modes":      ULTRA,   # créer ses propres modes / prompts
     "custom_auto_rules": ULTRA,   # règles auto_rules personnelles
@@ -140,18 +149,53 @@ def _license_from_config():
         return ""
 
 
-def _status(tier, active):
-    return {"tier": tier, "email": "", "expiry": 0, "seats": 1, "active": active}
+def _status(tier, active, trial_days_left=0):
+    return {"tier": tier, "email": "", "expiry": 0, "seats": 1,
+            "active": active, "trial_days_left": int(trial_days_left)}
+
+
+def _install_ts():
+    """Horodatage de première utilisation (essai inversé), stocké CHIFFRÉ pour
+    survivre à un effacement de config. Posé paresseusement au 1er appel.
+    → epoch (int), ou 0 si indisponible (→ pas d'essai, on retombe en Free :
+    fail-safe, jamais Pro à tort)."""
+    try:
+        import winext
+        raw = winext.get_secret("install")
+        if raw:
+            ts = int(json.loads(raw).get("ts", 0) or 0)
+            if ts:
+                return ts
+        now = int(time.time())
+        winext.set_secret("install", json.dumps({"ts": now}))
+        return now
+    except Exception:
+        return 0
+
+
+def _trial_days_left():
+    """Jours d'essai Pro restants (1..TRIAL_DAYS ; 0 si fini ou indisponible)."""
+    ts = _install_ts()
+    if not ts:
+        return 0
+    left = TRIAL_DAYS - (time.time() - ts) / 86400.0
+    return int(left) + 1 if left > 0 else 0
 
 
 def status():
-    """État courant : {tier, email, expiry, seats, active}. Défensif."""
+    """État courant : {tier, email, expiry, seats, active, trial_days_left}.
+    Défensif. Sans licence, les TRIAL_DAYS premiers jours après l'installation
+    passent en PRO (essai inversé), puis bascule en FREE."""
     if not enabled():
         return _status(ULTRA, False)         # dormant → accès complet
     info = verify_key(_license_from_config())
     if info:
         info["active"] = True
+        info.setdefault("trial_days_left", 0)
         return info
+    left = _trial_days_left()
+    if left > 0:
+        return _status(PRO, True, left)      # essai inversé : Pro offert
     return _status(FREE, True)               # actif, sans licence valide
 
 
@@ -175,17 +219,21 @@ def mode_allowed(mode_id, tier=None):
     return has("all_modes", tier) or mode_id in FREE_MODES
 
 
-# ---------------------------------------------------- quota hebdo (Free) -----
+# ------------------------------------------ quota reformulations (Free) ------
+# Modèle : la dictée (transcription) est ILLIMITÉE partout ; en Free, c'est la
+# reformulation IA (le « waouh ») qui est plafonnée à FREE_DAILY_REFORMULATIONS
+# par jour. Usage stocké CHIFFRÉ (DPAPI via winext) pour qu'éditer/effacer
+# config.json ne réinitialise pas le compteur ; l'horodatage sert de garde
+# anti-recul d'horloge. Toutes les fonctions sont défensives.
 
-def _week_key():
-    """Clé de semaine ISO, ex. « 2026-W28 » (réinitialise le quota chaque lundi)."""
-    return time.strftime("%G-W%V")
+def _day_key():
+    """Clé de jour ISO, ex. « 2026-07-15 » (réinitialise le quota chaque jour)."""
+    return time.strftime("%Y-%m-%d")
 
 
 def _usage_read():
-    """Usage hebdo, stocké CHIFFRÉ (DPAPI via winext) : éditer ou supprimer le
-    config.json ne réinitialise plus le quota. Repli sur l'ancien emplacement
-    config (migration douce) puis {}. Ne lève jamais."""
+    """Usage du jour, stocké CHIFFRÉ (DPAPI via winext). Repli sur l'ancien
+    emplacement config (migration douce) puis {}. Ne lève jamais."""
     try:
         import winext
         raw = winext.get_secret("usage")
@@ -202,63 +250,69 @@ def _usage_read():
         return {}
 
 
-def _usage_write(week, chars):
+def _usage_write(day, count):
     """Persiste l'usage dans le coffre chiffré, avec l'horodatage qui sert de
     garde anti-recul d'horloge. Défensif : silencieux si le coffre échoue."""
     try:
         import winext
         winext.set_secret("usage", json.dumps(
-            {"week": week, "chars": int(chars), "ts": int(time.time())}))
+            {"day": day, "count": int(count), "ts": int(time.time())}))
     except Exception:
         pass
 
 
-def _effective_week(u):
-    """Semaine à comptabiliser. Si l'horloge système a RECULÉ de plus de 6 h
-    par rapport au dernier enregistrement (triche pour réinitialiser le quota),
-    on continue de compter dans la semaine déjà enregistrée."""
-    if int(u.get("ts", 0) or 0) - time.time() > 6 * 3600 and u.get("week"):
-        return u["week"]
-    return _week_key()
+def _effective_day(u):
+    """Jour à comptabiliser. Si l'horloge système a RECULÉ de plus de 6 h par
+    rapport au dernier enregistrement (triche pour réinitialiser le quota), on
+    continue de compter dans le jour déjà enregistré."""
+    if int(u.get("ts", 0) or 0) - time.time() > 6 * 3600 and u.get("day"):
+        return u["day"]
+    return _day_key()
 
 
 def _usage_used():
     try:
         u = _usage_read()
-        return int(u.get("chars", 0)) if u.get("week") == _effective_week(u) else 0
+        return int(u.get("count", 0)) if u.get("day") == _effective_day(u) else 0
     except Exception:
         return 0
 
 
 def quota_status():
-    """Quota de transcription de la semaine. Paliers payants → illimité.
-    → {limit, used, remaining, week}. `limit`/`remaining` valent None si illimité."""
-    week = _week_key()
-    if has("unlimited_stt"):
-        return {"limit": None, "used": 0, "remaining": None, "week": week}
+    """Quota de reformulations IA du jour. Paliers payants (et essai) → illimité.
+    → {limit, used, remaining, day}. `limit`/`remaining` valent None si illimité."""
+    day = _day_key()
+    if has("unlimited_reformulation"):
+        return {"limit": None, "used": 0, "remaining": None, "day": day}
     used = _usage_used()
-    return {"limit": FREE_WEEKLY_CHARS, "used": used,
-            "remaining": max(0, FREE_WEEKLY_CHARS - used), "week": week}
+    return {"limit": FREE_DAILY_REFORMULATIONS, "used": used,
+            "remaining": max(0, FREE_DAILY_REFORMULATIONS - used), "day": day}
 
 
-def can_transcribe():
-    """Reste-t-il du quota cette semaine ? (True si illimité.)"""
+def can_reformulate():
+    """Reste-t-il des reformulations IA aujourd'hui ? (True si illimité.)"""
     st = quota_status()
     return st["remaining"] is None or st["remaining"] > 0
 
 
-def record_transcription(text):
-    """Comptabilise les caractères transcrits (Free uniquement) dans le coffre
-    chiffré. Défensif : n'écrit rien et ne lève jamais pour un palier illimité."""
+def record_reformulation():
+    """Comptabilise UNE reformulation IA réussie (Free uniquement) dans le coffre
+    chiffré. Défensif : no-op pour un palier illimité, ne lève jamais."""
     try:
-        if has("unlimited_stt"):
+        if has("unlimited_reformulation"):
             return
         u = _usage_read()
-        week = _effective_week(u)
-        used = int(u.get("chars", 0)) if u.get("week") == week else 0
-        _usage_write(week, used + len(text or ""))
+        day = _effective_day(u)
+        used = int(u.get("count", 0)) if u.get("day") == day else 0
+        _usage_write(day, used + 1)
     except Exception:
         pass
+
+
+def can_transcribe():
+    """Compat : la transcription est désormais ILLIMITÉE à tous les paliers.
+    Conservée pour d'anciens appelants — renvoie toujours True."""
+    return True
 
 
 def activate(key):

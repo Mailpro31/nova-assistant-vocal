@@ -38,7 +38,7 @@
  {"@type":"Question","name":"Quelle machine faut-il ?","acceptedAnswer":{"@type":"Answer","text":"Un PC sous Windows 10 ou 11 (64 bits) et un micro — celui d'un portable suffit. Nova mesure votre machine et choisit automatiquement le profil de puissance adapté : 8 Go de RAM suffisent, davantage débloque les profils de qualité supérieure."}},
  {"@type":"Question","name":"Mes dictées sont-elles privées ?","acceptedAnswer":{"@type":"Answer","text":"Par conception. Avec l'Intelligence privée, l'audio, le texte et votre vocabulaire ne quittent jamais votre ordinateur — nous ne pouvons pas les lire. Pas de compte, pas de cookie de suivi."}},
  {"@type":"Question","name":"Quelles langues sont prises en charge ?","acceptedAnswer":{"@type":"Answer","text":"Plus de 90 langues, détectées automatiquement. La reformulation suit la langue de votre dictée."}},
- {"@type":"Question","name":"Puis-je annuler ? Et les remboursements ?","acceptedAnswer":{"@type":"Answer","text":"L'abonnement s'annule à tout moment, sans justification, depuis le portail de facturation — Nova reste actif jusqu'à la fin de la période. Pro s'essaie gratuitement 7 jours. Les conditions de remboursement sont détaillées dans les CGV."}},
+ {"@type":"Question","name":"Puis-je annuler ? Et les remboursements ?","acceptedAnswer":{"@type":"Answer","text":"L'abonnement s'annule à tout moment, sans justification, depuis le portail de facturation — Nova reste actif jusqu'à la fin de la période. Nova offre 14 jours de Pro dès l'installation, sans carte. Les conditions de remboursement sont détaillées dans les CGV."}},
  {"@type":"Question","name":"Sur combien d'ordinateurs ?","acceptedAnswer":{"@type":"Answer","text":"Chaque licence active Nova sur deux ordinateurs. Un poste inutilisé pendant 30 jours libère sa place automatiquement."}}]}
 </script>
 <script>document.documentElement.classList.add("js")</script>
@@ -835,23 +835,23 @@
       <h3 data-t="plan_free">Gratuit</h3>
       <div class="price" data-t="price_free">0 €</div>
       <ul>
-        <li data-t="free_1"><b>Intelligence privée</b>, toutes les langues</li>
-        <li data-t="free_2">3 Styles d'écriture, dont E-mail et Messages</li>
-        <li data-t="free_3">2 500 caractères / semaine</li>
+        <li data-t="free_1"><b>Dictée locale illimitée</b>, 90+ langues</li>
+        <li data-t="free_2">3 Styles essentiels — E-mail, Messages…</li>
+        <li data-t="free_3">10 reformulations par jour</li>
       </ul>
       <a class="btn ghost" href="https://github.com/Mailpro31/nova-assistant-vocal/releases/latest/download/Nova-Setup.exe" data-t="free_btn">Télécharger</a>
-      <p class="trial" aria-hidden="true"></p>
+      <p class="trial" data-t="free_trial">14 jours de Pro à l'installation</p>
     </div>
     <div class="plan star rv">
       <span class="badge" data-t="badge_pop">Le plus populaire</span>
       <h3>Pro</h3>
       <div class="price" data-t="price_pro">9,99 €<small> / mois</small></div>
       <ul>
-        <li data-t="pro_1"><b>Dictée illimitée</b></li>
-        <li data-t="pro_2">Tous les Styles, dans chaque application</li>
+        <li data-t="pro_1"><b>Reformulations illimitées</b></li>
+        <li data-t="pro_2">Les 7 Styles, dans chaque application</li>
       </ul>
       <a class="btn" id="buyPro" href="https://buy.stripe.com/aFa6oGeJ4g5kdkPbRIefC05" data-t="pro_btn">Essayer Pro gratuitement</a>
-      <p class="trial" data-t="trial_note">7 jours offerts, sans engagement</p>
+      <p class="trial" data-t="trial_note">14 jours de Pro offerts dès l'installation</p>
     </div>
     <div class="plan rv">
       <h3>Ultra</h3>
@@ -859,6 +859,7 @@
       <ul>
         <li data-t="ultra_1"><b>Tout Pro</b>, en qualité maximale</li>
         <li data-t="ultra_turbo"><b>Turbo</b> — la vitesse maximale, en ligne</li>
+        <li data-t="ultra_stt">Transcription vocale en ligne — 3&nbsp;h / jour</li>
         <li data-t="ultra_2">Styles sur mesure, par application</li>
         <li data-t="ultra_3">Personnalisation complète — orbe, nom, couleurs</li>
       </ul>
@@ -910,8 +911,8 @@
         <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></summary>
       <p data-t="faq_a5">L'abonnement s'annule <b>à tout moment</b>, sans justification,
         depuis le portail de facturation — Nova reste actif jusqu'à la fin de la
-        période. Pro s'essaie gratuitement 7&nbsp;jours. Les conditions de
-        remboursement sont détaillées dans les
+        période. Nova offre 14&nbsp;jours de Pro dès l'installation, sans carte.
+        Les conditions de remboursement sont détaillées dans les
         <a href="/conditions.html">conditions de vente</a>.</p>
     </details>
     <details>
@@ -1310,17 +1311,19 @@ const I18N = {
     priv_p: "L'Intelligence privée de Nova écoute, écrit et met en forme directement sur votre appareil — sans internet, sans compte. Le reste n'est qu'une option.",
     price_kicker: "Tarifs", price_h2: "Simple, comme le reste.",
     plan_free: "Gratuit", price_free: "0 €",
-    free_1: "<b>Intelligence privée</b>, toutes les langues",
-    free_2: "3 Styles d'écriture, dont E-mail et Messages", free_3: "2 500 caractères / semaine", free_btn: "Télécharger",
+    free_1: "<b>Dictée locale illimitée</b>, 90+ langues",
+    free_2: "3 Styles essentiels — E-mail, Messages…", free_3: "10 reformulations par jour", free_btn: "Télécharger",
+    free_trial: "14 jours de Pro à l'installation",
     badge_pop: "Le plus populaire", price_pro: "9,99 €<small> / mois</small>",
     price_pro_y: "99 €<small> / an</small>", price_ultra_y: "199 €<small> / an</small>",
     bill_m: "Mensuel", bill_y: "Annuel · 2 mois offerts",
-    pro_1: "<b>Dictée illimitée</b>", pro_2: "Tous les Styles, dans chaque application",
+    pro_1: "<b>Reformulations illimitées</b>", pro_2: "Les 7 Styles, dans chaque application",
     ultra_turbo: "<b>Turbo</b> — la vitesse maximale, en ligne",
+    ultra_stt: "Transcription vocale en ligne — 3&nbsp;h / jour",
     pro_btn: "Essayer Pro gratuitement", price_ultra: "19,99 €<small> / mois</small>",
     ultra_1: "<b>Tout Pro</b>, en qualité maximale", ultra_2: "Styles sur mesure, par application",
     ultra_3: "Personnalisation complète — orbe, nom, couleurs", ultra_btn: "Obtenir Ultra",
-    trial_note: "7 jours offerts, sans engagement",
+    trial_note: "14 jours de Pro offerts dès l'installation",
     plans_note: 'Annulable à tout moment · équipes : <a href="mailto:mailprosasha2@gmail.com">écrivez-nous</a>',
     dev_kicker: "Pour les développeurs",
     dev_h2: "Vos prompts,<br>pensés à voix haute.",
@@ -1340,7 +1343,7 @@ const I18N = {
     faq_q4: "Quelles langues sont prises en charge ?",
     faq_a4: "Plus de <b>90 langues</b>, détectées automatiquement — dictez en français, poursuivez en anglais si l'envie vous prend. La reformulation suit la langue de votre dictée.",
     faq_q5: "Puis-je annuler ? Et les remboursements ?",
-    faq_a5: "L'abonnement s'annule <b>à tout moment</b>, sans justification, depuis le portail de facturation — Nova reste actif jusqu'à la fin de la période. Pro s'essaie gratuitement 7&nbsp;jours. Les conditions de remboursement sont détaillées dans les <a href=\"/conditions.html\">conditions de vente</a>.",
+    faq_a5: "L'abonnement s'annule <b>à tout moment</b>, sans justification, depuis le portail de facturation — Nova reste actif jusqu'à la fin de la période. Nova offre 14&nbsp;jours de Pro dès l'installation, sans carte. Les conditions de remboursement sont détaillées dans les <a href=\"/conditions.html\">conditions de vente</a>.",
     faq_q6: "Sur combien d'ordinateurs ?",
     faq_a6: "Chaque licence active Nova sur <b>deux ordinateurs</b>. Un poste inutilisé pendant 30&nbsp;jours libère sa place automatiquement — pratique quand on change de machine.",
     wl_t: "Les nouveautés, sans le bruit",
@@ -1416,17 +1419,19 @@ const I18N = {
     priv_p: "Nova's Private Intelligence listens, writes and formats right on your device — no internet, no account. Everything else is just an option.",
     price_kicker: "Pricing", price_h2: "Simple, like everything else.",
     plan_free: "Free", price_free: "€0",
-    free_1: "<b>Private Intelligence</b>, every language",
-    free_2: "3 writing Styles, incl. E-mail and Messages", free_3: "2,500 characters / week", free_btn: "Download",
+    free_1: "<b>Unlimited local dictation</b>, 90+ languages",
+    free_2: "3 essential Styles — E-mail, Messages…", free_3: "10 rewrites per day", free_btn: "Download",
+    free_trial: "14 days of Pro on install",
     badge_pop: "Most popular", price_pro: "€9.99<small> / month</small>",
     price_pro_y: "€99<small> / year</small>", price_ultra_y: "€199<small> / year</small>",
     bill_m: "Monthly", bill_y: "Yearly · 2 months free",
-    pro_1: "<b>Unlimited dictation</b>", pro_2: "All Styles, in every application",
+    pro_1: "<b>Unlimited rewrites</b>", pro_2: "All 7 Styles, in every application",
     ultra_turbo: "<b>Turbo</b> — top speed, online",
+    ultra_stt: "Online voice transcription — 3 hrs / day",
     pro_btn: "Try Pro for free", price_ultra: "€19.99<small> / month</small>",
     ultra_1: "<b>Everything in Pro</b>, at maximum quality", ultra_2: "Custom Styles, per application",
     ultra_3: "Full personalization — orb, name, colors", ultra_btn: "Get Ultra",
-    trial_note: "7 days free, cancel anytime",
+    trial_note: "14 days of Pro on install — no card",
     plans_note: 'Cancel anytime · teams: <a href="mailto:mailprosasha2@gmail.com">write to us</a>',
     dev_kicker: "For developers",
     dev_h2: "Your prompts,<br>thought out loud.",
@@ -1446,7 +1451,7 @@ const I18N = {
     faq_q4: "Which languages are supported?",
     faq_a4: "More than <b>90 languages</b>, detected automatically — dictate in French, switch to English mid-thought if you like. Rewriting follows the language you speak.",
     faq_q5: "Can I cancel? What about refunds?",
-    faq_a5: "Cancel <b>anytime</b>, no questions asked, from the billing portal — Nova stays active until the end of the period. Pro comes with a free 7-day trial. Refund terms are detailed in the <a href=\"/conditions.html\">terms of sale</a>.",
+    faq_a5: "Cancel <b>anytime</b>, no questions asked, from the billing portal — Nova stays active until the end of the period. Nova gives you 14 days of Pro on install, no card. Refund terms are detailed in the <a href=\"/conditions.html\">terms of sale</a>.",
     faq_q6: "On how many computers?",
     faq_a6: "Each license activates Nova on <b>two computers</b>. A device unused for 30&nbsp;days frees its seat automatically — handy when you switch machines.",
     wl_t: "The news, without the noise",

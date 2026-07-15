@@ -15,6 +15,7 @@ branche d'archive `v2-full-archive`. Ajouter un mode = une entrée dans
 import collections
 import ctypes
 import json
+import math
 import os
 import queue
 import sys
@@ -36,6 +37,23 @@ import winext
 
 APP_NAME = "Nova"
 
+# Sonde Qt (sous-processus JETABLE, lancé par _qt_runtime_ok) : tente juste de
+# construire QApplication puis sort — 0 = Qt utilisable. Le fichier du plugin de
+# plateforme Qt peut être présent mais échouer à CHARGER (DLL dépendante ou
+# runtime VC++ absent) ; QApplication appelle alors abort(), une erreur C fatale
+# NON rattrapable par try/except, qui tuerait Nova SANS repli. En la testant
+# dans cet enfant qu'on peut laisser mourir, le processus principal survit et
+# retombe proprement sur le dock web. DOIT court-circuiter AVANT le mutex
+# d'instance unique (sinon l'enfant sortirait 0 sans rien tester) et AVANT tout
+# le reste du démarrage (_make_ui, onboarding, warmup…).
+if "--qt-probe" in sys.argv:
+    try:
+        from PySide6.QtWidgets import QApplication
+        QApplication([]).quit()
+    except BaseException:
+        os._exit(1)
+    os._exit(0)
+
 # instance unique (Windows) : une 2e exécution se referme aussitôt
 try:
     _mutex = ctypes.windll.kernel32.CreateMutexW(None, False, "NovaSpeechlyLiteMutex")
@@ -43,6 +61,65 @@ try:
         sys.exit(0)
 except Exception:
     pass
+
+
+# ======================= Dock QML : moteur Qt construit ICI ==================
+# Auto-réparation du dock QML. Le RENDU/l'init Qt peut appeler abort() — erreur C
+# NON rattrapable, sans log. Marqueur sur disque, écrit AVANT de tenter et effacé
+# une fois le dock rendu (frameSwapped) → survit au crash. Échelle : rendu
+# matériel → rendu logiciel → pilule. Marqueur versionné (une MàJ repart au
+# matériel). Ces helpers sont définis ICI (et pas près de _make_ui) car le bloc
+# de construction Qt ci-dessous, qui s'exécute très tôt, en a besoin.
+_QML_GUARD = "qml_pending.json"
+
+
+def _qml_next_stage():
+    """Étage QML à tenter, ou None si tous ont déjà planté (→ pilule). Sans
+    marqueur pour CETTE version → 'hw' ; marqueur 'hw' resté → 'sw' ; 'sw' → None."""
+    d = core._load(_QML_GUARD, None)
+    if not (isinstance(d, dict) and d.get("ver") == core.APP_VERSION):
+        return "hw"
+    return {"hw": "sw"}.get(d.get("stage"))   # 'sw' ou étage inconnu → None
+
+
+def _qml_launch_ok():
+    """Le dock QML s'est rendu sans crash : efface le marqueur (prochain
+    lancement au rendu matériel). Idempotent."""
+    try:
+        os.remove(core._path(_QML_GUARD))
+    except OSError:
+        pass
+
+
+# POURQUOI ICI, si TÔT : le dock QML plantait au démarrage (QApplication appelait
+# abort()). Diagnostic prouvé par les journaux : la sonde --qt-probe construit
+# QApplication SANS problème parce qu'elle le fait AVANT os.chdir() ET
+# l'installation du faulthandler (elle sort ligne ~55) ; le vrai processus le
+# construisait APRÈS ces deux étapes, et c'est LÀ que Qt s'effondrait. On
+# construit donc le moteur Qt ICI, dans le même état « propre » que la sonde —
+# AVANT chdir et faulthandler (plus bas). _make_ui()/QmlDock réutilisent cette
+# instance (QApplication.instance() n'en recrée pas). Opt-in QML uniquement,
+# entièrement défensif (échec → flux normal → pilule) : ZÉRO impact sur la
+# pilule par défaut. L'échelle d'auto-réparation ci-dessus décide matériel/
+# logiciel/abandon AVANT de construire, donc un crash ne peut pas re-briquer.
+# Uniquement le vrai lancement de l'UI : PAS --preload-models (installeur) ni
+# --settings (sous-processus webview des Réglages), qui n'affichent pas le dock.
+if core.CFG.get("dock_ui") == "qml" \
+        and "--preload-models" not in sys.argv and "--settings" not in sys.argv:
+    _qml_stage = _qml_next_stage()
+    if _qml_stage:                       # None → tentatives épuisées : on laisse
+        if _qml_stage == "sw":           #        _make_ui retomber sur la pilule
+            os.environ["QT_QUICK_BACKEND"] = "software"
+        core._save(_QML_GUARD, {"ver": core.APP_VERSION, "stage": _qml_stage})
+        try:
+            import qmldock
+            qmldock._ensure_qapp()       # construit Qt MAINTENANT (état « sonde »)
+            core.log_err("qml_early_ok", f"moteur Qt construit tôt ({_qml_stage})")
+        except Exception as e:
+            # PySide6/QtQuick ne s'initialise pas ici → pilule via _make_ui. On
+            # JOURNALISE la cause exacte (import DLL manquante, mémoire, plugin…) :
+            # sans ça l'échec était muet. Le repli reste garanti (jamais de crash).
+            core.log_err("qml_early_fail", e)
 
 BLUE, GREEN, ORANGE = "#3FA9FF", "#22C55E", "#E0913A"
 
@@ -144,6 +221,10 @@ class Pill(threading.Thread):
         self._alpha = 0.0
         self._alpha_target = 0.0
         self._hide_job = None
+        # frontières des zones cliquables du dock de repos (recalculées à chaque
+        # dessin) : par défaut tout le dock renvoie au comportement « écarter ».
+        self._zone_gear = 0
+        self._zone_star = self.W
 
     # ---- API thread-safe ----
     def show(self, state, text="", sub=""):
@@ -209,7 +290,7 @@ class Pill(threading.Thread):
         self.font_badge = tkfont.Font(family="Segoe UI", size=9, weight="bold")
         self._settings_win = None
         self._make_draggable(self.canvas, self.root, "pill_pos",
-                             on_click=lambda _e: self._dismiss())
+                             on_click=self._on_pill_click)
         self.root.after(50, self._tick)
         self.root.mainloop()
 
@@ -238,6 +319,23 @@ class Pill(threading.Thread):
         widget.bind("<B1-Motion>", motion)
         widget.bind("<ButtonRelease-1>", release)
         widget.configure(cursor="fleur")
+
+    def _on_pill_click(self, e):
+        """Clic simple (sans glisser) : sur le dock de repos, la roue dentée
+        ouvre les Réglages et l'étoile oriente vers les Styles ; partout ailleurs
+        (bulles transitoires), un clic écarte la bulle — comportement historique.
+        Toujours défensif : un souci ici ne doit jamais figer la pilule."""
+        try:
+            if self._state == "repos":
+                if e.x <= self._zone_gear:
+                    self.open_settings()
+                    return
+                if e.x >= self._zone_star:
+                    self.open_modes()
+                    return
+        except Exception as ex:
+            core.log_err("pill_click", ex)
+        self._dismiss()
 
     def _saved_pos(self, cfg_key, w, h, sw, sh):
         pos = core.CFG.get(cfg_key)
@@ -274,33 +372,88 @@ class Pill(threading.Thread):
                x2 - r, y2, x1 + r, y2, x1, y2, x1, y2 - r, x1, y1 + r, x1, y1]
         return c.create_polygon(pts, smooth=True, **kw)
 
-    # ---- dessin des 5 états ----
+    # ---- petite boîte à outils « verre » (Canvas, sans dépendance, sans lag) ----
+    @staticmethod
+    def _lerp(a, b, t):
+        """Mélange deux couleurs hex — sert à FAUSSER une lueur radiale en
+        empilant des ovales dégradés (tkinter ne sait pas faire d'alpha)."""
+        a, b = a.lstrip("#"), b.lstrip("#")
+        return "#%02x%02x%02x" % tuple(
+            max(0, min(255, round(int(a[i:i + 2], 16)
+                                  + (int(b[i:i + 2], 16) - int(a[i:i + 2], 16)) * t)))
+            for i in (0, 2, 4))
+
+    def _glow_orb(self, c, cx, cy, r, base):
+        """Bille de verre + halo bleu façon site. Le halo est une pile d'ovales
+        interpolés vers `base` (le fond de la capsule) → dégradé doux, opaque,
+        zéro coût perceptible (≈10 ovales)."""
+        for k in range(6, 0, -1):
+            rr = r * (1 + 0.12 * k)
+            col = self._lerp(base, "#8AA0EA", (7 - k) / 9)
+            c.create_oval(cx - rr, cy - rr, cx + rr, cy + rr, fill=col, outline="")
+        c.create_oval(cx - r, cy - r, cx + r, cy + r, fill="#7E92D6", outline="")
+        c.create_oval(cx - r + 2, cy - r + 1, cx + r - 3, cy + r - 4,
+                      fill="#AEBEEC", outline="")
+        c.create_oval(cx - r + 4, cy - r + 3, cx - r + 11, cy - r + 10,
+                      fill="#DFE7FA", outline="")
+
+    def _gear_icon(self, c, cx, cy, col, r=6):
+        """Roue dentée au trait (réglages) — anneau + 8 dents + moyeu."""
+        for a in range(0, 360, 45):
+            dx, dy = math.cos(math.radians(a)), math.sin(math.radians(a))
+            c.create_line(cx + dx * r, cy + dy * r,
+                          cx + dx * (r + 3), cy + dy * (r + 3),
+                          fill=col, width=2, capstyle="round")
+        c.create_oval(cx - r, cy - r, cx + r, cy + r, outline=col, width=2)
+        c.create_oval(cx - 2, cy - 2, cx + 2, cy + 2, fill=col, outline="")
+
+    def _star_icon(self, c, cx, cy, col, r=8):
+        """Étoile 5 branches au trait (Styles)."""
+        pts = []
+        for k in range(10):
+            rad = r if k % 2 == 0 else r * 0.42
+            a = math.radians(-90 + k * 36)
+            pts += [cx + math.cos(a) * rad, cy + math.sin(a) * rad]
+        c.create_polygon(pts, outline=col, fill="", width=2, joinstyle="round")
+
+    def _draw_dock(self, c, cy):
+        """État de repos : dock compact « verre » — Réglages · bille de verre ·
+        Styles, centré dans la fenêtre. Le reste de la fenêtre est transparent
+        (clé de couleur) donc rien n'est capté hors de la capsule. Les icônes
+        gauche/droite sont cliquables (zones mémorisées pour _on_pill_click)."""
+        wc = 176
+        x0 = (self.W - wc) // 2
+        x1 = x0 + wc
+        self._rounded(c, x0, cy - 26, x1, cy + 26, 26,
+                      fill="#212127", outline="#33333A", width=1)
+        gx = x0 + 34                 # centre roue dentée (Réglages)
+        sx = x1 - 34                 # centre étoile (Styles)
+        ox = self.W // 2             # centre de la bille de verre
+        for dvx in (gx + 24, sx - 24):
+            c.create_line(dvx, cy - 13, dvx, cy + 13, fill="#34343C", width=1)
+        self._gear_icon(c, gx, cy, "#9AA0AE")
+        self._glow_orb(c, ox, cy, 12, "#212127")
+        self._star_icon(c, sx, cy, "#9AA0AE")
+        self._zone_gear = gx + 12    # clic ≤ ici → Réglages
+        self._zone_star = sx - 12    # clic ≥ ici → Styles
+
+    # ---- dessin des états ----
     def _redraw(self):
         c = self.canvas
         c.delete("all")
         st = self._state
-        self._rounded(c, 2, 2, self.W - 2, self.H - 2, self.R,
-                      fill=self.BG, outline=self.BORDERS.get(st, "#3A3D46"), width=1)
         cy = self.H // 2
 
         if st == "repos":
-            # point-orbe : la bille de verre du site, version tkinter (3 ovales)
-            c.create_oval(18, cy - 7, 32, cy + 7, fill="#7E92D6", outline="")
-            c.create_oval(19, cy - 6, 30, cy + 5, fill="#AEBEEC", outline="")
-            c.create_oval(21, cy - 5, 26, cy, fill="#DFE7FA", outline="")
-            label = _mode_label(STATE["mode"])   # gère les modes sur mesure (custom:)
-            c.create_text(44, cy, anchor="w", fill="#7C8398", font=self.font,
-                          text=f"{label} — prête")
-            key = (core.CFG.get("ptt_key") or "").upper()
-            if key:
-                tw = self.font_badge.measure(key)
-                x2 = self.W - 18
-                self._rounded(c, x2 - tw - 16, cy - 11, x2, cy + 11, 6,
-                              fill="#26272E", outline="#3A3D46")
-                c.create_text(x2 - 8 - tw / 2, cy, fill="#9AA0AE",
-                              font=self.font_badge, text=key)
+            # dock compact centré (capsule à sa propre géométrie) — on ne dessine
+            # PAS la capsule pleine largeur des bulles transitoires.
+            self._draw_dock(c, cy)
+            return
 
-        elif st == "listening":
+        self._rounded(c, 2, 2, self.W - 2, self.H - 2, self.R,
+                      fill=self.BG, outline=self.BORDERS.get(st, "#3A3D46"), width=1)
+
+        if st == "listening":
             # barres d'égaliseur périwinkle alternées, bouts ronds — la bulle du site
             for i in range(self.N_BARS):
                 x = 20 + i * 6
@@ -421,7 +574,7 @@ class Pill(threading.Thread):
             _sh = int(win.winfo_screenheight())
         except Exception:
             _sh = 760
-        win.geometry("560x%d" % max(480, min(760, _sh - 80)))
+        win.geometry("600x%d" % max(480, min(760, _sh - 80)))
         win.attributes("-topmost", True)
 
         # Conteneur défilant (Canvas + Scrollbar) : TOUS les widgets de contenu
@@ -467,9 +620,34 @@ class Pill(threading.Thread):
             win.destroy()
         win.protocol("WM_DELETE_WINDOW", on_close)
 
+        # — en-tête : identité Nova (orbe « bille de verre » façon pilule) + titre.
+        # Purement décoratif : donne à la fenêtre le même langage visuel que la
+        # pilule, sans rien changer au fonctionnement.
+        head = tk.Frame(body, bg=SET_BG)
+        head.pack(fill="x", padx=16, pady=(16, 2))
+        _orb = tk.Canvas(head, width=34, height=34, bg=SET_BG,
+                         highlightthickness=0, bd=0)
+        _orb.pack(side="left")
+        _orb.create_oval(4, 5, 30, 31, fill="#7E92D6", outline="")
+        _orb.create_oval(6, 6, 26, 25, fill="#AEBEEC", outline="")
+        _orb.create_oval(9, 8, 19, 17, fill="#DFE7FA", outline="")
+        _htx = tk.Frame(head, bg=SET_BG)
+        _htx.pack(side="left", padx=12)
+        tk.Label(_htx, text="Réglages", bg=SET_BG, fg=SET_FG,
+                 font=("Segoe UI", 19, "bold")).pack(anchor="w")
+        tk.Label(_htx, text="Nova — dictée vocale", bg=SET_BG, fg=SET_MUT,
+                 font=("Segoe UI", 9)).pack(anchor="w")
+        tk.Frame(body, bg=SET_LINE, height=1).pack(fill="x", padx=16, pady=(10, 0))
+
+        def _seclabel(text, top=18):
+            """Libellé de section façon macOS : MAJUSCULES, gris, petit. Purement
+            visuel — remplace les gros titres blancs par une hiérarchie sobre."""
+            tk.Label(body, text=text.upper(), bg=SET_BG, fg=SET_MUT,
+                     font=("Segoe UI", 10, "bold")).pack(
+                         anchor="w", padx=16, pady=(top, 5))
+
         # — Licence & version —
-        tk.Label(body, text="Licence", bg=SET_BG, fg=SET_FG,
-                 font=("Segoe UI", 15, "bold")).pack(anchor="w", padx=16, pady=(14, 4))
+        _seclabel("Licence", top=6)
         lic_state = tk.Label(body, text="", bg=SET_BG, fg=SET_MUT,
                              font=("Segoe UI", 9), justify="left")
         lic_state.pack(anchor="w", padx=16)
@@ -483,7 +661,7 @@ class Pill(threading.Thread):
                 q = licensing.quota_status()
                 lic_state.config(fg=SET_MUT,
                                  text=f"Version : Gratuit — {q['used']}/{q['limit']} "
-                                      "caractères transcrits cette semaine.")
+                                      "reformulations aujourd'hui · dictée illimitée.")
             else:
                 exp = ("licence perpétuelle" if not st["expiry"] else
                        "expire le " + time.strftime("%d/%m/%Y",
@@ -519,9 +697,7 @@ class Pill(threading.Thread):
             pass
         tk.Frame(body, bg=SET_INSET, height=1).pack(fill="x", padx=16, pady=(8, 2))
 
-        pad = {"padx": 16, "pady": 6}
-        tk.Label(body, text="Raccourcis vocaux", bg=SET_BG, fg=SET_FG,
-                 font=("Segoe UI", 15, "bold")).pack(anchor="w", **pad)
+        _seclabel("Raccourcis vocaux")
         tk.Label(body, text="Quand je dis…  →  le texte collé à la place "
                  "(100 % privé, jamais envoyé à une IA)",
                  bg=SET_BG, fg=SET_MUT, font=("Segoe UI", 9)).pack(anchor="w",
@@ -577,9 +753,14 @@ class Pill(threading.Thread):
 
         # — Personnalisation (palier Ultra) —
         def ultra_header(title, unlocked):
-            tk.Label(body, text=title + ("" if unlocked else "   — NÉCESSITE NOVA ULTRA"),
-                     bg=SET_BG, fg=SET_FG, font=("Segoe UI", 15, "bold")
-                     ).pack(anchor="w", padx=16, pady=(0, 4))
+            row = tk.Frame(body, bg=SET_BG)
+            row.pack(fill="x", anchor="w", padx=16, pady=(18, 5))
+            tk.Label(row, text=title.upper(), bg=SET_BG, fg=SET_MUT,
+                     font=("Segoe UI", 10, "bold")).pack(side="left")
+            if not unlocked:
+                tk.Label(row, text="NÉCESSITE NOVA ULTRA", bg="#332C46",
+                         fg="#C9B6F0", font=("Segoe UI", 8, "bold"),
+                         padx=7, pady=1).pack(side="left", padx=8)
 
         tk.Frame(body, bg=SET_LINE, height=1).pack(fill="x", padx=16, pady=12)
         can_orb = licensing.has("orb_customization")
@@ -687,6 +868,7 @@ class Pill(threading.Thread):
         # moteur + touche push-to-talk
         sep = tk.Frame(body, bg=SET_LINE, height=1)
         sep.pack(fill="x", padx=16, pady=12)
+        _seclabel("Moteur & dictée", top=0)
         eng = tk.Frame(body, bg=SET_BG)
         eng.pack(fill="x", padx=16)
         cloud = tk.BooleanVar(value=bool(core.CFG.get("stt", {}).get("cloud_enabled")))
@@ -958,8 +1140,7 @@ class Pill(threading.Thread):
         # Vitesse de transcription (parité avec le dock — mêmes options)
         seps = tk.Frame(body, bg=SET_LINE, height=1)
         seps.pack(fill="x", padx=16, pady=12)
-        tk.Label(body, text="Vitesse de transcription", bg=SET_BG, fg=SET_FG,
-                 font=("Segoe UI", 13, "bold")).pack(anchor="w", padx=16)
+        _seclabel("Vitesse de transcription", top=2)
         _o = _stt_opts()                  # même source que le dock
         v_live = tk.BooleanVar(value=_o["live"])
         v_warm = tk.BooleanVar(value=_o["keep_warm_on"])
@@ -1010,8 +1191,7 @@ class Pill(threading.Thread):
         # e-mail »… dans le texte dicté (surtout le mode E-mail). 100 % local.
         sep2 = tk.Frame(body, bg=SET_LINE, height=1)
         sep2.pack(fill="x", padx=16, pady=12)
-        tk.Label(body, text="Mes infos", bg=SET_BG, fg=SET_FG,
-                 font=("Segoe UI", 13, "bold")).pack(anchor="w", padx=16)
+        _seclabel("Mes infos", top=2)
         info = core.personal_info()
         # clés = source unique storage.PERSONAL_FIELDS (jamais de dérive avec le
         # stockage) ; libellés propres à l'UI
@@ -1073,6 +1253,19 @@ class Pill(threading.Thread):
 
 # ================================================= dock web (organique, option)
 DOCK_HTML = core.resource_path(os.path.join("ui", "dock.html"))
+
+
+def _dock_html():
+    """Contenu de dock.html chargé EN MÉMOIRE, injecté tel quel dans la webview
+    (paramètre `html=`) au lieu de pointer la fenêtre sur un fichier. Le serveur
+    interne de pywebview résolvait « /ui/dock.html » relativement à un dossier
+    courant qui, selon l'installation (exe vs _internal PyInstaller 6), pouvait
+    ne pas contenir ui/ → page « 404 Not Found » au démarrage. En passant le HTML
+    directement, AUCUN serveur ni chemin n'intervient : le 404 est IMPOSSIBLE.
+    dock.html est autonome (CSS/JS/SVG inline, aucune ressource externe ni requête
+    réseau) — vérifié : le rendu est identique à un chargement par fichier."""
+    with open(DOCK_HTML, "r", encoding="utf-8") as f:
+        return f.read()
 
 
 class WebDock:
@@ -1505,7 +1698,7 @@ class WebDock:
         # focus=False : la bulle ne vole JAMAIS le focus clavier — la fenêtre
         # active reste celle de l'utilisateur (détection auto + collage fiables)
         self._win = webview.create_window(
-            "NovaDock", DOCK_HTML, width=w, height=h, x=x, y=y,
+            "NovaDock", html=_dock_html(), width=w, height=h, x=x, y=y,
             frameless=True, easy_drag=False, on_top=True, hidden=True,
             focus=False, transparent=True, background_color=self.KEY,
             resizable=False, js_api=DockApi(self))
@@ -1942,20 +2135,230 @@ def _webview2_runtime_present():
     return False
 
 
-def _make_ui():
-    """Choisit l'UI selon `CFG["dock_ui"]` : "web" (défaut) = le dock et les
-    fenêtres du site (webview), "pill" = pilule tkinter. Repli automatique sur
-    la pilule si le dock web ne peut pas être instancié (pywebview absent) OU si
-    le RUNTIME WebView2 manque — jamais de démarrage cassé."""
-    if core.CFG.get("dock_ui", "web") != "pill":
+def _qt_runtime_ok():
+    """PySide6 importable, plugin de plateforme Qt présent ET QApplication qui se
+    construit VRAIMENT. `QApplication()` APPELLE abort() (erreur C fatale, NON
+    rattrapable par try/except) si le plugin « platforms » (qwindows) manque OU
+    échoue à charger (DLL dépendante / runtime VC++ absent) — l'app mourrait
+    alors SANS repli. Le fichier présent ne suffit donc pas : on sonde le vrai
+    QApplication dans un sous-processus jetable (voir --qt-probe en tête de
+    module) AVANT de choisir Qt ; échec → dock web / pilule. Symétrique de
+    _webview2_runtime_present pour le chemin WebView2."""
+    try:
+        import PySide6  # noqa: F401
+    except Exception:
+        return False
+    if not getattr(sys, "frozen", False):
+        return True     # hors PyInstaller (dev) : PySide6 pip → plugins présents
+    base = getattr(sys, "_MEIPASS", os.path.dirname(sys.executable))
+    plugin_dir = None
+    for d in (os.path.join(base, "PySide6", "plugins", "platforms"),
+              os.path.join(base, "_internal", "PySide6", "plugins", "platforms"),
+              os.path.join(base, "PySide6", "Qt", "plugins", "platforms")):
         try:
-            import webview  # noqa: F401 — vérifie la dispo AVANT de renoncer à la pilule
-            if _webview2_runtime_present():
-                return WebDock()
-            core.log_err("dock_ui", "runtime WebView2 absent → repli pilule tkinter")
+            if os.path.isdir(d) and any(
+                    f.lower().startswith("qwindows") for f in os.listdir(d)):
+                plugin_dir = d
+                break
+        except OSError:
+            pass
+    if plugin_dir is None:
+        core.log_err("dock_ui_qt", "plugin de plateforme Qt absent → repli web/pilule")
+        return False
+    # serve() en aura besoin, y compris quand la sonde est déjà en cache
+    os.environ.setdefault("QT_QPA_PLATFORM_PLUGIN_PATH", plugin_dir)
+    # fichier présent ≠ charge : QApplication se construit-il vraiment ? Résultat
+    # mémoïsé sur disque PAR VERSION → une seule sonde après chaque mise à jour
+    # (un lancement froid n'attend pas le spawn d'un enfant à chaque fois).
+    cached = core._load("qt_probe.json", None)
+    if isinstance(cached, dict) and cached.get("ver") == core.APP_VERSION \
+            and isinstance(cached.get("ok"), bool):
+        return cached["ok"]
+    ok = _qt_probe_subprocess()
+    core._save("qt_probe.json", {"ver": core.APP_VERSION, "ok": ok})
+    return ok
+
+
+def _qt_probe_subprocess():
+    """Lance « Nova.exe --qt-probe » : un enfant qui tente QApplication() puis
+    sort (0 = OK). Tout autre code — dont l'abort C d'un plugin qui ne charge
+    pas — signifie « Qt inutilisable ici » → repli web. On journalise la raison
+    Qt (stderr sous QT_DEBUG_PLUGINS) pour diagnostiquer la dépendance manquante
+    lors d'une prochaine itération, sans jamais faire planter le processus."""
+    import subprocess
+    env = dict(os.environ)
+    env["QT_DEBUG_PLUGINS"] = "1"          # Qt détaille l'échec de chargement
+    flags = 0x08000000 if os.name == "nt" else 0   # CREATE_NO_WINDOW
+    try:
+        p = subprocess.run([sys.executable, "--qt-probe"], env=env,
+                           capture_output=True, timeout=30, creationflags=flags)
+    except Exception as e:
+        core.log_err("qt_probe", e)         # spawn/timeout impossible → prudence
+        return False
+    if p.returncode == 0:
+        return True
+    tail = (p.stderr or b"")[-1200:].decode("utf-8", "replace").strip()
+    core.log_err("qt_probe", f"QApplication KO (code {p.returncode}) → dock web. {tail}")
+    return False
+
+
+# ---- Auto-réparation du dock QML -----------------------------------------
+# Le RENDU QML (scène graphique) peut appeler abort() — erreur C que try/except
+# NE PEUT PAS rattraper et qui ne laisse AUCUN log (le process meurt avant tout
+# écrit Python). La sonde _qt_runtime_ok teste QApplication mais PAS le rendu :
+# un pilote GPU récalcitrant tue donc Nova au premier repaint, sans repli. Parade
+# increvable : un marqueur sur disque écrit AVANT de tenter QML et effacé
+# SEULEMENT une fois le dock rendu (signal frameSwapped) survit à un tel crash.
+# Au lancement suivant on MONTE d'un cran :
+#   rendu matériel (défaut) → rendu logiciel (QT_QUICK_BACKEND=software) → pilule.
+# Activer le QML ne peut ainsi JAMAIS bloquer Nova, et une machine dont le GPU
+# refuse le rendu matériel bascule seule sur le rendu logiciel (le QML marche
+# quand même). Marqueur versionné → une mise à jour repart au rendu matériel.
+def _make_ui():
+    """Choisit l'UI. DÉFAUT = pilule tkinter NATIVE : 100 % Python, AUCUN WebView
+    (fini les « 404 Not Found » et les plantages du moteur web) ni conflit de DLL
+    Qt — elle démarre PARTOUT. La fiabilité prime sur la finition (choix produit
+    assumé, demandé par l'utilisateur). Le dock natif PySide6 reste en OPT-IN
+    (`dock_ui="qt"`) pour les tests ; s'il échoue il retombe sur la pilule. Le
+    dock WEB n'est PLUS sélectionné automatiquement — retiré du chemin par défaut
+    car trop instable selon les machines (la classe WebDock reste en place pour
+    un éventuel opt-in futur). On journalise le dock retenu (diagnostic)."""
+    # dock QML (Qt Quick) : le moteur Qt a déjà été construit TÔT en tête de
+    # module (AVANT chdir + faulthandler — état « sonde » où Qt ne plante pas) et
+    # l'échelle d'auto-réparation (matériel → logiciel → pilule) y a déjà choisi
+    # l'étage. Si QApplication existe, on monte le dock ; sinon (Qt absent/cassé,
+    # ou tentatives épuisées) on retombe sur la pilule.
+    if core.CFG.get("dock_ui") == "qml" and _qt_runtime_ok():
+        try:
+            from PySide6.QtWidgets import QApplication
+            have_app = QApplication.instance() is not None
+        except Exception:
+            have_app = False
+        if have_app:
+            try:
+                dock = _new_qml_dock()
+                core.log_err("dock_ui_chosen", "qml")
+                return dock
+            except Exception as e:
+                # exception Python (rattrapée) ≠ abort C : on efface le marqueur
+                # et on retombe proprement sur pilule.
+                _qml_launch_ok()
+                core.log_err("dock_ui_qml", e)
+        else:
+            core.log_err("dock_ui_qml", "moteur Qt non prêt tôt → repli pilule")
+    if core.CFG.get("dock_ui") == "qt" and _qt_runtime_ok():
+        try:
+            dock = _new_qt_dock()
+            core.log_err("dock_ui_chosen", "qt")
+            return dock
         except Exception as e:
-            core.log_err("dock_ui", e)   # pywebview absent/cassé → repli sur la pilule
+            core.log_err("dock_ui_qt", e)   # PySide6 cassé → pilule native
+    core.log_err("dock_ui_chosen", "pill")
     return Pill()
+
+
+def _new_qt_dock():
+    """Instancie le dock natif Qt (import paresseux de PySide6)."""
+    from qtdock import QtDock
+    return QtDock(on_settings=lambda: _open_settings_window(),
+                  on_select_mode=lambda mid: _set_mode(mid))
+
+
+def _new_qml_dock():
+    """Instancie le dock QML (import paresseux de PySide6/Qt Quick)."""
+    from qmldock import QmlDock
+    return QmlDock(on_settings=lambda: _open_settings_window(),
+                   on_select_mode=lambda mid: _set_mode(mid))
+
+
+def _resync_state_from_config():
+    """Recale l'état runtime (mode/profil) sur la config rechargée : la fenêtre
+    Réglages (processus séparé tant que le dock est natif) a pu les changer.
+    Appelé par le dock Qt quand il détecte une écriture de config.json."""
+    STATE["mode"] = core.CFG.get("mode", modes_registry.DEFAULT_MODE_ID)
+    if not licensing.mode_allowed(STATE["mode"]):
+        STATE["mode"] = modes_registry.DEFAULT_MODE_ID
+    STATE["profile"] = core.CFG.get("profile", STATE.get("profile"))
+
+
+def _open_settings_window():
+    """Ouvre les Réglages. Le dock natif (Qt) possède le fil principal ; la
+    fenêtre Réglages est encore en webview et pywebview veut AUSSI le fil
+    principal → on la lance dans un PROCESSUS séparé (les deux boucles ne
+    cohabitent pas). L'échange se fait par config.json, que le dock surveille."""
+    import subprocess
+    try:
+        if getattr(sys, "frozen", False):
+            args = [sys.executable, "--settings"]
+        else:
+            args = [sys.executable, os.path.abspath(__file__), "--settings"]
+        subprocess.Popen(args, close_fds=True)
+    except Exception as e:
+        core.log_err("settings_win", e)
+        try:
+            pill.show("error", "Réglages indisponibles — réessaie")
+            pill.hide(2.4)
+        except Exception:
+            pass
+
+
+class _SettingsHost:
+    """Hôte du DockApi pour la fenêtre Réglages AUTONOME (processus séparé).
+    La fenêtre étant une simple fenêtre webview de taille fixe (pas de dock natif
+    à détourer/ancrer ici), on n'implémente que ce que DockApi appelle : redim.
+    via `_set_panel`, et des no-op pour `apply_shape`/`refresh_prefs`/`_push_ok`
+    (sinon AttributeError à chaque reportShape / changement de prefs du dock)."""
+
+    def __init__(self):
+        self._win = None
+        self._panel = "settings"
+        self._push_ok = False       # DockApi.shape y écrit (pont prouvé)
+
+    def _set_panel(self, name):
+        self._panel = name
+        w, h = {"settings_max": (1180, 780)}.get(name, (880, 620))
+        try:
+            if self._win is not None:
+                self._win.resize(w, h)
+        except Exception:
+            pass
+
+    def apply_shape(self, payload):
+        pass                        # fenêtre fixe : rien à détourer
+
+    def refresh_prefs(self):
+        pass                        # les prefs du dock ne concernent pas les Réglages
+
+
+def _run_settings_process():
+    """Processus « Nova.exe --settings » : fenêtre Réglages en webview (dock.html,
+    panneau Réglages ouvert d'emblée). Aucune barre, redimensionnable ; les
+    changements sont écrits dans config.json et repris EN DIRECT par le dock
+    natif (qui surveille le fichier)."""
+    # ce processus relit le disque avant chaque save → il n'écrase jamais un
+    # changement écrit entre-temps par le processus du dock (anti lost-update)
+    core._RELOAD_BEFORE_SAVE = True
+    try:
+        import webview
+    except Exception as e:
+        core.log_err("settings_proc", e)
+        return
+    if not os.path.isfile(DOCK_HTML):
+        core.log_err("settings_proc", "dock.html introuvable")
+        return
+    host = _SettingsHost()
+    host._win = webview.create_window(
+        _app_display_name() + " — Réglages", html=_dock_html(), width=880,
+        height=620, min_size=(720, 500), frameless=True, easy_drag=False,
+        resizable=True, background_color="#1F1F22", js_api=DockApi(host))
+
+    def _open():
+        try:
+            host._win.evaluate_js("window.__openSettings&&window.__openSettings()")
+        except Exception:
+            pass
+
+    webview.start(_open)
 
 
 pill = _make_ui()
@@ -2026,15 +2429,9 @@ def _ptt_session():
     #                      le reste de la session.
     try:
         pill.show("listening", "")
-        # Palier Free : quota hebdomadaire de transcription (payant = illimité ;
-        # dormant = illimité → aucun effet tant que les licences ne sont pas
-        # activées par l'éditeur).
-        if not licensing.can_transcribe():
-            q = licensing.quota_status()
-            pill.show("error", "Quota gratuit atteint",
-                      f"{q['used']}/{q['limit']} car. cette semaine — passez à Pro")
-            pill.hide(2.6)
-            return
+        # La dictée (transcription) est ILLIMITÉE à tous les paliers — on ne
+        # bride jamais la voix. Le seul plafond Free porte sur la reformulation
+        # IA (cf. plus bas, licensing.can_reformulate()).
         t_release = None
         # transcription EN CONTINU (PC sans GPU) : les tranches terminées sont
         # transcrites pendant que la touche est tenue — à la relâche il ne
@@ -2071,7 +2468,6 @@ def _ptt_session():
             pill.hide(1.6)
             return
         pill.show("thinking", f"« {text[:60]} »")
-        licensing.record_transcription(text)          # comptabilise le quota Free
         # champs de profil toujours substitués (fonction de base) ; les Custom
         # Variables ne s'appliquent qu'au palier Pro
         text = core.fill_personal(text, custom_vars=licensing.has("custom_variables"))
@@ -2081,11 +2477,18 @@ def _ptt_session():
         if core._seq_exclusive():        # invariant partagé (cf. core._should_warm_llm)
             core.unload_whisper()
         prompt, concrete = _resolve_prompt(STATE["mode"])
+        reform_capped = False
         if concrete == "voice_to_text" and core.CFG.get("instant_normal"):
             # collage éclair (réglage, off par défaut) : le Style Normal par
             # règles pures, SANS IA — latence quasi nulle, choix explicite de
-            # l'utilisateur, donc styled=True (c'est le résultat demandé)
+            # l'utilisateur, donc styled=True (c'est le résultat demandé).
+            # Ne consomme pas de quota (pas d'IA).
             out, styled = core.format_rules(text) or text, True
+        elif not licensing.can_reformulate():
+            # Palier Free : plafond quotidien de reformulations IA atteint. On
+            # colle le texte brut (règles pures, SANS IA) — curseur jamais vide —
+            # et on invite à passer à Pro. La dictée, elle, reste illimitée.
+            out, styled, reform_capped = core.format_rules(text) or text, False, True
         else:
             # cascade de repli universelle : IA → format_rules → texte brut.
             # Chaque étage est protégé : jamais de plantage, jamais de
@@ -2098,9 +2501,18 @@ def _ptt_session():
                 out = ""
             if not out:
                 out = core.format_rules(text) or text
+            if styled:
+                licensing.record_reformulation()   # 1 reformulation IA réussie
         pasted = winext.paste_into_active_app(out)
         dt = time.time() - t_release
-        if pasted and not styled:
+        if pasted and reform_capped:
+            # plafond gratuit du jour atteint : texte collé (brut), invitation
+            # sobre à passer à Pro pour retrouver les reformulations illimitées
+            q = licensing.quota_status()
+            pill.show("error", "Limite gratuite atteinte",
+                      f"{q['used']}/{q['limit']} reformulations aujourd'hui — passez à Pro")
+            pill.hide(2.8)
+        elif pasted and not styled:
             # honnêteté : le texte est collé mais SANS le Style demandé —
             # le dire, plutôt que d'afficher le Style comme si tout allait bien
             pill.show("error", "Collé sans Style — IA indisponible",
@@ -2555,5 +2967,10 @@ def _preload_models():
 if __name__ == "__main__":
     if "--preload-models" in sys.argv:
         _preload_models()
+        sys.exit(0)
+    if "--settings" in sys.argv:
+        # fenêtre Réglages autonome (webview), ouverte par le dock natif Qt qui
+        # possède le fil principal dans l'autre processus — voir _open_settings_window
+        _run_settings_process()
         sys.exit(0)
     main()

@@ -359,31 +359,22 @@ def test_power_profiles():
 
 # --------------------------------------------------- onboarding (accueil) ----
 def test_onboarding():
-    """L'assistant de bienvenue ne doit dépendre de pywebview qu'à l'usage réel
-    (run()), jamais au chargement du module — sinon la CI (sans pywebview
-    installé) casserait juste en import. `import onboarding` a déjà réussi plus
-    haut : c'est la première preuve. Ici on vérifie la logique (Api, drapeau)."""
-    print("Onboarding — drapeau 1er lancement + pont API (sans pywebview)")
+    """L'assistant de bienvenue est 100 % NATIF (tkinter) : aucune dépendance
+    web, aucun import lourd au chargement du module (tkinter n'est importé que
+    dans run()). Sa logique de configuration réutilise celle du tray / des
+    Réglages (setters de module). On teste le drapeau 1er lancement + les
+    setters, sans ouvrir de fenêtre."""
+    print("Onboarding — drapeau 1er lancement + setters natifs (sans WebView)")
     core.CFG["onboarding_done"] = False
     check("pas encore fait → nécessaire", onboarding.needs_onboarding(), True)
     core.CFG["onboarding_done"] = True
     check("déjà fait → plus nécessaire", onboarding.needs_onboarding(), False)
 
-    check("vidéo absente → url vide (pas d'erreur)", onboarding.video_url(), "")
-
-    api = onboarding.Api()
-    st = api.state()
-    check("state() expose tous les modes (source modes_registry)",
-          len(st["modes"]), len(modes_registry.all_modes()))
-    check("state() expose les langues (source core.LANGUAGES)",
-          len(st["languages"]), len(core.LANGUAGES))
-    check("state() expose tous les profils (source power_profiles)",
-          len(st["profiles"]), len(power_profiles.PROFILES))
-
-    check("set_ptt_key persiste", api.set_ptt_key("F8"), "f8")
+    check("set_ptt_key persiste (normalisé en minuscules)",
+          onboarding.set_ptt_key("F8"), "f8")
     check("set_ptt_key ignore une valeur vide (garde l'ancienne)",
-          api.set_ptt_key(""), "f8")
-    check("set_language persiste", api.set_language("ja"), "ja")
+          onboarding.set_ptt_key(""), "f8")
+    check("set_language persiste", onboarding.set_language("ja"), "ja")
     # Turbo n'est pas proposé à l'installation sans droit Ultra : refus net,
     # provider inchangé. Les deux cas sont SIMULÉS (has patché) pour ne pas
     # dépendre de l'état de licence de la machine qui exécute les tests
@@ -394,16 +385,19 @@ def test_onboarding():
     try:
         _lic.has = lambda f: False
         check("set_cloud→True SANS droit Ultra → refusé",
-              (api.set_cloud(True), core.CFG.get("provider")), (False, _prov0))
+              (onboarding.set_cloud(True), core.CFG.get("provider")),
+              (False, _prov0))
         _lic.has = lambda f: True
         check("set_cloud→True AVEC droit Ultra → provider auto",
-              (api.set_cloud(True), core.CFG.get("provider")), (True, "auto"))
+              (onboarding.set_cloud(True), core.CFG.get("provider")),
+              (True, "auto"))
     finally:
         _lic.has = _has0
     check("set_cloud→False repasse en local (ollama)",
-          (api.set_cloud(False), core.CFG.get("provider")), (False, "ollama"))
+          (onboarding.set_cloud(False), core.CFG.get("provider")),
+          (False, "ollama"))
     # même garde-fou que le tray : une sélection impossible retombe sur un profil sûr
-    got = api.set_profile("ultra")
+    got = onboarding.set_profile("ultra")
     check("set_profile jamais un profil verrouillé sur cette machine",
           power_profiles.is_available(got, power_profiles.detect_hardware()), True)
 
@@ -439,15 +433,16 @@ def test_licensing():
     check("free : pas de cloud", L.has("cloud_stt", L.FREE), False)
     check("free : dictée locale de base ok", L.has("cloud_stt", L.FREE) is False
           and L.mode_allowed("email", L.FREE), True)
-    check("pro : tout l'usage débloqué", L.has("unlimited_stt", L.PRO), True)
+    check("pro : reformulations illimitées",
+          L.has("unlimited_reformulation", L.PRO), True)
     check("pro : pas de Turbo (Ultra only)", L.has("cloud_stt", L.PRO), False)
     check("pro : pas la perso Ultra", L.has("custom_modes", L.PRO), False)
     check("pro : pas la meilleure IA", L.has("best_models", L.PRO), False)
     check("ultra : Turbo débloqué", L.has("cloud_stt", L.ULTRA), True)
     check("ultra : meilleure IA", L.has("best_models", L.ULTRA), True)
     check("ultra : personnalisation", L.has("orb_customization", L.ULTRA), True)
-    check("business = niveau Pro (fonctions)", L.has("unlimited_stt", L.BUSINESS),
-          True)
+    check("business = niveau Pro (fonctions)",
+          L.has("unlimited_reformulation", L.BUSINESS), True)
     check("business : pas la perso Ultra", L.has("custom_modes", L.BUSINESS),
           False)
     # modes offerts en Free : le quotidien (décision produit) — Normal,
@@ -470,23 +465,41 @@ def test_licensing():
     try:
         check("dormant → licences désactivées", L.enabled(), False)
         check("dormant → has True partout", L.has("custom_modes"), True)
-        check("dormant → transcription illimitée",
+        check("dormant → reformulation illimitée",
               L.quota_status()["limit"], None)
-        check("dormant → can_transcribe", L.can_transcribe(), True)
+        check("dormant → can_reformulate", L.can_reformulate(), True)
+        check("transcription illimitée à tous les paliers",
+              L.can_transcribe(), True)
     finally:
         L.PUBLIC_KEY_B64 = _pub
     # clé publique réelle présente → le système est ACTIF dans les builds
     check("licences actives (clé publique en place)",
           L.enabled(), bool(L._HAVE_CRYPTO))
-    # quota Free simulé sur un tier explicite (via record) — vérifie le calcul
+    # quota Free simulé (repli config) — calcul journalier des reformulations ;
+    # la dictée, elle, reste illimitée (can_transcribe True partout).
     _saved = core.CFG.get("usage")
-    core.CFG["usage"] = {"week": L._week_key(), "chars": L.FREE_WEEKLY_CHARS}
+    core.CFG["usage"] = {"day": L._day_key(), "count": L.FREE_DAILY_REFORMULATIONS}
     check("quota calc : used=limit → remaining 0 (tier free simulé)",
-          max(0, L.FREE_WEEKLY_CHARS - L._usage_used()), 0)
+          max(0, L.FREE_DAILY_REFORMULATIONS - L._usage_used()), 0)
+    core.CFG["usage"] = {"day": "2000-01-01", "count": 99}
+    check("quota : jour différent → compteur remis à 0", L._usage_used(), 0)
     if _saved is None:
         core.CFG.pop("usage", None)
     else:
         core.CFG["usage"] = _saved
+    # essai inversé : arithmétique des jours restants (indépendante de winext)
+    _its = L._install_ts
+    try:
+        L._install_ts = lambda: int(time.time()) - 3 * 86400
+        check("essai inversé : 3 j écoulés → 11 j restants",
+              L._trial_days_left(), 11)
+        L._install_ts = lambda: int(time.time()) - (L.TRIAL_DAYS + 1) * 86400
+        check("essai inversé : expiré → 0 j", L._trial_days_left(), 0)
+        L._install_ts = lambda: 0
+        check("essai inversé : install indispo → 0 j (fail-safe Free)",
+              L._trial_days_left(), 0)
+    finally:
+        L._install_ts = _its
     # v3.1.24 : la persistance du quota passe par winext.set_secret("usage").
     # « usage » DOIT figurer dans SECRET_KEYS du vrai winext.py, sinon
     # set_secret lève ValueError — avalée par _usage_write → compteur figé à
@@ -514,7 +527,7 @@ def test_licensing():
         return True
     _w.set_secret, _w.get_secret = _vault_set, lambda k: _store.get(k, "")
     try:
-        L._usage_write(L._week_key(), 123)
+        L._usage_write(L._day_key(), 123)
         check("quota : écrit puis relu via le coffre chiffré",
               L._usage_used(), 123)
     finally:
@@ -583,8 +596,10 @@ def test_version_sync():
     check("versions identiques (core ↔ installeur)",
           m.group(1) if m else "", core.APP_VERSION)
     import updater as _upd
-    check("updater compare correctement (3.1.0 < 3.2)",
-          _upd._vtuple("v3.2") > _upd._vtuple(core.APP_VERSION), True)
+    # version-agnostique (ne se périme plus à chaque bump) : un tag franchement
+    # supérieur DOIT être vu comme plus récent que la version courante.
+    check("updater : un tag plus récent est détecté comme plus récent",
+          _upd._vtuple("v999.0.0") > _upd._vtuple(core.APP_VERSION), True)
     check("updater : version identique → pas plus récente",
           _upd._vtuple(f"v{core.APP_VERSION}") > _upd._vtuple(core.APP_VERSION),
           False)
@@ -618,8 +633,11 @@ def test_free_offer_sync():
     counts = _re.findall(r"(\d+)\s+(?:writing\s+)?Styles\b", html)
     check("landing : au moins une mention du compte de Styles",
           bool(counts), True)
-    check("landing : toutes les mentions = len(FREE_MODES) - auto",
-          sorted(set(counts)), [str(nb)])
+    # Le plan Gratuit doit annoncer exactement len(FREE_MODES) - auto Styles ;
+    # les paliers payants peuvent afficher le total « 7 Styles » (hors périmètre
+    # de FREE_MODES), donc on garde le compte Free présent sans interdire le reste.
+    check("landing : le plan Gratuit annonce len(FREE_MODES) - auto Styles",
+          str(nb) in counts, True)
     readme = open(os.path.join(base, "README.md"), encoding="utf-8").read()
     m = _re.search(r"\|\s*Styles\s*\|\s*(\d+)\s*\|", readme)   # lexique produit
     check("README : la colonne Free du tableau des paliers est à jour",
@@ -928,37 +946,75 @@ def test_llm_num_ctx():
         core._ram_total_gb = _rr
 
 
-def test_web_dock_default():
-    """L'interface web (dock.html) est l'UI par défaut pour TOUS : décision
-    produit — la pilule tkinter n'est que le repli WebView2-absent. Une
-    régression ici renverrait les utilisateurs à « l'interface pas belle »."""
-    print("UI — dock web par défaut pour tous")
-    check("config : dock_ui vaut « web » par défaut",
-          core.DEFAULT_CONFIG.get("dock_ui"), "web")
+def test_ui_default_native():
+    """Décision produit (demandée par l'utilisateur) : l'UI par défaut est la
+    pilule tkinter NATIVE — 100 % Python, AUCUN WebView (fini les « 404 Not
+    Found » et les plantages du moteur web), aucun conflit de DLL Qt → elle
+    démarre PARTOUT. Le dock web n'est plus auto-sélectionné ; le dock natif Qt
+    reste un opt-in explicite (dock_ui="qt"). Une régression qui remettrait le
+    WebView dans le chemin par défaut renverrait les plantages."""
+    print("UI — pilule native par défaut (sans WebView)")
+    check("config : dock_ui vaut « pill » par défaut",
+          core.DEFAULT_CONFIG.get("dock_ui"), "pill")
     import licensing as _lic
-    check("licensing : web_dock offert en Free",
+    check("licensing : web_dock défini (dormant si le web est réactivé)",
           _lic.FEATURES.get("web_dock"), _lic.FREE)
-    # transparence RÉELLE : le « carré » autour de la bulle ne disparaît de façon
-    # fiable qu'avec transparent=True (WebView2 compose en alpha) + un fond de
-    # page alpha 0. La clé de couleur et la découpe par région échouent sur la
-    # vue WebView2 (DirectComposition). Les DEUX moitiés doivent tenir ensemble,
-    # sinon le rectangle revient. app.py n'est pas importable ici (Win32) →
-    # comparaison SOURCE.
+    # app.py n'est pas importable ici (Win32) → comparaison SOURCE.
     import os
-    import re
     _here = os.path.dirname(os.path.abspath(__file__))
     _app = open(os.path.join(_here, "app.py"), encoding="utf-8").read()
     _dock = open(os.path.join(_here, "ui", "dock.html"), encoding="utf-8").read()
-    # 1) la fenêtre du dock est créée transparente
-    check("transparence : create_window(transparent=True)",
-          bool(re.search(r"transparent\s*=\s*True", _app)), True)
-    # 2) la page peint un fond TRANSPARENT (html,body), jamais une couleur opaque
-    check("transparence : dock.html html,body en background:transparent",
-          bool(re.search(r"html,body\{[^}]*background:transparent", _dock)), True)
-    # 3) plus AUCUNE clé de couleur (LWA_COLORKEY) : elle créait des trous
-    #    cliquables et ne marchait pas avec WebView2
-    check("transparence : plus de LWA_COLORKEY dans app.py",
-          "LWA_COLORKEY" not in _app, True)
+    # défaut RÉEL : _make_ui retombe sur la pilule native (return Pill) et n'a
+    # plus aucune branche de sélection AUTOMATIQUE de WebDock
+    check("UI : défaut = pilule native (return Pill + log 'pill')",
+          "return Pill()" in _app and 'dock_ui_chosen", "pill"' in _app, True)
+    check("UI : WebDock() plus jamais instancié automatiquement",
+          "return WebDock()" not in _app, True)
+    # dock Qt disponible UNIQUEMENT en opt-in explicite
+    check("UI : dock Qt en opt-in explicite (dock_ui == \"qt\")",
+          'core.CFG.get("dock_ui") == "qt"' in _app, True)
+    # dock QML (Qt Quick) : opt-in explicite (dock_ui == "qml"), défaut inchangé
+    check("UI : dock QML en opt-in explicite (dock_ui == \"qml\")",
+          'core.CFG.get("dock_ui") == "qml"' in _app and "_new_qml_dock" in _app, True)
+    # le dock QML fabrique QApplication AVANT les moteurs (correctif du crash).
+    # Lu en SOURCE (comme app.py) : pas d'import Qt dans l'env de test.
+    _qmls = open(os.path.join(_here, "qmldock.py"), encoding="utf-8").read()
+    check("QML : QApplication construit tôt (_ensure_qapp dans __init__)",
+          "self._app = _ensure_qapp()" in _qmls and "def _ensure_qapp" in _qmls, True)
+    check("QML : API compatible (show/hide/level/serve/open_settings/open_modes)",
+          all(("def %s(" % m) in _qmls for m in
+              ("show", "hide", "level", "serve", "open_settings", "open_modes")), True)
+    # les fichiers QML embarqués existent (bundlés par --add-data "qml;qml")
+    check("QML : qml/Main.qml et qml/Orb.qml présents",
+          os.path.isfile(os.path.join(_here, "qml", "Main.qml"))
+          and os.path.isfile(os.path.join(_here, "qml", "Orb.qml")), True)
+    # Réglages QML en process : la fenêtre existe et réutilise les fonctions de
+    # app.py (aucune logique de config dupliquée → rien de cassé).
+    _qsets = open(os.path.join(_here, "qmlsettings.py"), encoding="utf-8").read()
+    check("QML : fenêtre Réglages présente (qml/Settings.qml + open_settings)",
+          os.path.isfile(os.path.join(_here, "qml", "Settings.qml"))
+          and "def open_settings" in _qsets, True)
+    check("QML Réglages : réutilise les setters de app.py (pas de dup config)",
+          "_toggle_cloud" in _qsets and "_set_profile" in _qsets
+          and "_apply_stt_opts" in _qsets, True)
+    # Onboarding QML : fenêtre présente, réutilise les setters onboarding.py, et
+    # onboarding.run() l'emploie en mode QML avec repli tkinter.
+    _qonb = open(os.path.join(_here, "qmlonboarding.py"), encoding="utf-8").read()
+    _onb = open(os.path.join(_here, "onboarding.py"), encoding="utf-8").read()
+    check("QML : onboarding présent (qml/Onboarding.qml + run_qml)",
+          os.path.isfile(os.path.join(_here, "qml", "Onboarding.qml"))
+          and "def run_qml" in _qonb, True)
+    check("QML onboarding : réutilise onboarding.set_* (pas de dup config)",
+          "onboarding.set_ptt_key" in _qonb and "onboarding.set_profile" in _qonb
+          and "onboarding.set_language" in _qonb and "onboarding.set_cloud" in _qonb, True)
+    check("onboarding.run : QML si dock_ui==qml, repli tkinter sinon",
+          'core.CFG.get("dock_ui") == "qml"' in _onb
+          and "qmlonboarding" in _onb and "_run_wizard()" in _onb, True)
+    # dock.html reste autonome (injecté en mémoire, sans serveur → jamais de 404)
+    check("dock : dock.html injecté en mémoire (html=_dock_html())",
+          "html=_dock_html()" in _app, True)
+    check("dock.html : html,body en background:transparent (si web réactivé)",
+          "html,body{" in _dock and "background:transparent" in _dock, True)
 
 
 if __name__ == "__main__":
@@ -979,7 +1035,7 @@ if __name__ == "__main__":
     test_partial_stt_merge()
     test_warmup_llm_gate()
     test_llm_num_ctx()
-    test_web_dock_default()
+    test_ui_default_native()
     print()
     if _fails:
         print(f"❌ {len(_fails)} échec(s) : {', '.join(_fails)}")

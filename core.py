@@ -23,7 +23,7 @@ import winext
 # Version de l'app — source unique. Doit rester égale au MyAppVersion de
 # installer/nova.iss (test_v3 le vérifie) ; les releases GitHub sont taguées
 # « v » + cette valeur, et updater.py s'en sert pour détecter une mise à jour.
-APP_VERSION = "3.1.28"
+APP_VERSION = "3.2.13"
 
 APP_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
 
@@ -45,8 +45,10 @@ DEFAULT_CONFIG = {
     "instant_normal": False,  # Style Normal collé par règles pures, sans IA
     "onboarding_done": False, # assistant de bienvenue affiché une seule fois
     "auto_update": True,      # mise à jour silencieuse au lancement (updater.py)
-    "dock_ui": "web",         # interface : "web" = dock/fenêtres du site (défaut),
-                              # "pill" = pilule tkinter (repli sans WebView2)
+    "dock_ui": "pill",        # interface : "pill" = pilule tkinter NATIVE (défaut,
+                              # sans WebView, sans conflit Qt — démarre partout) ;
+                              # "qt" = dock natif PySide6 (opt-in test). Le dock
+                              # web n'est plus sélectionné automatiquement.
     "mode_hotkeys": {},       # raccourci clavier par Style : {mode_id: "ctrl+alt+e"}
     "menu_hotkey": "",        # raccourci qui ouvre le menu des Styles ("" = aucun)
     "settings_hotkey": "",    # combinaison qui ouvre la fenêtre Réglages
@@ -181,10 +183,17 @@ def _save(name, data):
     # écriture disque défensive : un échec (disque plein, dossier en lecture
     # seule, antivirus) ne doit jamais remonter et tuer le démarrage. La config
     # reste correcte EN MÉMOIRE pour la session ; on ne fait que journaliser.
+    # Écriture ATOMIQUE (fichier temporaire + os.replace) : un lecteur — dont le
+    # processus des Réglages, qui surveille config.json — voit TOUJOURS l'ancien
+    # OU le nouveau fichier complet, jamais un fichier tronqué en cours d'écriture
+    # (sinon reload_config lisait un JSON partiel → config remise à zéro).
     with _lock:
         try:
-            with open(_path(name), "w", encoding="utf-8") as f:
+            path = _path(name)
+            tmp = path + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
+            os.replace(tmp, path)
         except OSError as e:
             log_err("config_save", e)
 
@@ -320,6 +329,22 @@ CFG = _merge(DEFAULT_CONFIG, _load("config.json", {}))
 # écrans envoient toujours le dictionnaire complet pour ces clés.
 _REPLACE_KEYS = ("mode_hotkeys",)
 
+# Mis à True UNIQUEMENT par le processus Réglages (« Nova.exe --settings ») : il
+# relit alors le disque avant chaque enregistrement (anti-écrasement entre
+# processus). Le processus principal (dock, dictée) reste à False → comportement
+# historique testé (un seul écrivain, CFG mémoire comme base).
+_RELOAD_BEFORE_SAVE = False
+
+
+def _reload_into_cfg_locked():
+    """Relit config.json dans CFG. À appeler SOUS _lock déjà tenu. Une lecture
+    vide/partielle (fichier en cours de réécriture par l'autre processus) est
+    ignorée → jamais de remise aux défauts accidentelle."""
+    global CFG
+    raw = _load("config.json", None)
+    if isinstance(raw, dict) and raw:
+        CFG = _merge(DEFAULT_CONFIG, raw)
+
 
 def save_config(new_cfg):
     # Lecture-modification-écriture ATOMIQUE du global CFG, tenue sous _lock (le
@@ -331,6 +356,13 @@ def save_config(new_cfg):
     # n'est pas ré-entrant.
     global CFG
     with _lock:
+        # Le processus RÉGLAGES (fenêtre webview séparée tant que le dock est
+        # natif) relit d'abord le disque : il ne peut alors PAS écraser un
+        # changement que le processus du dock a écrit entre-temps (ex. un Style
+        # choisi au tray). Le processus du dock, lui, garde son CFG mémoire comme
+        # base (comportement historique et testé — un seul écrivain à la fois).
+        if _RELOAD_BEFORE_SAVE:
+            _reload_into_cfg_locked()
         merged = _merge(CFG, new_cfg)
         for k in _REPLACE_KEYS:
             if isinstance((new_cfg or {}).get(k), dict):
@@ -338,6 +370,16 @@ def save_config(new_cfg):
         CFG = merged
         _save("config.json", CFG)    # _lock est ré-entrant → _save le reprend ;
         #                              reste neutralisable par les tests
+    return CFG
+
+
+def reload_config():
+    """Relit config.json dans CFG (sous _lock). Utilisé quand un AUTRE processus
+    a modifié la config — p.ex. la fenêtre Réglages (webview) tourne dans son
+    propre processus tant que le dock est natif Qt : le dock surveille le fichier
+    et rappelle ceci pour refléter position/taille/opacité/orbe en direct."""
+    with _lock:
+        _reload_into_cfg_locked()
     return CFG
 
 
@@ -373,6 +415,8 @@ if CFG["providers"].get("gemini", {}).get("model") == "gemini-2.0-flash":
 
 if not CFG.get("active_profile"):
     CFG["active_profile"] = storage.ensure_default_profile()
+    _save("config.json", CFG)   # persiste : CFG ne diverge JAMAIS du disque sans
+    #                             sauvegarde (préalable au save_config disque-base)
 
 
 def get_api_key(provider):
