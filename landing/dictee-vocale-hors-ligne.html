@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dictée vocale hors ligne sur Windows : pourquoi et comment (guide 2026)</title>
+<meta name="description" content="Une dictée vocale qui fonctionne sans internet, où votre voix ne quitte jamais votre PC : pourquoi c'est le bon choix (RGPD, secret professionnel, fiabilité) et quelles options existent sur Windows en 2026.">
+<link rel="canonical" href="https://novaspeak.app/dictee-vocale-hors-ligne.html">
+<link rel="alternate" hreflang="fr" href="https://novaspeak.app/dictee-vocale-hors-ligne.html">
+<link rel="alternate" hreflang="en" href="https://novaspeak.app/offline-dictation-windows.html">
+<link rel="alternate" hreflang="x-default" href="https://novaspeak.app/offline-dictation-windows.html">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Dictée vocale hors ligne sur Windows : le guide (2026)">
+<meta property="og:description" content="Une dictée qui fonctionne sans internet, où votre voix ne quitte jamais votre PC : pourquoi, comment, et quelles options en 2026.">
+<meta property="og:url" content="https://novaspeak.app/dictee-vocale-hors-ligne.html">
+<meta property="og:image" content="https://novaspeak.app/og.png">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+ {"@type":"Article","headline":"Dictée vocale hors ligne sur Windows : pourquoi et comment (guide 2026)",
+  "inLanguage":"fr","datePublished":"2026-07-16","dateModified":"2026-07-16",
+  "author":{"@type":"Organization","name":"Nova"},
+  "publisher":{"@type":"Organization","name":"Nova","url":"https://novaspeak.app"},
+  "mainEntityOfPage":"https://novaspeak.app/dictee-vocale-hors-ligne.html"},
+ {"@type":"FAQPage","mainEntity":[
+  {"@type":"Question","name":"Qu'est-ce qu'une dictée vocale hors ligne ?",
+   "acceptedAnswer":{"@type":"Answer","text":"Un logiciel de dictée dont la reconnaissance de la parole s'exécute entièrement sur votre ordinateur, sans envoyer l'audio sur des serveurs distants. Votre voix ne quitte jamais votre machine, et la dictée fonctionne sans connexion internet."}},
+  {"@type":"Question","name":"Une dictée hors ligne est-elle moins précise ?",
+   "acceptedAnswer":{"@type":"Answer","text":"Plus depuis 2024-2025 : les modèles de reconnaissance modernes tournent très bien sur un ordinateur récent, avec une précision comparable aux services en ligne pour la dictée courante. Nova propose plusieurs profils de puissance pour adapter le compromis vitesse/précision à votre machine."}},
+  {"@type":"Question","name":"La dictée intégrée de Windows fonctionne-t-elle hors ligne ?",
+   "acceptedAnswer":{"@type":"Answer","text":"La dictée Win+H envoie la voix sur les serveurs de Microsoft — elle nécessite internet. Voice Access, en revanche, fonctionne hors ligne, mais il est conçu pour piloter le PC (accessibilité), pas pour rédiger : pas de mise en forme, pas de reformulation."}},
+  {"@type":"Question","name":"Le hors-ligne suffit-il pour être conforme au RGPD ?",
+   "acceptedAnswer":{"@type":"Answer","text":"Le traitement local élimine le risque principal : aucune donnée vocale n'est transférée à un tiers ni hors d'Europe, il n'y a donc ni sous-traitant à encadrer ni transfert à justifier pour la dictée elle-même. C'est l'architecture la plus simple à défendre pour les professions tenues au secret — avocats, soignants, experts-comptables."}},
+  {"@type":"Question","name":"Faut-il un PC puissant ?",
+   "acceptedAnswer":{"@type":"Answer","text":"Non. Un portable récent avec 8 Go de mémoire suffit pour la dictée avec un modèle léger et vif ; les machines plus musclées peuvent activer des modèles plus précis. Nova ajuste cela par ses profils de puissance (Nova Air, Aura, Apex), et un moteur en ligne optionnel (Turbo) existe pour les machines très modestes."}}
+ ]},
+ {"@type":"BreadcrumbList","itemListElement":[
+  {"@type":"ListItem","position":1,"name":"Nova","item":"https://novaspeak.app/"},
+  {"@type":"ListItem","position":2,"name":"Dictée vocale hors ligne","item":"https://novaspeak.app/dictee-vocale-hors-ligne.html"}]}
+]}
+</script>
+<style>
+  :root{--font:-apple-system,"SF Pro Display","SF Pro Text","Segoe UI",Inter,system-ui,sans-serif;
+    --bg:#F5F5F7;--card:#FFFFFF;--inset:#ECECEE;--txt:#1D1D1F;--mut:#6E6E73;
+    --line:rgba(0,0,0,.08);--blue:#0A84FF;--ok:#30D158;
+    --peri:#AEBEEC;--peri-d:#93A6E0}
+  @media(prefers-color-scheme:dark){:root{--bg:#1F1F22;--card:#2C2C30;--inset:#1A1A1D;
+    --txt:#F2F2F4;--mut:#98989F;--line:rgba(255,255,255,.075)}}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:var(--txt);font-family:var(--font);
+    -webkit-font-smoothing:antialiased;line-height:1.65}
+  a{color:var(--blue);text-decoration:none}
+  header{display:flex;align-items:center;justify-content:space-between;gap:14px;
+    max-width:760px;margin:0 auto;padding:22px 20px}
+  .brand{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:700;
+    letter-spacing:-.3px;color:var(--txt)}
+  .dot{width:20px;height:20px;border-radius:50%;flex:none;
+    background:radial-gradient(circle at 34% 30%,#fff 0%,#DFE7FA 18%,var(--peri) 45%,var(--peri-d) 72%,#7E92D6 100%);
+    box-shadow:0 0 12px rgba(174,190,236,.55)}
+  .btn{display:inline-flex;align-items:center;gap:8px;background:var(--blue);color:#fff;
+    border:none;border-radius:8px;padding:10px 18px;font-size:13.5px;font-weight:600;
+    font-family:var(--font);cursor:pointer;transition:filter .2s}
+  .btn:hover{filter:brightness(1.12)}
+  main{max-width:760px;margin:0 auto;padding:8px 20px 70px}
+  article{background:var(--card);border:1px solid var(--line);border-radius:13px;
+    padding:44px 48px}
+  @media(max-width:640px){article{padding:28px 20px}}
+  .kicker{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--blue);margin-bottom:10px}
+  h1{font-size:clamp(23px,5vw,30px);font-weight:700;letter-spacing:-.5px;line-height:1.18;
+    margin-bottom:8px;text-wrap:balance}
+  .date{font-size:12px;color:var(--mut);margin-bottom:22px}
+  .lede{font-size:15px;color:var(--txt);margin-bottom:8px}
+  h2{font-size:17px;font-weight:700;letter-spacing:-.25px;margin:34px 0 10px;
+    padding-top:26px;border-top:1px solid var(--line)}
+  h3{font-size:14.5px;font-weight:700;margin:20px 0 6px}
+  p{font-size:13.8px;margin-bottom:10px}
+  ul{margin:0 0 12px 18px}
+  li{font-size:13.8px;margin-bottom:6px}
+  .mut{color:var(--mut)}
+  .tldr{background:rgba(10,132,255,.07);border:1px solid rgba(10,132,255,.22);
+    border-radius:11px;padding:16px 18px;margin:20px 0 6px}
+  .tldr .t{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--blue);margin-bottom:8px}
+  .tldr li{margin-bottom:7px}
+  .tscroll{overflow-x:auto;margin:16px -10px;padding:0 10px}
+  table{width:100%;min-width:600px;border-collapse:collapse;font-size:12.8px}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);
+    vertical-align:top;line-height:1.5}
+  th{color:var(--mut);font-weight:600;font-size:10.5px;text-transform:uppercase;
+    letter-spacing:.5px;white-space:nowrap}
+  td b{font-weight:650}
+  .yes{color:var(--ok);font-weight:700}
+  .no{color:var(--mut)}
+  .part{color:var(--txt)}
+  tr.nova-row{background:rgba(10,132,255,.06)}
+  .shot{margin:18px 0;text-align:center}
+  .shot img{max-width:min(400px,86%);height:auto;border-radius:12px;border:1px solid var(--line)}
+  .verdict{background:var(--inset);border-radius:9px;padding:10px 14px;font-size:13px;
+    margin:10px 0 4px}
+  .verdict b{color:var(--txt)}
+  .cta{margin-top:30px;padding:24px;border:1px solid rgba(10,132,255,.25);
+    background:rgba(10,132,255,.06);border-radius:13px;text-align:center}
+  .cta p{font-size:14px;margin-bottom:14px}
+  .cta .note{font-size:12px;color:var(--mut);margin:10px 0 0}
+  .also{margin-top:26px;padding-top:20px;border-top:1px solid var(--line)}
+  .also .t{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--mut);margin-bottom:8px}
+  .also a{display:block;font-size:13.5px;margin-bottom:6px}
+  footer{max-width:760px;margin:0 auto;padding:22px 20px;display:flex;flex-wrap:wrap;
+    gap:8px 20px;font-size:12.5px;color:var(--mut)}
+  footer a{color:var(--mut)} footer a:hover{color:var(--txt)}
+</style>
+</head>
+<body>
+
+<header>
+  <a class="brand" href="/"><span class="dot"></span>Nova</a>
+  <a class="btn" href="https://github.com/Mailpro31/nova-releases/releases/latest/download/Nova-Setup.exe">Télécharger Nova</a>
+</header>
+
+<main><article>
+  <p class="kicker">Guide</p>
+  <h1>Dictée vocale hors ligne sur Windows&nbsp;: pourquoi c'est le bon choix, et comment s'y mettre</h1>
+  <p class="date">Mis à jour le 16 juillet 2026 · lecture 5 min</p>
+
+  <p class="lede">La plupart des dictées vocales modernes envoient votre voix
+    sur des serveurs pour la transcrire. Ça fonctionne — jusqu'au jour où le
+    réseau manque, ou jusqu'à la question qui fâche&nbsp;: <em>qui d'autre
+    entend ce que je dicte&nbsp;?</em> Ce guide explique ce qu'est une dictée
+    réellement hors ligne, pour qui c'est indispensable, et quelles options
+    existent sur Windows en 2026.</p>
+
+  <div class="tldr">
+    <div class="t">L'essentiel en 30 secondes</div>
+    <ul>
+      <li><b>Hors ligne</b> = la reconnaissance s'exécute <b>sur votre PC</b>.
+        Pas de serveurs, pas de compte, pas de réseau requis&nbsp;: votre voix
+        ne quitte jamais votre machine.</li>
+      <li><b>Pour qui c'est indispensable</b>&nbsp;: professions tenues au
+        secret (juridique, santé, chiffres), environnements sans réseau
+        fiable, et quiconque refuse d'être écouté par un tiers.</li>
+      <li><b>Sur Windows en 2026</b>&nbsp;: <a href="/">Nova</a> est la seule
+        option hors ligne qui <b>reformule</b> (texte propre à l'arrivée) —
+        les autres outils locaux transcrivent brut ou visent l'accessibilité.</li>
+    </ul>
+  </div>
+
+  <h2>Quatre raisons de vouloir du hors-ligne</h2>
+  <h3>1. La confidentialité, structurellement</h3>
+  <p>Quand le traitement est local, la question «&nbsp;où vont mes
+    données&nbsp;?&nbsp;» n'a plus d'objet&nbsp;: elles ne vont nulle part.
+    Pas de sous-traitant à encadrer, pas de transfert hors d'Europe à
+    justifier, pas de conditions d'utilisation à éplucher. Pour un avocat lié
+    par le secret professionnel, un soignant, un expert-comptable — ou une
+    entreprise sous RGPD strict — c'est l'architecture la plus simple à
+    défendre&nbsp;: la parole reste dans la pièce.</p>
+  <h3>2. La fiabilité, partout</h3>
+  <p>Train, avion, salle blindée d'un tribunal, cabinet médical au sous-sol,
+    réseau d'entreprise cloisonné, panne de box&nbsp;: une dictée en ligne
+    s'arrête là où le signal s'arrête. Une dictée locale travaille dans les
+    mêmes conditions qu'un traitement de texte — toujours.</p>
+  <h3>3. La latence</h3>
+  <p>Pas d'aller-retour serveur&nbsp;: le texte apparaît dès la fin de la
+    dictée, avec un délai qui dépend de votre machine, pas de votre
+    connexion.</p>
+  <h3>4. Le coût, à terme</h3>
+  <p>Le traitement en ligne coûte de l'argent à chaque phrase — c'est pour ça
+    que les outils en ligne sont tous à abonnement, autour de 8 à
+    15&nbsp;$/mois. Le traitement local ne coûte que votre électricité, ce qui
+    permet des plans gratuits réellement illimités.</p>
+
+  <h2>Comment ça marche, concrètement</h2>
+  <p>Un logiciel de dictée hors ligne installe des <b>modèles de
+    reconnaissance</b> sur votre ordinateur — quelques centaines de Mo à
+    quelques Go, téléchargés une fois. Ensuite, tout se passe en local&nbsp;:
+    le micro capte, le modèle transcrit, et — dans le cas de Nova — la
+    reformulation transforme le verbatim en texte propre, lui aussi sans
+    quitter la machine. Un portable récent avec 8&nbsp;Go de mémoire suffit
+    pour un modèle léger et vif&nbsp;; plus de mémoire permet des modèles plus
+    précis. Nova gère cet arbitrage par ses <b>profils de puissance</b>
+    (Nova&nbsp;Air, léger et vif&nbsp;· Nova&nbsp;Aura, le meilleur
+    équilibre&nbsp;· Nova&nbsp;Apex, l'intelligence maximale).</p>
+  <div class="shot">
+    <img src="/shots/desk-modeles.png" width="640" height="430" loading="lazy"
+      alt="La collection de modèles de Nova, classés par famille avec leur précision et leur vitesse">
+  </div>
+
+  <h2>Les options hors ligne sur Windows en 2026</h2>
+  <div class="tscroll">
+  <table>
+    <tr><th>Outil</th><th>Vraiment hors ligne</th><th>Reformulation</th><th>Positionnement</th></tr>
+    <tr class="nova-row"><td><b>Nova</b></td>
+      <td class="yes">Oui, par défaut</td><td class="yes">Oui — 7 Styles</td>
+      <td>Dictée de travail&nbsp;: e-mails, notes, prompts — texte fini</td></tr>
+    <tr><td><b>Voice Access</b> (Windows&nbsp;11)</td>
+      <td class="yes">Oui</td><td class="no">Non</td>
+      <td>Pilotage du PC à la voix (accessibilité), gratuit</td></tr>
+    <tr><td><b>Dragon Professional</b> (existant)</td>
+      <td class="yes">Oui</td><td class="no">Non (verbatim + commandes)</td>
+      <td>Hérité — plus vendu aux particuliers</td></tr>
+    <tr><td><b>Dictée Win+H</b></td>
+      <td class="no">Non — serveurs Microsoft</td><td class="no">Non</td>
+      <td>Dépannage occasionnel</td></tr>
+    <tr><td><b>superwhisper / outils Mac</b></td>
+      <td class="yes">Oui</td><td class="yes">Oui</td>
+      <td>Très bons — mais sur macOS</td></tr>
+  </table>
+  </div>
+  <p class="mut" style="font-size:12px">La combinaison gagnante pour la
+    rédaction — hors ligne <em>et</em> reformulation <em>et</em> Windows —
+    n'existe aujourd'hui que chez Nova. Pour le pilotage complet du PC,
+    complétez avec Voice Access, les deux cohabitent très bien.</p>
+
+  <h2>Le cas des professions réglementées</h2>
+  <p>Si vous dictez des contenus couverts par le secret professionnel ou des
+    données de santé, le choix se réduit de lui-même&nbsp;: chaque outil en
+    ligne ajoute un sous-traitant, un transfert, un contrat à vérifier — et
+    un risque à porter. Le traitement local supprime la chaîne entière. C'est
+    la raison pour laquelle Dragon a équipé les cabinets pendant vingt
+    ans&nbsp;; c'est la même logique qui fait de Nova son successeur naturel,
+    la reformulation en plus&nbsp;: la lettre au confrère sort <em>déjà
+    rédigée</em>, pas en verbatim à reprendre.</p>
+
+  <h2>Questions fréquentes</h2>
+  <h3>Une dictée hors ligne est-elle moins précise&nbsp;?</h3>
+  <p>Plus maintenant. Les modèles récents tournent très bien sur un ordinateur
+    de bureau ou un portable correct, avec une précision comparable aux
+    services en ligne pour la dictée courante — le bond s'est fait ces deux
+    dernières années.</p>
+  <h3>Et si mon PC est vraiment modeste&nbsp;?</h3>
+  <p>Nova reste utilisable avec son profil le plus léger (Nova&nbsp;Air). Pour
+    les machines très justes, un moteur en ligne optionnel (<b>Turbo</b>,
+    réservé à Nova&nbsp;Ultra) peut prendre le relais — il est désactivé par
+    défaut, clairement signalé, et chaque activation est un choix explicite.</p>
+  <h3>Les mises à jour nécessitent-elles internet&nbsp;?</h3>
+  <p>Le téléchargement initial des modèles et les mises à jour de
+    l'application, oui — la dictée elle-même, non. Une fois installé, Nova
+    fonctionne indéfiniment sans connexion.</p>
+  <h3>Comment vérifier qu'un outil est vraiment hors ligne&nbsp;?</h3>
+  <p>Le test le plus simple&nbsp;: coupez le Wi-Fi et dictez. Si le texte
+    apparaît, le traitement est local. Avec Nova, ce test fonctionne dès
+    l'installation terminée.</p>
+
+  <div class="cta">
+    <p><b>Essayez la dictée qui reste chez vous.</b><br>Coupez le Wi-Fi,
+      maintenez F9, parlez — le texte apparaît quand même.</p>
+    <a class="btn" href="https://github.com/Mailpro31/nova-releases/releases/latest/download/Nova-Setup.exe">Télécharger Nova pour Windows</a>
+    <p class="note">Gratuit, sans compte ni carte bancaire · Windows&nbsp;10/11 ·
+      <a href="/#tarifs">voir les tarifs</a></p>
+  </div>
+
+  <div class="also">
+    <div class="t">À lire aussi</div>
+    <a href="/alternative-dragon.html">Les meilleures alternatives à Dragon pour Windows (2026)</a>
+    <a href="/nova-ou-wispr-flow.html">Nova ou Wispr Flow ? Deux dictées reformulées, deux philosophies</a>
+  </div>
+</article></main>
+
+<footer>
+  <a href="/">← Retour à Nova</a>
+  <a href="/#faq">FAQ</a>
+  <a href="/conditions.html">Conditions</a>
+  <a href="/confidentialite.html">Confidentialité</a>
+  <a href="/offline-dictation-windows.html">English version</a>
+</footer>
+
+</body>
+</html>
