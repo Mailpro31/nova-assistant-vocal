@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
-"""Rendu du film Nova : cinematic.html → nova-film2.mp4 / nova-film2-en.mp4.
+"""Rendu du film Nova v4 : cinematic.html → nova-film3.mp4 / nova-film3-en.mp4.
 
 Rendu déterministe image par image (seek(t)) via Playwright, images PNG
 poussées directement dans ffmpeg (aucun fichier temporaire — l'allocation
-disque de session est limitée), muxées avec la bande-son. Posters extraits
-d'un plan représentatif (l'e-mail reformulé). FR et EN partagent la même
-bande-son (minutage identique).
+disque de session est limitée), muxées avec la bande-son stéréo. Posters
+extraits d'un plan représentatif (l'e-mail reformulé). FR et EN partagent la
+même bande-son (minutage identique).
 """
 import subprocess
 import sys
@@ -19,12 +19,12 @@ SRC = "file:///home/user/nova-assistant-vocal/landing/film/cinematic.html?captur
 AUDIO = "/home/user/nova-assistant-vocal/landing/film/nova-film-audio.wav"
 DEST = "/home/user/nova-assistant-vocal/landing"
 FPS = 30
-W, H = 1280, 720
-POSTER_T = 10.5   # e-mail reformulé + coche (le « payoff »)
+W, H = 1600, 900
+POSTER_T = 8.62   # e-mail reformulé + coche (le « payoff »)
 
 JOBS = [
-    ("fr", f"{DEST}/nova-film2.mp4", f"{DEST}/film2-poster.jpg"),
-    ("en", f"{DEST}/nova-film2-en.mp4", f"{DEST}/film2-poster-en.jpg"),
+    ("fr", f"{DEST}/nova-film3.mp4", f"{DEST}/film3-poster.jpg"),
+    ("en", f"{DEST}/nova-film3-en.mp4", f"{DEST}/film3-poster-en.jpg"),
 ]
 
 
@@ -35,8 +35,8 @@ def encode(page, lang, out_mp4, out_poster):
     cmd = [
         FF, "-y", "-f", "image2pipe", "-vcodec", "png", "-framerate", str(FPS),
         "-i", "-", "-i", AUDIO,
-        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "20", "-preset", "medium",
-        "-movflags", "+faststart", "-c:a", "aac", "-b:a", "128k", "-shortest",
+        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "21", "-preset", "medium",
+        "-movflags", "+faststart", "-c:a", "aac", "-b:a", "160k", "-shortest",
         "-loglevel", "error", out_mp4,
     ]
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
@@ -45,7 +45,7 @@ def encode(page, lang, out_mp4, out_poster):
         page.evaluate("window.seek(%f)" % (f / FPS))
         png = page.screenshot(type="png")
         proc.stdin.write(png)
-        if f % 120 == 0:
+        if f % 150 == 0:
             print(f"  [{lang}] frame {f}/{nframes}", flush=True)
     proc.stdin.close()
     rc = proc.wait()
