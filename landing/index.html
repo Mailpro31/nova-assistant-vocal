@@ -726,15 +726,15 @@
 <section class="film" id="film">
   <p class="kicker rv" data-t="film_kicker">Le film</p>
   <div class="vwrap rv" id="vwrap">
-    <video id="filmv" poster="https://cdn.jsdelivr.net/gh/Mailpro31/nova-assistant-vocal@c5663e827e09f3d1dcfa9ace661f31ce48c39571/landing/film2-poster.jpg" preload="metadata" muted loop playsinline
-      src="https://cdn.jsdelivr.net/gh/Mailpro31/nova-assistant-vocal@c5663e827e09f3d1dcfa9ace661f31ce48c39571/landing/nova-film2.mp4"></video>
+    <video id="filmv" poster="https://cdn.jsdelivr.net/gh/Mailpro31/nova-assistant-vocal@eb2134b07fb85bac411ef7010336364e394992d6/landing/film3-poster.jpg" preload="metadata" muted loop playsinline
+      src="https://cdn.jsdelivr.net/gh/Mailpro31/nova-assistant-vocal@eb2134b07fb85bac411ef7010336364e394992d6/landing/nova-film3.mp4"></video>
     <button id="vsound" aria-label="Activer ou couper le son">
       <svg class="voff" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="m17 9 4 6m0-6-4 6"/></svg>
       <svg class="von" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>
     </button>
     <span id="vhint"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg><span data-t="film_hint">Cliquez pour activer le son</span></span>
   </div>
-  <p class="filmNote rv" data-t="film_note">Quarante secondes. Pas une de trop.</p>
+  <p class="filmNote rv" data-t="film_note">Quarante-deux secondes. Pas une de trop.</p>
 </section>
 
 <section class="vitrine" id="app">
@@ -769,19 +769,19 @@
   <h2 class="rv" data-t="shots_h2">L'app, telle quelle.</h2>
   <div class="gallery">
     <figure class="shot rv">
-      <img src="https://cdn.jsdelivr.net/gh/Mailpro31/nova-assistant-vocal@c5663e827e09f3d1dcfa9ace661f31ce48c39571/landing/shots/app-menu-styles.png"
-        alt="Le menu des Styles de Nova, ouvert au-dessus du dock" width="860" height="940" loading="lazy">
-      <figcaption data-t="shot_1"><b>Sept Styles, un clic.</b> Le dock ouvre le menu ; l'orbe montre que Nova est prête.</figcaption>
+      <img src="https://cdn.jsdelivr.net/gh/Mailpro31/nova-assistant-vocal@eb2134b07fb85bac411ef7010336364e394992d6/landing/shots/desk-bulle-menu.png"
+        alt="La bulle Nova et son menu des Styles, ouverts sur le bureau" width="860" height="940" loading="lazy">
+      <figcaption data-t="shot_1"><b>Sept Styles, un clic.</b> La bulle ouvre le menu ; la pastille montre le Style actif.</figcaption>
     </figure>
     <figure class="shot rv">
-      <img src="https://cdn.jsdelivr.net/gh/Mailpro31/nova-assistant-vocal@c5663e827e09f3d1dcfa9ace661f31ce48c39571/landing/shots/app-styles.png"
-        alt="La fenêtre Styles sur mesure de Nova" width="1760" height="1240" loading="lazy">
-      <figcaption data-t="shot_2"><b>Vos Styles sur mesure.</b> Un nom, des mots-clés, votre consigne — Nova reformule à votre façon dans chaque app.</figcaption>
+      <img src="https://cdn.jsdelivr.net/gh/Mailpro31/nova-assistant-vocal@eb2134b07fb85bac411ef7010336364e394992d6/landing/shots/desk-modeles.png"
+        alt="La collection de modèles Nova dans l'application" width="2560" height="1720" loading="lazy">
+      <figcaption data-t="shot_2"><b>La collection Nova.</b> Des modèles classés par famille — Direct, Monde, Précision — avec leur précision et leur vitesse.</figcaption>
     </figure>
     <figure class="shot rv">
-      <img src="https://cdn.jsdelivr.net/gh/Mailpro31/nova-assistant-vocal@c5663e827e09f3d1dcfa9ace661f31ce48c39571/landing/shots/app-reglages.png"
-        alt="Les réglages généraux de Nova" width="1760" height="1240" loading="lazy">
-      <figcaption data-t="shot_3"><b>Des réglages qui se lisent.</b> Turbo, démarrage avec Windows, touche de dictée, profil de puissance adapté à votre machine.</figcaption>
+      <img src="https://cdn.jsdelivr.net/gh/Mailpro31/nova-assistant-vocal@eb2134b07fb85bac411ef7010336364e394992d6/landing/shots/desk-general.png"
+        alt="Les réglages généraux de Nova" width="2560" height="1720" loading="lazy">
+      <figcaption data-t="shot_3"><b>Des réglages qui se lisent.</b> Raccourci de dictée, appuyer-pour-parler, langue, micro — tout tient sur une carte.</figcaption>
     </figure>
   </div>
 </section>
@@ -1362,7 +1362,7 @@ if (!RM) {
 if (cur === -1) setFrame(0);
 
 /* ---------- français / anglais : dictionnaire + bascule ---------- */
-const CDN = "https://cdn.jsdelivr.net/gh/Mailpro31/nova-assistant-vocal@c5663e827e09f3d1dcfa9ace661f31ce48c39571/landing/";
+const CDN = "https://cdn.jsdelivr.net/gh/Mailpro31/nova-assistant-vocal@eb2134b07fb85bac411ef7010336364e394992d6/landing/";
 const I18N = {
   fr: {
     _title: "Nova — Parlez. Nova écrit.",
@@ -1374,7 +1374,7 @@ const I18N = {
     _listen: "Nova écoute…", _write: "Nova écrit…",
     _hint_done: "<b>Collé au curseur.</b> Voilà toute l'app.",
     _key_aria: "Maintenir pour essayer la dictée",
-    _video: CDN + "nova-film2.mp4", _poster: CDN + "film2-poster.jpg",
+    _video: CDN + "nova-film3.mp4", _poster: CDN + "film3-poster.jpg",
     _track: "<span><b>Français</b></span><span>English</span><span>Español</span><span>Deutsch</span><span>Italiano</span><span>Português</span><span>Nederlands</span><span>Polski</span><span>Русский</span><span>العربية</span><span>Türkçe</span><span>हिन्दी</span><span>中文</span><span>日本語</span><span>한국어</span>",
     nav_film: "Le film", nav_demo: "La démo", nav_pricing: "Tarifs", nav_get: "Obtenir Nova",
     nav_faq: "FAQ", nav_maj: "Mises à jour",
@@ -1382,16 +1382,16 @@ const I18N = {
     key_hold: "MAINTENIR",
     hero_dl: "Télécharger gratuitement", hero_pricing: "Voir les tarifs",
     hero_note: "Windows 10/11 · sans carte bancaire · vos données restent chez vous",
-    film_kicker: "Le film", film_note: "Quarante secondes. Pas une de trop.",
+    film_kicker: "Le film", film_note: "Quarante-deux secondes. Pas une de trop.",
     film_hint: "Cliquez pour activer le son",
     app_kicker: "L'app", app_h2: "Discrète, jusqu'à<br>ce que vous parliez.",
     pill_listen: "Nova écoute…", pill_release: "relâchez pour coller", bubble_ready: "Prête",
     tones_h2: "Une voix.<br>Tous vos Styles.",
     tones_said: "« euh on décale la réunion à demain… quatorze heures, faut prévenir Claire et penser à mettre à jour l'invitation »",
     shots_kicker: "En vrai", shots_h2: "L'app, telle quelle.",
-    shot_1: "<b>Sept Styles, un clic.</b> Le dock ouvre le menu ; l'orbe montre que Nova est prête.",
-    shot_2: "<b>Vos Styles sur mesure.</b> Un nom, des mots-clés, votre consigne — Nova reformule à votre façon dans chaque app.",
-    shot_3: "<b>Des réglages qui se lisent.</b> Turbo, démarrage avec Windows, touche de dictée, profil de puissance adapté à votre machine.",
+    shot_1: "<b>Sept Styles, un clic.</b> La bulle ouvre le menu ; la pastille montre le Style actif.",
+    shot_2: "<b>La collection Nova.</b> Des modèles classés par famille — Direct, Monde, Précision — avec leur précision et leur vitesse.",
+    shot_3: "<b>Des réglages qui se lisent.</b> Raccourci de dictée, appuyer-pour-parler, langue, micro — tout tient sur une carte.",
     f1_bar: "Nouveau message — E-mail",
     f1_body: '<div class="to">À : Claire Fontaine</div>Bonjour Claire,<br><br>Notre réunion est décalée à demain 14 h. Pourriez-vous mettre à jour l\'invitation ?<br>Merci d\'avance, bonne journée.',
     f2_bar: "Notes",
@@ -1497,7 +1497,7 @@ const I18N = {
     _listen: "Nova is listening…", _write: "Nova is writing…",
     _hint_done: "<b>Pasted at your cursor.</b> That's the whole app.",
     _key_aria: "Hold to try dictation",
-    _video: CDN + "nova-film2-en.mp4", _poster: CDN + "film2-poster-en.jpg",
+    _video: CDN + "nova-film3-en.mp4", _poster: CDN + "film3-poster-en.jpg",
     _track: "<span>Français</span><span><b>English</b></span><span>Español</span><span>Deutsch</span><span>Italiano</span><span>Português</span><span>Nederlands</span><span>Polski</span><span>Русский</span><span>العربية</span><span>Türkçe</span><span>हिन्दी</span><span>中文</span><span>日本語</span><span>한국어</span>",
     nav_film: "The film", nav_demo: "The demo", nav_pricing: "Pricing", nav_get: "Get Nova",
     nav_faq: "FAQ", nav_maj: "Updates",
@@ -1505,16 +1505,16 @@ const I18N = {
     key_hold: "HOLD",
     hero_dl: "Download for free", hero_pricing: "See pricing",
     hero_note: "Windows 10/11 · no credit card · your data stays on your device",
-    film_kicker: "The film", film_note: "Forty seconds. Not one too many.",
+    film_kicker: "The film", film_note: "Forty-two seconds. Not one too many.",
     film_hint: "Click to turn the sound on",
     app_kicker: "The app", app_h2: "Discreet, until<br>you speak.",
     pill_listen: "Nova is listening…", pill_release: "release to paste", bubble_ready: "Ready",
     tones_h2: "One voice.<br>All your Styles.",
     tones_said: "“uh let’s move the meeting to tomorrow… two pm, gotta tell Claire and remember to update the invite”",
     shots_kicker: "For real", shots_h2: "The app, as it is.",
-    shot_1: "<b>Seven Styles, one click.</b> The dock opens the menu; the orb shows Nova is ready.",
-    shot_2: "<b>Your custom Styles.</b> A name, a few keywords, your instruction — Nova rewrites your way in every app.",
-    shot_3: "<b>Settings you can actually read.</b> Turbo, launch with Windows, dictation key, a power profile matched to your machine.",
+    shot_1: "<b>Seven Styles, one click.</b> The bubble opens the menu; the dot shows the active Style.",
+    shot_2: "<b>The Nova collection.</b> Models grouped by family — Direct, Monde, Précision — with their accuracy and speed.",
+    shot_3: "<b>Settings you can actually read.</b> Dictation shortcut, push-to-talk, language, microphone — it all fits on one card.",
     f1_bar: "New message — Email",
     f1_body: '<div class="to">To: Claire Fontaine</div>Hi Claire,<br><br>Our meeting has moved to tomorrow at 2 pm. Could you update the invite?<br>Thanks in advance, have a great day.',
     f2_bar: "Notes",
