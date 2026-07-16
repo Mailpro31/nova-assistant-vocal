@@ -107,6 +107,28 @@
   nav .links{display:flex;gap:26px;font-size:13.5px;color:var(--mut)}
   nav .links a:hover{color:var(--txt)}
   @media(max-width:720px){nav .links{display:none}}
+  /* menu déroulant « Guides » — carte flottante style macOS */
+  .navdrop{position:relative}
+  .navdrop>button{display:inline-flex;align-items:center;gap:5px;background:none;border:none;
+    font-family:var(--font);font-size:13.5px;color:var(--mut);cursor:pointer;padding:0}
+  .navdrop:hover>button,.navdrop.open>button{color:var(--txt)}
+  .navdrop>button svg{width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:2;
+    stroke-linecap:round;stroke-linejoin:round;transition:transform .25s}
+  .navdrop:hover>button svg,.navdrop.open>button svg{transform:rotate(180deg)}
+  .dropmenu{position:absolute;top:calc(100% + 14px);left:50%;
+    transform:translate(-50%,-6px);min-width:284px;
+    background:var(--card);
+    background:color-mix(in srgb, var(--card) 84%, transparent);
+    backdrop-filter:blur(22px) saturate(1.4);-webkit-backdrop-filter:blur(22px) saturate(1.4);
+    border:1px solid var(--line);border-radius:13px;padding:6px;
+    box-shadow:0 18px 50px rgba(0,0,0,.26),0 2px 8px rgba(0,0,0,.12);
+    opacity:0;pointer-events:none;transition:opacity .18s,transform .22s var(--spring)}
+  .navdrop:hover .dropmenu,.navdrop.open .dropmenu,.navdrop:focus-within .dropmenu{opacity:1;pointer-events:auto;
+    transform:translate(-50%,0)}
+  .dropmenu a{display:block;padding:10px 13px;border-radius:9px;color:var(--txt)}
+  .dropmenu a:hover{background:rgba(127,127,127,.13)}
+  .dropmenu b{display:block;font-size:13.5px;font-weight:600;letter-spacing:-.1px}
+  .dropmenu small{display:block;font-size:11.5px;color:var(--mut);margin-top:1px}
 
   /* ------------------------------------------------------------ hero ----- */
   /* les halos ne sont jamais rognés : ils débordent d'une section à l'autre
@@ -668,6 +690,23 @@
     <a href="#tarifs" data-t="nav_pricing">Tarifs</a>
     <a href="#faq" data-t="nav_faq">FAQ</a>
     <a href="#maj" data-t="nav_maj">Mises à jour</a>
+    <div class="navdrop" id="navdrop">
+      <button id="guidesBtn" aria-haspopup="true" aria-expanded="false">
+        <span data-t="nav_guides">Guides</span>
+        <svg viewBox="0 0 24 24"><path d="m6 9.5 6 6 6-6"/></svg>
+      </button>
+      <div class="dropmenu" role="menu">
+        <a href="/alternative-dragon.html" id="gdDragon" role="menuitem">
+          <b data-t="gd_dragon">Alternative à Dragon</b>
+          <small data-t="gd_dragon_s">Le comparatif des dictées Windows</small></a>
+        <a href="/nova-ou-wispr-flow.html" id="gdWispr" role="menuitem">
+          <b data-t="gd_wispr">Nova ou Wispr Flow</b>
+          <small data-t="gd_wispr_s">Deux philosophies, un face-à-face</small></a>
+        <a href="/dictee-vocale-hors-ligne.html" id="gdOffline" role="menuitem">
+          <b data-t="gd_offline">Dictée hors ligne</b>
+          <small data-t="gd_offline_s">Votre voix reste chez vous</small></a>
+      </div>
+    </div>
   </div>
   <div class="navr">
     <button id="langBtn" aria-label="Switch language">EN</button>
@@ -1491,6 +1530,10 @@ const I18N = {
     foot_demo: "La démo", foot_pricing: "Tarifs", foot_faq: "FAQ",
     foot_dragon: "Alternative à Dragon",
     foot_wispr: "Nova ou Wispr Flow", foot_offline: "Dictée hors ligne",
+    nav_guides: "Guides", gd_dragon: "Alternative à Dragon",
+    gd_dragon_s: "Le comparatif des dictées Windows",
+    gd_wispr: "Nova ou Wispr Flow", gd_wispr_s: "Deux philosophies, un face-à-face",
+    gd_offline: "Dictée hors ligne", gd_offline_s: "Votre voix reste chez vous",
     foot_terms: "Conditions", foot_privacy: "Confidentialité",
     foot_copy: "© 2026 Nova — dictée vocale pour Windows"
   },
@@ -1616,6 +1659,10 @@ const I18N = {
     foot_demo: "The demo", foot_pricing: "Pricing", foot_faq: "FAQ",
     foot_dragon: "Dragon alternative",
     foot_wispr: "Nova vs Wispr Flow", foot_offline: "Offline dictation",
+    nav_guides: "Guides", gd_dragon: "Dragon alternative",
+    gd_dragon_s: "The Windows dictation comparison",
+    gd_wispr: "Nova vs Wispr Flow", gd_wispr_s: "Two philosophies, head to head",
+    gd_offline: "Offline dictation", gd_offline_s: "Your voice stays home",
     foot_terms: "Terms", foot_privacy: "Privacy",
     foot_copy: "© 2026 Nova — voice dictation for Windows"
   }
@@ -1805,6 +1852,9 @@ function applyLang(l) {
   $("footDragon").href = l === "fr" ? "/alternative-dragon.html" : "/dragon-alternative.html";
   $("footWispr").href = l === "fr" ? "/nova-ou-wispr-flow.html" : "/nova-vs-wispr-flow.html";
   $("footOffline").href = l === "fr" ? "/dictee-vocale-hors-ligne.html" : "/offline-dictation-windows.html";
+  $("gdDragon").href = $("footDragon").href;
+  $("gdWispr").href = $("footWispr").href;
+  $("gdOffline").href = $("footOffline").href;
   syncBilling();          // ré-applique prix/liens (la passe data-t remet le mensuel)
   const v = $("filmv");
   if (v && v.getAttribute("src") !== d._video) {
@@ -1821,6 +1871,20 @@ if (savedLang !== "fr" && savedLang !== "en") {
 }
 applyLang(savedLang);
 $("langBtn").onclick = () => applyLang(LANG === "fr" ? "en" : "fr");
+
+/* menu « Guides » : clic ou survol, ferme au clic extérieur / Échap */
+const navdrop = $("navdrop"), guidesBtn = $("guidesBtn");
+function guidesSet(open) {
+  navdrop.classList.toggle("open", open);
+  guidesBtn.setAttribute("aria-expanded", String(open));
+}
+guidesBtn.addEventListener("click", (e) => {
+  e.stopPropagation(); guidesSet(!navdrop.classList.contains("open"));
+});
+document.addEventListener("click", (e) => {
+  if (!navdrop.contains(e.target)) guidesSet(false);
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") guidesSet(false); });
 </script>
 </body>
 </html>
