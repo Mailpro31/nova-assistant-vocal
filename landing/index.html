@@ -1050,6 +1050,7 @@
   <div class="links">
     <a href="#tons" data-t="foot_demo">La démo</a><a href="#tarifs" data-t="foot_pricing">Tarifs</a>
     <a href="#faq" data-t="foot_faq">FAQ</a>
+    <a href="/alternative-dragon.html" id="footDragon" data-t="foot_dragon">Alternative à Dragon</a>
     <a href="/conditions.html" data-t="foot_terms">Conditions</a>
     <a href="/confidentialite.html" data-t="foot_privacy">Confidentialité</a>
     <a href="mailto:mailprosasha2@gmail.com">Contact</a>
@@ -1486,6 +1487,7 @@ const I18N = {
     maj_priv_ver: "Confidentialité", maj_priv_when: "garantie, depuis le premier jour",
     maj_priv_body: "<li>Avec l'Intelligence privée, votre audio, vos textes et votre vocabulaire <b>ne quittent jamais votre ordinateur</b> — nous ne pouvons pas les lire.</li><li>Aucun compte requis, aucun cookie de suivi. <b>Conforme au RGPD par conception.</b></li>",
     foot_demo: "La démo", foot_pricing: "Tarifs", foot_faq: "FAQ",
+    foot_dragon: "Alternative à Dragon",
     foot_terms: "Conditions", foot_privacy: "Confidentialité",
     foot_copy: "© 2026 Nova — dictée vocale pour Windows"
   },
@@ -1609,6 +1611,7 @@ const I18N = {
     maj_priv_ver: "Privacy", maj_priv_when: "guaranteed, from day one",
     maj_priv_body: "<li>With Private Intelligence, your audio, text and vocabulary <b>never leave your computer</b> — we can't read them.</li><li>No account required, no tracking cookie. <b>GDPR-compliant by design.</b></li>",
     foot_demo: "The demo", foot_pricing: "Pricing", foot_faq: "FAQ",
+    foot_dragon: "Dragon alternative",
     foot_terms: "Terms", foot_privacy: "Privacy",
     foot_copy: "© 2026 Nova — voice dictation for Windows"
   }
@@ -1795,6 +1798,7 @@ function applyLang(l) {
   $("wlEmail").placeholder = d.wl_ph;
   $("dlEmail").placeholder = d.wl_ph;
   $("langBtn").textContent = l === "fr" ? "EN" : "FR";
+  $("footDragon").href = l === "fr" ? "/alternative-dragon.html" : "/dragon-alternative.html";
   syncBilling();          // ré-applique prix/liens (la passe data-t remet le mensuel)
   const v = $("filmv");
   if (v && v.getAttribute("src") !== d._video) {
