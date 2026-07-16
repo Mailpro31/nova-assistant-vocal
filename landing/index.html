@@ -726,8 +726,8 @@
 <section class="film" id="film">
   <p class="kicker rv" data-t="film_kicker">Le film</p>
   <div class="vwrap rv" id="vwrap">
-    <video id="filmv" poster="https://cdn.jsdelivr.net/gh/Mailpro31/nova-assistant-vocal@eb2134b07fb85bac411ef7010336364e394992d6/landing/film3-poster.jpg" preload="metadata" muted loop playsinline
-      src="https://cdn.jsdelivr.net/gh/Mailpro31/nova-assistant-vocal@eb2134b07fb85bac411ef7010336364e394992d6/landing/nova-film3.mp4"></video>
+    <video id="filmv" poster="film3-poster.jpg" preload="metadata" muted loop playsinline
+      src="nova-film3.mp4"></video>
     <button id="vsound" aria-label="Activer ou couper le son">
       <svg class="voff" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="m17 9 4 6m0-6-4 6"/></svg>
       <svg class="von" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>
@@ -769,17 +769,17 @@
   <h2 class="rv" data-t="shots_h2">L'app, telle quelle.</h2>
   <div class="gallery">
     <figure class="shot rv">
-      <img src="https://cdn.jsdelivr.net/gh/Mailpro31/nova-assistant-vocal@eb2134b07fb85bac411ef7010336364e394992d6/landing/shots/desk-bulle-menu.png"
+      <img src="shots/desk-bulle-menu.png"
         alt="La bulle Nova et son menu des Styles, ouverts sur le bureau" width="860" height="940" loading="lazy">
       <figcaption data-t="shot_1"><b>Sept Styles, un clic.</b> La bulle ouvre le menu ; la pastille montre le Style actif.</figcaption>
     </figure>
     <figure class="shot rv">
-      <img src="https://cdn.jsdelivr.net/gh/Mailpro31/nova-assistant-vocal@eb2134b07fb85bac411ef7010336364e394992d6/landing/shots/desk-modeles.png"
+      <img src="shots/desk-modeles.png"
         alt="La collection de modèles Nova dans l'application" width="2560" height="1720" loading="lazy">
       <figcaption data-t="shot_2"><b>La collection Nova.</b> Des modèles classés par famille — Direct, Monde, Précision — avec leur précision et leur vitesse.</figcaption>
     </figure>
     <figure class="shot rv">
-      <img src="https://cdn.jsdelivr.net/gh/Mailpro31/nova-assistant-vocal@eb2134b07fb85bac411ef7010336364e394992d6/landing/shots/desk-general.png"
+      <img src="shots/desk-general.png"
         alt="Les réglages généraux de Nova" width="2560" height="1720" loading="lazy">
       <figcaption data-t="shot_3"><b>Des réglages qui se lisent.</b> Raccourci de dictée, appuyer-pour-parler, langue, micro — tout tient sur une carte.</figcaption>
     </figure>
@@ -1362,7 +1362,9 @@ if (!RM) {
 if (cur === -1) setFrame(0);
 
 /* ---------- français / anglais : dictionnaire + bascule ---------- */
-const CDN = "https://cdn.jsdelivr.net/gh/Mailpro31/nova-assistant-vocal@eb2134b07fb85bac411ef7010336364e394992d6/landing/";
+// Médias servis en même origine (Vercel sert le dossier landing/) : pas de CDN
+// externe, pas d'épinglage de commit, et le site reste autonome même dépôt privé.
+const CDN = "";
 const I18N = {
   fr: {
     _title: "Nova — Parlez. Nova écrit.",

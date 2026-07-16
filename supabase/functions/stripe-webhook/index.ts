@@ -55,8 +55,8 @@ const TIER_LABEL: Record<string, string> = {
 const SITE = "https://novaspeak.app";
 // installeur signé, publié dans le dépôt public des téléchargements (nom d'asset stable)
 const DL = "https://github.com/Mailpro31/nova-releases/releases/latest/download/Nova-Setup.exe";
-// capture réelle de l'app (bulle + menu des Styles), épinglée à un commit permanent
-const SHOT = "https://cdn.jsdelivr.net/gh/Mailpro31/nova-assistant-vocal@1baccce3d167de3c09f803e4868c461a296b755e/landing/shots/email-styles.png";
+// capture réelle de l'app (bulle + menu des Styles), servie par le site lui-même
+const SHOT = "https://novaspeak.app/shots/email-styles.png";
 
 let mailCfg: { key: string; from: string } | null | undefined;
 async function mailConfig() {
