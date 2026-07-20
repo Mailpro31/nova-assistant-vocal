@@ -55,6 +55,10 @@ desktop.ini
 
 # Modèles Whisper téléchargés localement (lourds, re-téléchargés au besoin)
 models/
+# Exception : les poids OCR de la lecture de contexte sont hébergés par le site
+# (servis en statique par Vercel), ils DOIVENT être versionnés.
+!landing/models/
+!landing/models/*.rten
 *.bin
 *.pt
 

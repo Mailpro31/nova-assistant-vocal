@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google-site-verification" content="w-1W3jhEAWExnrkCQzyE_DJz1DjKhfuADBZt82HHMgI">
+<title>The dictation that reads your screen to reply in context (Nova, 2026)</title>
+<meta name="description" content="Dictation without context gives generic text. Nova reads what's on screen — who you're replying to, about what — to write a reply that actually fits. Local by default; the cloud option is Nova Ultra only and strictly opt-in.">
+<link rel="canonical" href="https://novaspeak.app/dictation-that-reads-your-screen.html">
+<link rel="alternate" hreflang="en" href="https://novaspeak.app/dictation-that-reads-your-screen.html">
+<link rel="alternate" hreflang="fr" href="https://novaspeak.app/dictee-qui-lit-votre-ecran.html">
+<link rel="alternate" hreflang="x-default" href="https://novaspeak.app/dictation-that-reads-your-screen.html">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta property="og:type" content="article">
+<meta property="og:title" content="The dictation that reads your screen to reply in context">
+<meta property="og:description" content="Nova reads the on-screen context to write a reply that fits — local by default, cloud option is Ultra-only and opt-in.">
+<meta property="og:url" content="https://novaspeak.app/dictation-that-reads-your-screen.html">
+<meta property="og:image" content="https://novaspeak.app/og.png">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+ {"@type":"Article","headline":"The dictation that reads your screen to reply in context",
+  "inLanguage":"en","datePublished":"2026-07-20","dateModified":"2026-07-20",
+  "author":{"@type":"Organization","name":"Nova"},
+  "publisher":{"@type":"Organization","name":"Nova","url":"https://novaspeak.app"},
+  "mainEntityOfPage":"https://novaspeak.app/dictation-that-reads-your-screen.html"},
+ {"@type":"FAQPage","mainEntity":[
+  {"@type":"Question","name":"How does Nova understand what's on screen?",
+   "acceptedAnswer":{"@type":"Answer","text":"When context reading is on, Nova reads the text content of the active window — the message you're replying to, the subject, the tone — to write a fitting reply instead of generic text. It reads first through Windows accessibility (light, local), then through local on-device text recognition (OCR) if the app doesn't expose its content. All of it stays on your machine."}},
+  {"@type":"Question","name":"Does Nova send screenshots?",
+   "acceptedAnswer":{"@type":"Answer","text":"Not by default. Context reading runs locally: nothing leaves your computer. An optional 'cloud vision' feature, available only on Nova Ultra, can describe a screenshot server-side for the rare windows that are otherwise unreadable — but it's off by default, every send is an explicit choice, and the image is never stored."}},
+  {"@type":"Question","name":"Is context reading tied to a subscription?",
+   "acceptedAnswer":{"@type":"Answer","text":"Yes, context reading is part of Nova Ultra. Local dictation and rewriting remain free."}},
+  {"@type":"Question","name":"Does it slow dictation down?",
+   "acceptedAnswer":{"@type":"Answer","text":"Reading through accessibility is near-instant. Local text recognition only kicks in as a fallback, when an app doesn't expose its content. And context reading is only used to understand the situation: if your dictation stands on its own, Nova ignores it."}},
+  {"@type":"Question","name":"Which apps does it work with?",
+   "acceptedAnswer":{"@type":"Answer","text":"The active window, whatever it is — mail, tickets, documents, chat. Apps that hide their text from accessibility (often Chromium- or Electron-based ones) are covered by local text recognition, which reads what's shown on screen."}}
+ ]},
+ {"@type":"BreadcrumbList","itemListElement":[
+  {"@type":"ListItem","position":1,"name":"Nova","item":"https://novaspeak.app/"},
+  {"@type":"ListItem","position":2,"name":"The dictation that reads your screen","item":"https://novaspeak.app/dictation-that-reads-your-screen.html"}]}
+]}
+</script>
+<style>
+  :root{--font:-apple-system,"SF Pro Display","SF Pro Text","Segoe UI",Inter,system-ui,sans-serif;
+    --bg:#F5F5F7;--card:#FFFFFF;--inset:#ECECEE;--txt:#1D1D1F;--mut:#6E6E73;
+    --line:rgba(0,0,0,.08);--blue:#0A84FF;--ok:#30D158;
+    --peri:#AEBEEC;--peri-d:#93A6E0}
+  @media(prefers-color-scheme:dark){:root{--bg:#1F1F22;--card:#2C2C30;--inset:#1A1A1D;
+    --txt:#F2F2F4;--mut:#98989F;--line:rgba(255,255,255,.075)}}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:var(--txt);font-family:var(--font);
+    -webkit-font-smoothing:antialiased;line-height:1.65}
+  a{color:var(--blue);text-decoration:none}
+  header{display:flex;align-items:center;justify-content:space-between;gap:14px;
+    max-width:760px;margin:0 auto;padding:22px 20px}
+  .brand{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:700;
+    letter-spacing:-.3px;color:var(--txt)}
+  .dot{width:20px;height:20px;border-radius:50%;flex:none;
+    background:radial-gradient(circle at 34% 30%,#fff 0%,#DFE7FA 18%,var(--peri) 45%,var(--peri-d) 72%,#7E92D6 100%);
+    box-shadow:0 0 12px rgba(174,190,236,.55)}
+  .btn{display:inline-flex;align-items:center;gap:8px;background:var(--blue);color:#fff;
+    border:none;border-radius:8px;padding:10px 18px;font-size:13.5px;font-weight:600;
+    font-family:var(--font);cursor:pointer;transition:filter .2s}
+  .btn:hover{filter:brightness(1.12)}
+  main{max-width:760px;margin:0 auto;padding:8px 20px 70px}
+  article{background:var(--card);border:1px solid var(--line);border-radius:13px;
+    padding:44px 48px}
+  @media(max-width:640px){article{padding:28px 20px}}
+  .kicker{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--blue);margin-bottom:10px}
+  h1{font-size:clamp(23px,5vw,30px);font-weight:700;letter-spacing:-.5px;line-height:1.18;
+    margin-bottom:8px;text-wrap:balance}
+  .date{font-size:12px;color:var(--mut);margin-bottom:22px}
+  .lede{font-size:15px;color:var(--txt);margin-bottom:8px}
+  h2{font-size:17px;font-weight:700;letter-spacing:-.25px;margin:34px 0 10px;
+    padding-top:26px;border-top:1px solid var(--line)}
+  h3{font-size:14.5px;font-weight:700;margin:20px 0 6px}
+  p{font-size:13.8px;margin-bottom:10px}
+  ul{margin:0 0 12px 18px}
+  li{font-size:13.8px;margin-bottom:6px}
+  .mut{color:var(--mut)}
+  .tldr{background:rgba(10,132,255,.07);border:1px solid rgba(10,132,255,.22);
+    border-radius:11px;padding:16px 18px;margin:20px 0 6px}
+  .tldr .t{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--blue);margin-bottom:8px}
+  .tldr li{margin-bottom:7px}
+  .steps{list-style:none;margin:14px 0 6px;padding:0;counter-reset:s}
+  .steps li{position:relative;padding-left:34px;margin-bottom:12px;counter-increment:s}
+  .steps li::before{content:counter(s);position:absolute;left:0;top:-1px;width:22px;height:22px;
+    border-radius:50%;background:rgba(10,132,255,.12);color:var(--blue);font-size:12px;
+    font-weight:700;display:flex;align-items:center;justify-content:center}
+  .verdict{background:var(--inset);border-radius:9px;padding:10px 14px;font-size:13px;
+    margin:12px 0 4px}
+  .verdict b{color:var(--txt)}
+  .cta{margin-top:30px;padding:24px;border:1px solid rgba(10,132,255,.25);
+    background:rgba(10,132,255,.06);border-radius:13px;text-align:center}
+  .cta p{font-size:14px;margin-bottom:14px}
+  .cta .note{font-size:12px;color:var(--mut);margin:10px 0 0}
+  .also{margin-top:26px;padding-top:20px;border-top:1px solid var(--line)}
+  .also .t{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--mut);margin-bottom:8px}
+  .also a{display:block;font-size:13.5px;margin-bottom:6px}
+  footer{max-width:760px;margin:0 auto;padding:22px 20px;display:flex;flex-wrap:wrap;
+    gap:8px 20px;font-size:12.5px;color:var(--mut)}
+  footer a{color:var(--mut)} footer a:hover{color:var(--txt)}
+</style>
+</head>
+<body>
+
+<header>
+  <a class="brand" href="/"><span class="dot"></span>Nova</a>
+  <a class="btn" href="https://github.com/Mailpro31/nova-releases/releases/latest/download/Nova-Setup.exe">Download Nova</a>
+</header>
+
+<main><article>
+  <p class="kicker">Feature</p>
+  <h1>The dictation that reads your screen to reply in context</h1>
+  <p class="date">Updated July 20, 2026 · 4 min read</p>
+
+  <p class="lede">Dictating a reply without context is like answering a message
+    you haven't read: the text comes out correct, but generic. Nova changes
+    that — when you allow it, it <b>reads the context on your screen</b> (who
+    you're replying to, about what, in what tone) to write a reply that
+    actually fits. And it does so <b>locally by default</b>: your screen goes
+    nowhere.</p>
+
+  <div class="tldr">
+    <div class="t">The gist in 30 seconds</div>
+    <ul>
+      <li><b>What it does</b>: Nova understands the situation on screen to write
+        a fitting reply, not a one-size-fits-all one.</li>
+      <li><b>Where it runs</b>: locally first — Windows accessibility, then
+        local text recognition as a fallback. Nothing leaves your machine.</li>
+      <li><b>The cloud option</b>: <b>Nova&nbsp;Ultra</b> only, off by default,
+        every send is a choice — and the image is never stored.</li>
+    </ul>
+  </div>
+
+  <h2>The problem: dictating blind</h2>
+  <p>Ordinary dictation only hears you. It has no idea the window in front of
+    you holds an unhappy customer, a precise support ticket, or a friend's
+    message in a light tone. So you dictate "tell them it's fine" and get a
+    flat sentence you have to rework so it truly fits the conversation.</p>
+
+  <h2>What Nova does: read the context, not your privacy</h2>
+  <p>With <b>context reading</b>, Nova looks at the content of the active window
+    as you dictate, and uses it <em>only</em> to understand the situation. It
+    doesn't copy what it reads and doesn't reply on your behalf: it tunes your
+    text so it lands right. That reading follows a privacy-first cascade:</p>
+  <ol class="steps">
+    <li><b>Windows accessibility</b> — Nova reads the text the app already
+      exposes to the system. Light, instant, 100% local.</li>
+    <li><b>Local text recognition</b> — if the app hides its content (often
+      Chromium- or Electron-based software), Nova reads what's <em>shown</em>,
+      still on your machine.</li>
+    <li><b>Cloud option (Nova&nbsp;Ultra, opt-in)</b> — for the rare windows
+      unreadable any other way, a description can be requested server-side. Off
+      by default, enabled explicitly, image not stored.</li>
+  </ol>
+
+  <div class="verdict"><b>The rule:</b> local always goes first. The cloud only
+    comes into play if you've enabled it, and only as a last resort.</div>
+
+  <h2>Local first, cloud only if you decide</h2>
+  <p>It's the same philosophy as the rest of Nova: dictation and rewriting
+    already work fully offline, no account. Context reading extends that
+    principle. By default, no image and no text from your screen leaves the
+    computer — we can't read them. The day you turn the cloud option on, it's a
+    conscious choice, reserved for cases where local isn't enough, and flagged
+    as such.</p>
+
+  <h2>What it's actually for</h2>
+  <ul>
+    <li><b>Answer an email</b> without re-reading the whole thread: dictate the
+      idea, Nova matches the tone and details to the message in front of you.</li>
+    <li><b>Handle a ticket</b> or support message: the reply picks up the right
+      number, the right name, the right problem.</li>
+    <li><b>Write in the right register</b>: formal with a client, direct with a
+      colleague — because Nova sees who you're talking to.</li>
+  </ul>
+
+  <h2>Frequently asked</h2>
+  <h3>Does Nova send screenshots of my screen?</h3>
+  <p>Not by default. All context reading happens locally. Only Nova&nbsp;Ultra's
+    "cloud vision" option can describe a screenshot server-side — it's off out
+    of the box, every send is explicit, and the image is never stored.</p>
+  <h3>Is it subscription-only?</h3>
+  <p>Context reading is part of <b>Nova&nbsp;Ultra</b>. Local dictation and
+    rewriting stay free.</p>
+  <h3>Does it slow dictation down?</h3>
+  <p>Reading through accessibility is near-instant; local text recognition only
+    kicks in as a fallback. And if your dictation stands on its own, Nova
+    ignores the context entirely.</p>
+  <h3>Which apps?</h3>
+  <p>The active window, whatever it is. Apps that don't expose their text are
+    covered by local recognition, which reads what's on screen.</p>
+
+  <div class="cta">
+    <p><b>Try the dictation that understands the situation.</b><br>Hold F9,
+      speak — Nova tunes the reply to what's in front of you.</p>
+    <a class="btn" href="https://github.com/Mailpro31/nova-releases/releases/latest/download/Nova-Setup.exe">Download Nova for Windows</a>
+    <p class="note">Free for local dictation · context reading included in Nova&nbsp;Ultra · Windows&nbsp;10/11 ·
+      <a href="/#tarifs">see pricing</a></p>
+  </div>
+
+  <div class="also">
+    <div class="t">Read next</div>
+    <a href="/offline-dictation-windows.html">Offline voice dictation on Windows: the guide (2026)</a>
+    <a href="/nova-vs-wispr-flow.html">Nova vs Wispr Flow? Two rewriting dictations, two philosophies</a>
+  </div>
+</article></main>
+
+<footer>
+  <a href="/">← Back to Nova</a>
+  <a href="/#faq">FAQ</a>
+  <a href="/conditions.html">Terms</a>
+  <a href="/confidentialite.html">Privacy</a>
+  <a href="/dictee-qui-lit-votre-ecran.html">Version française</a>
+</footer>
+
+</body>
+</html>
