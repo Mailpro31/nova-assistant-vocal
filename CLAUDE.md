@@ -45,6 +45,15 @@ surface existante qui s'en écarte doit y être ramenée.
   `normal`/`eleve`/`ultra` — ne changent pas : seul le texte visible est
   rebrandé.)
 - Textes utilisateur **en français**, ton sobre (pas de superlatifs criards).
+- **Changelog du site synchronisé avec Nova Desktop** : à CHAQUE release de
+  l'app, ajouter une entrée en tête de la timeline `#maj` de `landing/index.html`
+  (article `.rel` + clés `maj_vXYZ_when`/`maj_vXYZ_body` en FR ET EN). Ton
+  vendeur mais honnête, **haut niveau** (la valeur pour l'utilisateur, 1–2
+  puces), **sans détails techniques** ni détails internes. Montrer que Nova
+  s'améliore souvent et pour eux.
+- **Quotas/limites internes JAMAIS visibles** : les plafonds de fair-use (ex.
+  quota d'heures Turbo/jour) sont des garde-fous internes — ne jamais les
+  afficher dans l'UI ni le marketing.
 - Fonctionnalité au-dessus du palier : griser les contrôles + badge
   « NÉCESSITE NOVA ULTRA » (`licensing.has(...)` décide).
 - tkinter (pilule de repli) ne sait pas faire de vrais arrondis : on y applique
