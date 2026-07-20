@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google-site-verification" content="w-1W3jhEAWExnrkCQzyE_DJz1DjKhfuADBZt82HHMgI">
+<title>La dictée qui lit votre écran pour répondre juste (Nova, 2026)</title>
+<meta name="description" content="Dicter sans contexte donne un texte générique. Nova lit le contexte à l'écran — à qui vous répondez, sur quel sujet — pour écrire une réponse juste. En local par défaut ; l'option cloud est réservée à Nova Ultra et strictement au choix.">
+<link rel="canonical" href="https://novaspeak.app/dictee-qui-lit-votre-ecran.html">
+<link rel="alternate" hreflang="fr" href="https://novaspeak.app/dictee-qui-lit-votre-ecran.html">
+<link rel="alternate" hreflang="en" href="https://novaspeak.app/dictation-that-reads-your-screen.html">
+<link rel="alternate" hreflang="x-default" href="https://novaspeak.app/dictation-that-reads-your-screen.html">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta property="og:type" content="article">
+<meta property="og:title" content="La dictée qui lit votre écran pour répondre juste">
+<meta property="og:description" content="Nova lit le contexte à l'écran pour écrire une réponse juste — en local par défaut, option cloud réservée à Ultra et au choix.">
+<meta property="og:url" content="https://novaspeak.app/dictee-qui-lit-votre-ecran.html">
+<meta property="og:image" content="https://novaspeak.app/og.png">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+ {"@type":"Article","headline":"La dictée qui lit votre écran pour répondre juste",
+  "inLanguage":"fr","datePublished":"2026-07-20","dateModified":"2026-07-20",
+  "author":{"@type":"Organization","name":"Nova"},
+  "publisher":{"@type":"Organization","name":"Nova","url":"https://novaspeak.app"},
+  "mainEntityOfPage":"https://novaspeak.app/dictee-qui-lit-votre-ecran.html"},
+ {"@type":"FAQPage","mainEntity":[
+  {"@type":"Question","name":"Comment Nova comprend-il le contexte à l'écran ?",
+   "acceptedAnswer":{"@type":"Answer","text":"Quand la lecture de contexte est activée, Nova lit le contenu texte de la fenêtre active — le message auquel vous répondez, le sujet, le ton — pour rédiger une réponse ajustée plutôt qu'un texte générique. Il lit d'abord par l'accessibilité de Windows (léger, local), puis par une reconnaissance de texte locale (OCR) si l'application n'expose pas son contenu. Tout cela reste sur votre machine."}},
+  {"@type":"Question","name":"Nova envoie-t-il des captures d'écran ?",
+   "acceptedAnswer":{"@type":"Answer","text":"Non par défaut. La lecture de contexte fonctionne en local : rien ne quitte votre ordinateur. Une option « Vision cloud », réservée à Nova Ultra, peut décrire une capture côté serveur pour les rares fenêtres illisibles autrement — mais elle est désactivée par défaut, chaque envoi est un choix explicite, et l'image n'est jamais conservée."}},
+  {"@type":"Question","name":"La lecture de contexte est-elle réservée à un abonnement ?",
+   "acceptedAnswer":{"@type":"Answer","text":"Oui, la lecture de contexte fait partie de Nova Ultra. La dictée et la reformulation locales restent, elles, disponibles gratuitement."}},
+  {"@type":"Question","name":"Est-ce que ça ralentit la dictée ?",
+   "acceptedAnswer":{"@type":"Answer","text":"La lecture par l'accessibilité est quasi instantanée. La reconnaissance de texte locale n'intervient qu'en repli, quand une application ne donne pas accès à son contenu. Et la lecture de contexte ne sert qu'à mieux comprendre la situation : si votre dictée se suffit à elle-même, Nova l'ignore."}},
+  {"@type":"Question","name":"Sur quelles applications cela fonctionne-t-il ?",
+   "acceptedAnswer":{"@type":"Answer","text":"Sur la fenêtre active, quelle qu'elle soit — messagerie, ticket, document, chat. Les applications qui masquent leur texte à l'accessibilité (souvent celles à base de Chromium ou Electron) sont couvertes par la reconnaissance de texte locale, qui lit ce qui est affiché à l'écran."}}
+ ]},
+ {"@type":"BreadcrumbList","itemListElement":[
+  {"@type":"ListItem","position":1,"name":"Nova","item":"https://novaspeak.app/"},
+  {"@type":"ListItem","position":2,"name":"La dictée qui lit votre écran","item":"https://novaspeak.app/dictee-qui-lit-votre-ecran.html"}]}
+]}
+</script>
+<style>
+  :root{--font:-apple-system,"SF Pro Display","SF Pro Text","Segoe UI",Inter,system-ui,sans-serif;
+    --bg:#F5F5F7;--card:#FFFFFF;--inset:#ECECEE;--txt:#1D1D1F;--mut:#6E6E73;
+    --line:rgba(0,0,0,.08);--blue:#0A84FF;--ok:#30D158;
+    --peri:#AEBEEC;--peri-d:#93A6E0}
+  @media(prefers-color-scheme:dark){:root{--bg:#1F1F22;--card:#2C2C30;--inset:#1A1A1D;
+    --txt:#F2F2F4;--mut:#98989F;--line:rgba(255,255,255,.075)}}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:var(--txt);font-family:var(--font);
+    -webkit-font-smoothing:antialiased;line-height:1.65}
+  a{color:var(--blue);text-decoration:none}
+  header{display:flex;align-items:center;justify-content:space-between;gap:14px;
+    max-width:760px;margin:0 auto;padding:22px 20px}
+  .brand{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:700;
+    letter-spacing:-.3px;color:var(--txt)}
+  .dot{width:20px;height:20px;border-radius:50%;flex:none;
+    background:radial-gradient(circle at 34% 30%,#fff 0%,#DFE7FA 18%,var(--peri) 45%,var(--peri-d) 72%,#7E92D6 100%);
+    box-shadow:0 0 12px rgba(174,190,236,.55)}
+  .btn{display:inline-flex;align-items:center;gap:8px;background:var(--blue);color:#fff;
+    border:none;border-radius:8px;padding:10px 18px;font-size:13.5px;font-weight:600;
+    font-family:var(--font);cursor:pointer;transition:filter .2s}
+  .btn:hover{filter:brightness(1.12)}
+  main{max-width:760px;margin:0 auto;padding:8px 20px 70px}
+  article{background:var(--card);border:1px solid var(--line);border-radius:13px;
+    padding:44px 48px}
+  @media(max-width:640px){article{padding:28px 20px}}
+  .kicker{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--blue);margin-bottom:10px}
+  h1{font-size:clamp(23px,5vw,30px);font-weight:700;letter-spacing:-.5px;line-height:1.18;
+    margin-bottom:8px;text-wrap:balance}
+  .date{font-size:12px;color:var(--mut);margin-bottom:22px}
+  .lede{font-size:15px;color:var(--txt);margin-bottom:8px}
+  h2{font-size:17px;font-weight:700;letter-spacing:-.25px;margin:34px 0 10px;
+    padding-top:26px;border-top:1px solid var(--line)}
+  h3{font-size:14.5px;font-weight:700;margin:20px 0 6px}
+  p{font-size:13.8px;margin-bottom:10px}
+  ul{margin:0 0 12px 18px}
+  li{font-size:13.8px;margin-bottom:6px}
+  .mut{color:var(--mut)}
+  .tldr{background:rgba(10,132,255,.07);border:1px solid rgba(10,132,255,.22);
+    border-radius:11px;padding:16px 18px;margin:20px 0 6px}
+  .tldr .t{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--blue);margin-bottom:8px}
+  .tldr li{margin-bottom:7px}
+  .steps{list-style:none;margin:14px 0 6px;padding:0;counter-reset:s}
+  .steps li{position:relative;padding-left:34px;margin-bottom:12px;counter-increment:s}
+  .steps li::before{content:counter(s);position:absolute;left:0;top:-1px;width:22px;height:22px;
+    border-radius:50%;background:rgba(10,132,255,.12);color:var(--blue);font-size:12px;
+    font-weight:700;display:flex;align-items:center;justify-content:center}
+  .verdict{background:var(--inset);border-radius:9px;padding:10px 14px;font-size:13px;
+    margin:12px 0 4px}
+  .verdict b{color:var(--txt)}
+  .cta{margin-top:30px;padding:24px;border:1px solid rgba(10,132,255,.25);
+    background:rgba(10,132,255,.06);border-radius:13px;text-align:center}
+  .cta p{font-size:14px;margin-bottom:14px}
+  .cta .note{font-size:12px;color:var(--mut);margin:10px 0 0}
+  .also{margin-top:26px;padding-top:20px;border-top:1px solid var(--line)}
+  .also .t{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--mut);margin-bottom:8px}
+  .also a{display:block;font-size:13.5px;margin-bottom:6px}
+  footer{max-width:760px;margin:0 auto;padding:22px 20px;display:flex;flex-wrap:wrap;
+    gap:8px 20px;font-size:12.5px;color:var(--mut)}
+  footer a{color:var(--mut)} footer a:hover{color:var(--txt)}
+</style>
+</head>
+<body>
+
+<header>
+  <a class="brand" href="/"><span class="dot"></span>Nova</a>
+  <a class="btn" href="https://github.com/Mailpro31/nova-releases/releases/latest/download/Nova-Setup.exe">Télécharger Nova</a>
+</header>
+
+<main><article>
+  <p class="kicker">Fonctionnalité</p>
+  <h1>La dictée qui lit votre écran pour répondre&nbsp;juste</h1>
+  <p class="date">Mis à jour le 20 juillet 2026 · lecture 4 min</p>
+
+  <p class="lede">Dicter une réponse sans contexte, c'est comme répondre à un
+    message sans l'avoir lu&nbsp;: le texte sort correct, mais générique. Nova
+    change cela — quand vous l'y autorisez, il <b>lit le contexte à l'écran</b>
+    (à qui vous répondez, sur quel sujet, sur quel ton) pour écrire une réponse
+    réellement ajustée. Et il le fait <b>en local par défaut</b>&nbsp;: votre
+    écran ne part nulle part.</p>
+
+  <div class="tldr">
+    <div class="t">L'essentiel en 30 secondes</div>
+    <ul>
+      <li><b>Ce que ça fait</b>&nbsp;: Nova comprend la situation affichée pour
+        rédiger une réponse juste, pas un texte passe-partout.</li>
+      <li><b>Où ça se passe</b>&nbsp;: en local d'abord — l'accessibilité de
+        Windows, puis une reconnaissance de texte locale en repli. Rien ne
+        quitte votre machine.</li>
+      <li><b>L'option cloud</b>&nbsp;: réservée à <b>Nova&nbsp;Ultra</b>,
+        désactivée par défaut, chaque envoi est un choix — et l'image n'est
+        jamais conservée.</li>
+    </ul>
+  </div>
+
+  <h2>Le problème&nbsp;: dicter à l'aveugle</h2>
+  <p>Une dictée classique n'entend que vous. Elle ne sait pas que la fenêtre
+    d'en face contient un client mécontent, un ticket technique précis, ou un
+    message d'un ami sur un ton léger. Résultat&nbsp;: vous dictez «&nbsp;réponds
+    que c'est d'accord&nbsp;» et vous obtenez une phrase plate, qu'il faut
+    reprendre pour qu'elle colle vraiment à la conversation.</p>
+
+  <h2>Ce que fait Nova&nbsp;: lire le contexte, pas votre vie privée</h2>
+  <p>Avec la <b>lecture de contexte</b>, Nova regarde le contenu de la fenêtre
+    active au moment où vous dictez, et s'en sert <em>uniquement</em> pour
+    comprendre la situation. Il ne recopie pas ce qu'il lit et n'y répond pas à
+    votre place&nbsp;: il ajuste votre texte pour qu'il tombe juste. Cette
+    lecture suit une cascade pensée pour la vie privée&nbsp;:</p>
+  <ol class="steps">
+    <li><b>Accessibilité de Windows</b> — Nova lit le texte que l'application
+      expose déjà au système. Léger, instantané, 100&nbsp;% local.</li>
+    <li><b>Reconnaissance de texte locale</b> — si l'application masque son
+      contenu (souvent les logiciels à base de Chromium ou Electron), Nova lit
+      ce qui est <em>affiché</em>, toujours sur votre machine.</li>
+    <li><b>Option cloud (Nova&nbsp;Ultra, au choix)</b> — pour les rares
+      fenêtres illisibles autrement, une description peut être demandée côté
+      serveur. Désactivée par défaut, activée explicitement, image non
+      conservée.</li>
+  </ol>
+
+  <div class="verdict"><b>La règle&nbsp;:</b> le local passe toujours en
+    premier. Le cloud n'entre en jeu que si vous l'avez activé, et seulement en
+    dernier recours.</div>
+
+  <h2>Local d'abord, cloud seulement si vous le décidez</h2>
+  <p>C'est la même philosophie que le reste de Nova&nbsp;: la dictée et la
+    reformulation fonctionnent déjà entièrement hors ligne, sans compte. La
+    lecture de contexte prolonge ce principe. Par défaut, aucune image, aucun
+    texte de votre écran ne quitte l'ordinateur — nous ne pouvons pas les lire.
+    Le jour où vous activez l'option cloud, c'est un choix conscient, réservé
+    aux cas où le local ne suffit pas, et signalé comme tel.</p>
+
+  <h2>À quoi ça sert, concrètement</h2>
+  <ul>
+    <li><b>Répondre à un e-mail</b> sans relire tout le fil&nbsp;: dictez
+      l'idée, Nova cale le ton et les détails sur le message d'en face.</li>
+    <li><b>Traiter un ticket</b> ou un message de support&nbsp;: la réponse
+      reprend le bon numéro, le bon nom, le bon problème.</li>
+    <li><b>Écrire dans le bon registre</b>&nbsp;: formel avec un client,
+      direct avec un collègue — parce que Nova voit à qui vous parlez.</li>
+  </ul>
+
+  <h2>Questions fréquentes</h2>
+  <h3>Nova envoie-t-il des captures de mon écran&nbsp;?</h3>
+  <p>Non par défaut. Toute la lecture de contexte se fait en local. Seule
+    l'option «&nbsp;Vision cloud&nbsp;» de Nova&nbsp;Ultra peut décrire une
+    capture côté serveur — elle est désactivée d'origine, chaque envoi est
+    explicite, et l'image n'est jamais conservée.</p>
+  <h3>Est-ce réservé à un abonnement&nbsp;?</h3>
+  <p>La lecture de contexte fait partie de <b>Nova&nbsp;Ultra</b>. La dictée et
+    la reformulation locales, elles, restent gratuites.</p>
+  <h3>Est-ce que ça ralentit la dictée&nbsp;?</h3>
+  <p>La lecture par l'accessibilité est quasi instantanée&nbsp;; la
+    reconnaissance de texte locale n'intervient qu'en repli. Et si votre dictée
+    se suffit à elle-même, Nova ignore complètement le contexte.</p>
+  <h3>Sur quelles applications&nbsp;?</h3>
+  <p>Sur la fenêtre active, quelle qu'elle soit. Les applications qui ne
+    donnent pas accès à leur texte sont couvertes par la reconnaissance locale,
+    qui lit ce qui est à l'écran.</p>
+
+  <div class="cta">
+    <p><b>Essayez la dictée qui comprend la situation.</b><br>Maintenez F9,
+      parlez — Nova cale la réponse sur ce que vous avez sous les yeux.</p>
+    <a class="btn" href="https://github.com/Mailpro31/nova-releases/releases/latest/download/Nova-Setup.exe">Télécharger Nova pour Windows</a>
+    <p class="note">Gratuit pour la dictée locale · lecture de contexte incluse dans Nova&nbsp;Ultra · Windows&nbsp;10/11 ·
+      <a href="/#tarifs">voir les tarifs</a></p>
+  </div>
+
+  <div class="also">
+    <div class="t">À lire aussi</div>
+    <a href="/dictee-vocale-hors-ligne.html">Dictée vocale hors ligne sur Windows&nbsp;: le guide (2026)</a>
+    <a href="/nova-ou-wispr-flow.html">Nova ou Wispr Flow&nbsp;? Deux dictées reformulées, deux philosophies</a>
+  </div>
+</article></main>
+
+<footer>
+  <a href="/">← Retour à Nova</a>
+  <a href="/#faq">FAQ</a>
+  <a href="/conditions.html">Conditions</a>
+  <a href="/confidentialite.html">Confidentialité</a>
+  <a href="/dictation-that-reads-your-screen.html">English version</a>
+</footer>
+
+</body>
+</html>
