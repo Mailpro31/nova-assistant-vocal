@@ -13,7 +13,7 @@ const supa = createClient(
 );
 
 const DL_URL =
-  "https://github.com/Mailpro31/nova-assistant-vocal/releases/latest/download/Nova-Setup.exe";
+  "https://github.com/Mailpro31/nova-releases/releases/latest/download/Nova-Setup.exe";
 const TTL_MIN = 15;          // validité du code
 const MAX_SENDS_H = 3;       // envois max par adresse et par heure
 const MAX_SENDS_IP_H = 12;   // envois max par empreinte réseau et par heure

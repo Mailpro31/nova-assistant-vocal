@@ -1785,12 +1785,15 @@ addEventListener("keydown", (e) => { if (e.key === "Escape") dlHide(); });
 document.querySelectorAll('a[href$="Nova-Setup.exe"]').forEach((a) => {
   a.addEventListener("click", (e) => { if (!dlDone) dlOpen(e); });
 });
-function dlGo(url) {
+function dlGo() {
+  // DL_EXE (dépôt des releases publiques) fait toujours foi côté site : on
+  // n'utilise jamais une URL renvoyée par le serveur, pour ne pas dépendre de
+  // sa config et garantir la bonne app même si la fonction n'est pas à jour.
   dlDone = true;
   try { localStorage.setItem("nova-dl-ok", "1"); } catch (_e) { /* privé */ }
-  $("dlFallback").href = url || DL_EXE;
+  $("dlFallback").href = DL_EXE;
   dlStep(3); sndDone();
-  location.href = url || DL_EXE;
+  location.href = DL_EXE;
 }
 async function dlPost(path, body) {
   const r = await fetch(DL_API + path, { method: "POST",
@@ -1816,7 +1819,7 @@ async function dlRequest(email, resend) {
   btn.disabled = true;
   try {
     const { s, d } = await dlPost("/code", { email, lang: LANG, website: $("dlSite").value });
-    if (d && d.ok && d.open) { dlGo(d.url); return; }   // e-mail en panne → on ouvre
+    if (d && d.ok && d.open) { dlGo(); return; }   // e-mail en panne → on ouvre
     if (d && d.ok) {
       dlEmailV = email; $("dlMail").textContent = email;
       $("dlErr2").textContent = ""; $("dlCode").value = "";
@@ -1826,10 +1829,10 @@ async function dlRequest(email, resend) {
     }
     // la porte est là pour recueillir des e-mails, jamais pour bloquer le
     // produit : si NOTRE serveur est en panne (5xx), on ouvre le téléchargement
-    if (s >= 500) { dlGo(null); return; }
+    if (s >= 500) { dlGo(); return; }
     err.textContent = I18N[LANG][s === 429 ? "dl_err_many" : "dl_err_mail"];
     if (resend) dlCooldown();          // échec compris : pas de martelage
-  } catch (_e) { dlGo(null); }         // réseau/extension bloquante → direct
+  } catch (_e) { dlGo(); }         // réseau/extension bloquante → direct
   finally { if (!resend) btn.disabled = false; }
 }
 $("dlForm1").onsubmit = (e) => {
@@ -1849,7 +1852,7 @@ $("dlForm2").onsubmit = async (e) => {
   btn.disabled = true;
   try {
     const { s, d } = await dlPost("/verify", { email: dlEmailV, code, lang: LANG });
-    if (d && d.ok) { dlGo(d.url); return; }
+    if (d && d.ok) { dlGo(); return; }
     // 429 ici = code verrouillé après 5 essais → renvoyer un code règle tout
     // de suite (les codes expirent en 15 min — pas « une heure ») ; 5xx = notre
     // panne, pas la sienne
