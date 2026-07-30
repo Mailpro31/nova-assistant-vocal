@@ -54,13 +54,26 @@ if "--qt-probe" in sys.argv:
         os._exit(1)
     os._exit(0)
 
-# instance unique (Windows) : une 2e exécution se referme aussitôt
-try:
-    _mutex = ctypes.windll.kernel32.CreateMutexW(None, False, "NovaSpeechlyLiteMutex")
-    if ctypes.windll.kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
-        sys.exit(0)
-except Exception:
-    pass
+# instance unique (Windows) : une 2e exécution se referme aussitôt. MAIS les
+# sous-processus légitimes que le dock natif lance PENDANT que le principal
+# détient déjà le mutex DOIVENT en être exemptés, sinon l'enfant sortirait 0
+# avant d'ouvrir quoi que ce soit : --settings (fenêtre Réglages webview, cf.
+# _open_settings_window → sinon les Réglages ne s'ouvrent JAMAIS en dock Qt/QML)
+# et --preload-models (préchargement). Comme --qt-probe plus haut, ils passent.
+if not any(a in sys.argv for a in ("--settings", "--preload-models")):
+    try:
+        _mutex = ctypes.windll.kernel32.CreateMutexW(None, False, "NovaSpeechlyLiteMutex")
+        if ctypes.windll.kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
+            sys.exit(0)
+    except Exception:
+        pass
+
+# Ce processus est-il la fenêtre Réglages autonome (--settings) ? Si oui il ne
+# doit JAMAIS brancher de hook clavier global (PTT/Styles) : il ne fait qu'éditer
+# config.json, le dock (autre processus) possède les hooks. Sans ce garde, un 2e
+# hook PTT vivrait ici → une frappe lance DEUX dictées + DEUX collages (cause du
+# « collage cassé après changement de réglages »).
+_IS_SETTINGS_PROC = "--settings" in sys.argv
 
 
 # ======================= Dock QML : moteur Qt construit ICI ==================
@@ -2279,6 +2292,14 @@ def _resync_state_from_config():
     if not licensing.mode_allowed(STATE["mode"]):
         STATE["mode"] = modes_registry.DEFAULT_MODE_ID
     STATE["profile"] = core.CFG.get("profile", STATE.get("profile"))
+    # Les raccourcis (touche de dictée + Styles) ont pu changer dans la fenêtre
+    # Réglages (autre processus). On les re-lie ICI, dans le processus du dock
+    # qui POSSÈDE les hooks clavier — sinon la nouvelle touche resterait inerte
+    # jusqu'au redémarrage. Idempotent (débranche puis rebranche), défensif.
+    try:
+        _rebind_ptt()
+    except Exception as e:
+        core.log_err("resync_rebind", e)
 
 
 def _open_settings_window():
@@ -2577,6 +2598,8 @@ def _rebind_ptt():
     seule (« f9 ») ou une combinaison « ctrl+space », « alt+n »… : la dictée
     démarre quand TOUTES les touches sont enfoncées, s'arrête dès que l'une
     d'elles est relâchée (même geste maintenir-parler-relâcher)."""
+    if _IS_SETTINGS_PROC:      # la fenêtre Réglages n'écoute jamais le clavier
+        return                 # global (sinon 2e hook PTT → double collage)
     global _ptt_handles
     for h in _ptt_handles:
         try:
@@ -2618,6 +2641,8 @@ def _rebind_style_hotkeys():
     du menu des Styles (`menu_hotkey`). Chaque liaison est indépendante et
     défensive : un raccourci invalide est journalisé puis ignoré — jamais de
     plantage, jamais de dictée morte."""
+    if _IS_SETTINGS_PROC:      # cf. _rebind_ptt : le process Réglages ne branche
+        return                 # aucun hook clavier global
     global _style_hotkeys
     for h in _style_hotkeys:
         try:

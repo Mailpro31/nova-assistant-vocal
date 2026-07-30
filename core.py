@@ -414,9 +414,15 @@ if CFG["providers"].get("gemini", {}).get("model") == "gemini-2.0-flash":
     _save("config.json", CFG)
 
 if not CFG.get("active_profile"):
-    CFG["active_profile"] = storage.ensure_default_profile()
-    _save("config.json", CFG)   # persiste : CFG ne diverge JAMAIS du disque sans
-    #                             sauvegarde (préalable au save_config disque-base)
+    # au 1er lancement seulement. ensure_default_profile() fait un INSERT SQLite ;
+    # une base verrouillée (2e process --settings) ou corrompue lèverait ICI, à
+    # l'IMPORT de core (donc tuerait TOUT point d'entrée sans repli). On garde
+    # donc ce bloc défensif comme les migrations voisines (« jamais bloquant »).
+    try:
+        CFG["active_profile"] = storage.ensure_default_profile()
+        _save("config.json", CFG)   # CFG ne diverge JAMAIS du disque sans save
+    except Exception as e:
+        log_err("ensure_default_profile", e)
 
 
 def get_api_key(provider):
@@ -1272,7 +1278,10 @@ def _normalize_llm(result):
              "args": result.get("args", "")}]
         result = {"reply": result.get("reply", ""), "steps": steps}
     steps = []
-    for s in (result.get("steps") or [])[:12]:
+    _raw_steps = result.get("steps")
+    if not isinstance(_raw_steps, list):     # un modèle peut renvoyer steps=objet
+        _raw_steps = []                      # → dict[:12] lèverait TypeError
+    for s in _raw_steps[:12]:
         if isinstance(s, dict) and s.get("action") in LLM_ACTIONS and s["action"] != "none":
             steps.append({"action": s["action"], "target": str(s.get("target", "")),
                           "args": str(s.get("args", ""))})
@@ -1485,7 +1494,10 @@ def _ask_one(provider, text, context=None, image=None):
             model=prov["anthropic"]["model"] or "claude-haiku-4-5",
             max_tokens=700 if image else 300,
             system=sys_txt,
-            output_config={"format": {"type": "json_schema", "schema": LLM_SCHEMA}},
+            # PAS de output_config= : ce n'est PAS un paramètre du SDK Anthropic
+            # (messages.create le rejetterait par TypeError → provider mort). Le
+            # schéma JSON est demandé dans le system prompt et _extract_json tolère
+            # déjà une sortie non stricte, comme le fait _complete_one (reformul.).
             messages=user_msgs,
         )
         return _normalize_llm(_extract_json(next(b.text for b in msg.content if b.type == "text")))
@@ -1906,6 +1918,8 @@ def save_custom_variables(items):
     insensible à la casse). Retourne la liste propre effectivement stockée."""
     clean, seen = [], set()
     for it in items or []:
+        if not isinstance(it, dict):     # config éditée à la main → jamais lever
+            continue
         trig = (it.get("trigger") or "").strip()
         val = (it.get("value") or "").strip()
         key = trig.lower()

@@ -25,6 +25,7 @@ const supa = createClient(
 const PUBLIC_KEY_B64 = "Q+U/LqaeFgLSDkvqiAXRcHQ8DSwqU9NcrHiPt8A6EJE=";
 const DAILY_CAP = 300; // fair-use : 300 lectures de contexte / jour / machine
 const MAX_BYTES = 8 * 1024 * 1024; // une capture PNG/JPEG raisonnable
+const GRACE_MS = 7 * 24 * 3600 * 1000; // aligné sur la fonction « license »
 const MODEL_DEFAULT = "meta-llama/llama-4-scout-17b-16e-instruct";
 const MODEL_ALLOW = new Set([
   "meta-llama/llama-4-scout-17b-16e-instruct",
@@ -73,6 +74,32 @@ function toBase64(bytes: Uint8Array): string {
   return btoa(bin);
 }
 
+// Révocation en TEMPS RÉEL (cf. fonction « turbo ») : le jeton reste valide
+// ~1 mois après un remboursement/résiliation ; on consulte donc l'état vivant
+// de la/les licence(s) liée(s) à la machine. FAIL-OPEN strict : toute
+// incertitude laisse passer ; on ne refuse que si TOUTES sont résiliées/expirées.
+async function licenseRevoked(machine: string): Promise<boolean> {
+  try {
+    const { data: acts } = await supa.from("activations")
+      .select("license_id").eq("machine_hash", machine);
+    if (!acts || !acts.length) return false;
+    const ids = acts.map((a) => a.license_id);
+    const { data: lics } = await supa.from("licenses")
+      .select("status,current_period_end").in("id", ids);
+    if (!lics || !lics.length) return false;
+    const now = Date.now();
+    const anyValid = lics.some((l) => {
+      if (l.status === "canceled") return false;
+      const end = l.current_period_end ? new Date(l.current_period_end).getTime() : 0;
+      if (end && now > end + GRACE_MS) return false;
+      return true;
+    });
+    return !anyValid;
+  } catch {
+    return false;
+  }
+}
+
 let groqKey = "";
 async function serverGroqKey(): Promise<string> {
   if (groqKey) return groqKey;
@@ -103,6 +130,9 @@ Deno.serve(async (req: Request) => {
     }
     const machine = String(p.m || "");
     if (!machine) return json(401, { ok: false, error: "Jeton invalide." });
+    if (await licenseRevoked(machine)) {
+      return json(403, { ok: false, error: "Abonnement résilié." });
+    }
 
     // — image (PNG/JPEG produit par l'app) —
     const ct = (req.headers.get("Content-Type") || "image/png").toLowerCase();

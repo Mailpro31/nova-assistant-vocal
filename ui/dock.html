@@ -671,9 +671,9 @@ function paneAbo(p){
   const plans='<div class="plans">'+PL.map(([id,n,d])=>'<div class="plan'+(tier===id?' sel':'')+
     '"><b>'+n+'</b><small>'+d+'</small></div>').join('')+'</div>';
   const key=free
-    ?'<div class="row"><input class="fieldc mono" id="licKey" style="flex:1" placeholder="NOVA1.collez-votre-clé-ici…">'+
+    ?'<div class="row"><input class="fieldc mono" id="licKey" style="flex:1" placeholder="NOVA-XXXXX-XXXXX-XXXXX">'+
      '<div class="r"><button class="btn" id="licGo">Activer</button></div></div>'
-    :R('<span class="mono" style="font-weight:400;font-size:12px">NOVA1.…&nbsp;····</span>','',
+    :R('<span class="mono" style="font-weight:400;font-size:12px">NOVA-…&nbsp;····</span>','',
        '<button class="btn sec" disabled style="opacity:.5">Retirer…</button>');
   const use=unlim
     ?R('Reformulations aujourd\'hui','','<span class="val" style="color:#30d158;font-weight:600">Illimitées</span>')
