@@ -20,6 +20,7 @@ const supa = createClient(
 const PUBLIC_KEY_B64 = "Q+U/LqaeFgLSDkvqiAXRcHQ8DSwqU9NcrHiPt8A6EJE=";
 const DAILY_CAP_S = 3 * 3600; // fair-use : 3 h d'audio / jour / machine
 const MAX_BYTES = 25 * 1024 * 1024;
+const GRACE_MS = 7 * 24 * 3600 * 1000; // aligné sur la fonction « license »
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -65,6 +66,36 @@ async function serverGroqKey(): Promise<string> {
   return groqKey;
 }
 
+// Révocation en TEMPS RÉEL. Le jeton porte x = fin de période + 7 j de grâce :
+// il resterait donc valide ~1 mois APRÈS un remboursement / une résiliation
+// (stripe-webhook passe la licence en « canceled »), pendant lequel chaque
+// requête relaierait vers Groq à NOS frais. On consulte donc l'état VIVANT de
+// la/les licence(s) liée(s) à cette machine. FAIL-OPEN strict : toute
+// incertitude (lecture en échec, aucune ligne) laisse passer — on n'enferme
+// JAMAIS un client légitime ; on ne refuse QUE si TOUTES les licences de la
+// machine sont résiliées ou expirées au-delà de la grâce.
+async function licenseRevoked(machine: string): Promise<boolean> {
+  try {
+    const { data: acts } = await supa.from("activations")
+      .select("license_id").eq("machine_hash", machine);
+    if (!acts || !acts.length) return false;
+    const ids = acts.map((a) => a.license_id);
+    const { data: lics } = await supa.from("licenses")
+      .select("status,current_period_end").in("id", ids);
+    if (!lics || !lics.length) return false;
+    const now = Date.now();
+    const anyValid = lics.some((l) => {
+      if (l.status === "canceled") return false;
+      const end = l.current_period_end ? new Date(l.current_period_end).getTime() : 0;
+      if (end && now > end + GRACE_MS) return false;
+      return true; // active, ou past_due encore dans la grâce
+    });
+    return !anyValid;
+  } catch {
+    return false; // panne de lecture → on laisse passer (fail-open)
+  }
+}
+
 Deno.serve(async (req: Request) => {
   try {
     if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
@@ -79,6 +110,9 @@ Deno.serve(async (req: Request) => {
     }
     const machine = String(p.m || "");
     if (!machine) return json(401, { ok: false, error: "Jeton invalide." });
+    if (await licenseRevoked(machine)) {
+      return json(403, { ok: false, error: "Abonnement résilié." });
+    }
 
     // — audio (WAV 16 kHz mono 16 bits produit par l'app) —
     const wav = new Uint8Array(await req.arrayBuffer());

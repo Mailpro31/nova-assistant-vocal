@@ -5,6 +5,7 @@ cherchable + profils multi-utilisateurs (vocabulaire, contacts).
 sqlite3 est dans la bibliothèque standard — aucune dépendance.
 """
 
+import functools
 import json
 import os
 import sqlite3
@@ -16,6 +17,12 @@ import uuid
 APP_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
 _DB = os.path.join(APP_DIR, "nova.db")
 _lock = threading.Lock()
+# sérialise UNIQUEMENT la 1re construction de la connexion. DISTINCT de _lock :
+# les writers tiennent déjà _lock pendant qu'ils appellent _db(), donc réutiliser
+# _lock ici provoquerait un blocage. Sans ce verrou, deux threads en tout 1er
+# accès concurrent bâtissaient chacun la base → double « ALTER TABLE » (crash
+# « duplicate column ») + connexion fuitée.
+_init_lock = threading.Lock()
 _conn = None
 
 # Champs perso persistés (« Mes infos »). SOURCE UNIQUE : save_profile filtre
@@ -26,10 +33,14 @@ PERSONAL_FIELDS = ("prenom", "nom", "email", "telephone", "adresse")
 
 def _db():
     global _conn
-    if _conn is None:
-        _conn = sqlite3.connect(_DB, check_same_thread=False)
-        _conn.execute("PRAGMA journal_mode=WAL")
-        _conn.executescript("""
+    if _conn is not None:
+        return _conn
+    with _init_lock:
+        if _conn is not None:        # un autre thread a construit entre-temps
+            return _conn
+        conn = sqlite3.connect(_DB, check_same_thread=False)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.executescript("""
             CREATE TABLE IF NOT EXISTS profiles (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
@@ -77,11 +88,29 @@ def _db():
             );
         """)
         # migration : infos personnelles (« mon adresse » → valeur préremplie)
-        cols = [r[1] for r in _conn.execute("PRAGMA table_info(profiles)").fetchall()]
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(profiles)").fetchall()]
         if "personal" not in cols:
-            _conn.execute("ALTER TABLE profiles ADD COLUMN personal TEXT")
-        _conn.commit()
-    return _conn
+            conn.execute("ALTER TABLE profiles ADD COLUMN personal TEXT")
+        conn.commit()
+        _conn = conn        # publié UNIQUEMENT une fois entièrement bâti
+        return _conn
+
+
+def _reader(default):
+    """Décorateur : un accès en LECTURE ne doit JAMAIS planter l'appelant
+    (garde-fou produit « jamais de plantage »). Toute erreur SQLite — base
+    verrouillée, corrompue, absente — renvoie une valeur par défaut sûre du
+    même type au lieu de propager. `default` peut être une valeur ou un
+    appelable (ex. `list`) pour éviter tout partage d'état mutable."""
+    def deco(fn):
+        @functools.wraps(fn)
+        def wrap(*a, **k):
+            try:
+                return fn(*a, **k)
+            except Exception:
+                return default() if callable(default) else default
+        return wrap
+    return deco
 
 
 # ------------------------------------------------------------- historique ---
@@ -96,6 +125,7 @@ def add_history(mode, raw, final="", result="", engine="", ok=True, profile_id="
         _db().commit()
 
 
+@_reader(lambda: {"count": 0, "chars": 0, "minutes": 0})
 def week_stats():
     """Dictées réussies, caractères produits et minutes de frappe évitées
     depuis lundi 00:00 (heure locale) — la stat de valeur affichée dans les
@@ -114,6 +144,7 @@ def week_stats():
             "minutes": round(row[1] / 5 / 40)}
 
 
+@_reader(list)
 def list_history(search="", limit=60):
     q = "SELECT mode, raw_transcript, final_text, action_result, engine_used, ok, created_at FROM history"
     args = []
@@ -146,6 +177,7 @@ def add_fact(text):
     return True
 
 
+@_reader(list)
 def list_facts(limit=40):
     rows = _db().execute(
         "SELECT id, fact, created_at FROM facts ORDER BY created_at DESC LIMIT ?",
@@ -198,6 +230,7 @@ def forget_fact(query):
 
 # ------------------------------------------------ listes vocales (2.13) -----
 
+@_reader(list)
 def list_items(name="courses"):
     rows = _db().execute(
         "SELECT item FROM lists WHERE list = ? ORDER BY created_at ASC",
@@ -250,6 +283,7 @@ def conv_add(role, content):
         _db().commit()
 
 
+@_reader(list)
 def conv_recent(limit=30):
     """Les `limit` dernières lignes, dans l'ordre chronologique."""
     rows = _db().execute(
@@ -275,6 +309,7 @@ def reminder_add(text, hhmm, daily=False, date=None):
     return rid
 
 
+@_reader(list)
 def reminders_list(include_done=False):
     q = "SELECT id, text, time, date, triggered FROM reminders"
     if not include_done:
@@ -305,6 +340,7 @@ def reminders_clear_done():
         _db().commit()
 
 
+@_reader(lambda: {"total": 0, "ok": 0, "rate": 100, "today": 0, "top": []})
 def stats_summary():
     """Statistiques d'usage pour l'accueil : total, réussite, top modes, jour."""
     import datetime
@@ -325,6 +361,7 @@ def stats_summary():
 
 # ---------------------------------------------------------------- profils ---
 
+@_reader(list)
 def list_profiles():
     rows = _db().execute(
         "SELECT id, name, vocabulary, contacts, language, created_at, personal"
