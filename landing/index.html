@@ -1178,8 +1178,8 @@
     <a href="/alternative-dragon.html" id="footDragon" data-t="foot_dragon">Alternative à Dragon</a>
     <a href="/nova-ou-wispr-flow.html" id="footWispr" data-t="foot_wispr">Nova ou Wispr Flow</a>
     <a href="/dictee-vocale-hors-ligne.html" id="footOffline" data-t="foot_offline">Dictée hors ligne</a>
-    <a href="/conditions.html" data-t="foot_terms">Conditions</a>
-    <a href="/confidentialite.html" data-t="foot_privacy">Confidentialité</a>
+    <a href="/conditions.html" id="footTerms" data-t="foot_terms">Conditions</a>
+    <a href="/confidentialite.html" id="footPrivacy" data-t="foot_privacy">Confidentialité</a>
     <a href="mailto:mailprosasha2@gmail.com">Contact</a>
   </div>
   <span data-t="foot_copy">© 2026 Nova — dictée vocale pour Windows</span>
@@ -1711,11 +1711,11 @@ const I18N = {
     faq_q2: "What machine do I need?",
     faq_a2: "A PC running <b>Windows 10 or 11</b> (64-bit) and a microphone — a laptop's built-in mic is fine. Nova measures your machine and picks the right power profile by itself: 8&nbsp;GB of RAM is enough, more unlocks the higher-quality profiles.",
     faq_q3: "Are my dictations private?",
-    faq_a3: "By design. With Private Intelligence, the audio, the text and your vocabulary <b>never leave your computer</b> — we cannot read them. No account, no tracking cookies. Details in the <a href=\"/confidentialite.html\">privacy policy</a>.",
+    faq_a3: "By design. With Private Intelligence, the audio, the text and your vocabulary <b>never leave your computer</b> — we cannot read them. No account, no tracking cookies. Details in the <a href=\"/privacy.html\">privacy policy</a>.",
     faq_q4: "Which languages are supported?",
     faq_a4: "More than <b>90 languages</b>, detected automatically — dictate in French, switch to English mid-thought if you like. Rewriting follows the language you speak.",
     faq_q5: "Can I cancel? What about refunds?",
-    faq_a5: "Cancel <b>anytime</b>, no questions asked, from the billing portal — Nova stays active until the end of the period. Nova gives you 14 days of Pro on install, no card. Refund terms are detailed in the <a href=\"/conditions.html\">terms of sale</a>.",
+    faq_a5: "Cancel <b>anytime</b>, no questions asked, from the billing portal — Nova stays active until the end of the period. Nova gives you 14 days of Pro on install, no card. Refund terms are detailed in the <a href=\"/terms.html\">terms of sale</a>.",
     faq_q6: "On how many computers?",
     faq_a6: "Each license activates Nova on <b>two computers</b>. A device unused for 30&nbsp;days frees its seat automatically — handy when you switch machines.",
     faq_q7: "How does Nova read the on-screen context?",
@@ -1969,6 +1969,8 @@ function applyLang(l) {
   $("footDragon").href = l === "fr" ? "/alternative-dragon.html" : "/dragon-alternative.html";
   $("footWispr").href = l === "fr" ? "/nova-ou-wispr-flow.html" : "/nova-vs-wispr-flow.html";
   $("footOffline").href = l === "fr" ? "/dictee-vocale-hors-ligne.html" : "/offline-dictation-windows.html";
+  $("footTerms").href = l === "fr" ? "/conditions.html" : "/terms.html";
+  $("footPrivacy").href = l === "fr" ? "/confidentialite.html" : "/privacy.html";
   $("gdDragon").href = $("footDragon").href;
   $("gdWispr").href = $("footWispr").href;
   $("gdOffline").href = $("footOffline").href;
