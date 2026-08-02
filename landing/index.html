@@ -1,30 +1,31 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="google-site-verification" content="w-1W3jhEAWExnrkCQzyE_DJz1DjKhfuADBZt82HHMgI">
-<title>Nova — Le nouvel agent qui écrit à votre place.</title>
-<meta name="description" content="Le nouvel agent d'écriture pour Windows. Parlez — Nova lit le contexte à l'écran, reformule et écrit à votre place, en privé sur votre machine.">
+<title>Nova — The new agent that writes for you.</title>
+<meta name="description" content="The new writing agent for Windows. Speak — Nova reads the context on your screen, rewrites and writes for you, privately on your machine.">
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
 <meta name="keywords" content="dictée vocale Windows, agent d'écriture, dictée qui lit l'écran, lecture de contexte, reformulation IA locale, dictée hors ligne, alternative Dragon">
-<meta property="og:title" content="Nova — Le nouvel agent qui écrit à votre place.">
-<meta property="og:description" content="Le nouvel agent d'écriture pour Windows. Parlez — Nova lit le contexte à l'écran, reformule et écrit à votre place, en privé sur votre machine.">
+<meta property="og:title" content="Nova — The new agent that writes for you.">
+<meta property="og:description" content="The new writing agent for Windows. Speak — Nova reads the context on your screen, rewrites and writes for you, privately on your machine.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://novaspeak.app/">
 <meta property="og:image" content="https://novaspeak.app/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Nova — l'agent d'écriture qui lit le contexte à l'écran, sur Windows.">
-<meta property="og:locale" content="fr_FR">
-<meta property="og:locale:alternate" content="en_US">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="fr_FR">
 <meta property="og:site_name" content="Nova">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Nova — Le nouvel agent qui écrit à votre place.">
-<meta name="twitter:description" content="Parlez — Nova lit le contexte à l'écran, reformule et écrit à votre place, en privé sur votre machine.">
+<meta name="twitter:title" content="Nova — The new agent that writes for you.">
+<meta name="twitter:description" content="The new writing agent for Windows. Speak — Nova reads the context on your screen, rewrites and writes for you, privately on your machine.">
 <meta name="twitter:image" content="https://novaspeak.app/og.png">
 <meta name="twitter:image:alt" content="Nova — l'agent d'écriture qui lit le contexte à l'écran, sur Windows.">
 <link rel="canonical" href="https://novaspeak.app/">
+<link rel="alternate" hreflang="en" href="https://novaspeak.app/">
 <link rel="alternate" hreflang="fr" href="https://novaspeak.app/">
 <link rel="alternate" hreflang="x-default" href="https://novaspeak.app/">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -1765,7 +1766,7 @@ const I18N = {
     foot_copy: "© 2026 Nova — voice dictation for Windows"
   }
 };
-let LANG = "fr";
+let LANG = "en";
 // ---- facturation mensuelle / annuelle (2 mois offerts) ----
 // Les liens annuels sont renseignés dès que les Payment Links Stripe existent ;
 // tant qu'ils sont vides, la bascule reste masquée et le mensuel s'affiche.
@@ -1970,7 +1971,7 @@ function applyLang(l) {
 let savedLang = null;
 try { savedLang = localStorage.getItem("nova-lang"); } catch (_e) { /* privé */ }
 if (savedLang !== "fr" && savedLang !== "en") {
-  savedLang = (navigator.language || "fr").toLowerCase().startsWith("fr") ? "fr" : "en";
+  savedLang = "en"; // langue par défaut du site : anglais, quel que soit le navigateur
 }
 applyLang(savedLang);
 $("langBtn").onclick = () => applyLang(LANG === "fr" ? "en" : "fr");
