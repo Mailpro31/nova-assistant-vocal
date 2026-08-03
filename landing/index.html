@@ -51,8 +51,8 @@
   "Fonctionne hors ligne, sans compte, sans suivi"],
  "offers":[
   {"@type":"Offer","name":"Gratuit","price":"0","priceCurrency":"EUR"},
-  {"@type":"Offer","name":"Pro","price":"9.99","priceCurrency":"EUR"},
-  {"@type":"Offer","name":"Ultra","price":"19.99","priceCurrency":"EUR"}]}
+  {"@type":"Offer","name":"Pro","price":"4.99","priceCurrency":"EUR"},
+  {"@type":"Offer","name":"Ultra","price":"14.99","priceCurrency":"EUR"}]}
 </script>
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
@@ -941,17 +941,21 @@
     <div class="plan star rv">
       <span class="badge" data-t="badge_pop">Le plus populaire</span>
       <h3>Pro</h3>
-      <div class="price" data-t="price_pro">9,99 €<small> / mois</small></div>
+      <div class="price" data-t="price_pro">4,99 €<small> / mois</small></div>
       <ul>
-        <li data-t="pro_1"><b>Reformulations illimitées</b></li>
-        <li data-t="pro_2">Les 7 Styles, dans chaque application</li>
+        <li data-t="pro_1"><b>Dictée vocale illimitée</b>, 90+ langues</li>
+        <li data-t="pro_2"><b>Reformulations illimitées</b> — fini la limite de 10 par jour</li>
+        <li data-t="pro_3"><b>Les 7 Styles</b>, dans chaque application — E-mail, Messages, Notes, To-do, Prompt IA…</li>
+        <li data-t="pro_4"><b>Profils de puissance</b> — l'intelligence s'adapte à votre machine</li>
+        <li data-t="pro_5">Détection automatique du Style selon l'application</li>
+        <li data-t="pro_6">100 % privé — tout reste sur votre ordinateur</li>
       </ul>
       <a class="btn" id="buyPro" href="https://buy.stripe.com/aFa6oGeJ4g5kdkPbRIefC05" data-t="pro_btn">Essayer Pro gratuitement</a>
       <p class="trial" data-t="trial_note">14 jours de Pro offerts dès l'installation</p>
     </div>
     <div class="plan rv">
       <h3>Ultra</h3>
-      <div class="price" data-t="price_ultra">19,99 €<small> / mois</small></div>
+      <div class="price" data-t="price_ultra">14,99 €<small> / mois</small></div>
       <ul>
         <li data-t="ultra_ctx"><b>Lecture de contexte</b> — Nova lit l'écran pour répondre juste</li>
         <li data-t="ultra_1"><b>Tout Pro</b>, en qualité maximale</li>
@@ -1590,14 +1594,19 @@ const I18N = {
     free_1: "<b>Dictée locale illimitée</b>, 90+ langues",
     free_2: "3 Styles essentiels — E-mail, Messages…", free_3: "10 reformulations par jour", free_btn: "Télécharger",
     free_trial: "14 jours de Pro à l'installation",
-    badge_pop: "Le plus populaire", price_pro: "9,99 €<small> / mois</small>",
-    price_pro_y: "99 €<small> / an</small>", price_ultra_y: "199 €<small> / an</small>",
+    badge_pop: "Le plus populaire", price_pro: "4,99 €<small> / mois</small>",
+    price_pro_y: "49 €<small> / an</small>", price_ultra_y: "149 €<small> / an</small>",
     bill_m: "Mensuel", bill_y: "Annuel · 2 mois offerts",
-    pro_1: "<b>Reformulations illimitées</b>", pro_2: "Les 7 Styles, dans chaque application",
+    pro_1: "<b>Dictée vocale illimitée</b>, 90+ langues",
+    pro_2: "<b>Reformulations illimitées</b> — fini la limite de 10 par jour",
+    pro_3: "<b>Les 7 Styles</b>, dans chaque application — E-mail, Messages, Notes, To-do, Prompt IA…",
+    pro_4: "<b>Profils de puissance</b> — l'intelligence s'adapte à votre machine",
+    pro_5: "Détection automatique du Style selon l'application",
+    pro_6: "100 % privé — tout reste sur votre ordinateur",
     ultra_ctx: "<b>Lecture de contexte</b> — Nova lit l'écran pour répondre juste",
     ultra_turbo: "<b>Turbo</b> — la vitesse maximale, en ligne",
     ultra_stt: "Transcription vocale en ligne",
-    pro_btn: "Essayer Pro gratuitement", price_ultra: "19,99 €<small> / mois</small>",
+    pro_btn: "Essayer Pro gratuitement", price_ultra: "14,99 €<small> / mois</small>",
     ultra_1: "<b>Tout Pro</b>, en qualité maximale", ultra_2: "Styles sur mesure, par application",
     ultra_3: "Personnalisation complète — orbe, nom, couleurs", ultra_btn: "Obtenir Ultra",
     trial_note: "14 jours de Pro offerts dès l'installation",
@@ -1742,14 +1751,19 @@ const I18N = {
     free_1: "<b>Unlimited local dictation</b>, 90+ languages",
     free_2: "3 essential Styles — E-mail, Messages…", free_3: "10 rewrites per day", free_btn: "Download",
     free_trial: "14 days of Pro on install",
-    badge_pop: "Most popular", price_pro: "€9.99<small> / month</small>",
-    price_pro_y: "€99<small> / year</small>", price_ultra_y: "€199<small> / year</small>",
+    badge_pop: "Most popular", price_pro: "€4.99<small> / month</small>",
+    price_pro_y: "€49<small> / year</small>", price_ultra_y: "€149<small> / year</small>",
     bill_m: "Monthly", bill_y: "Yearly · 2 months free",
-    pro_1: "<b>Unlimited rewrites</b>", pro_2: "All 7 Styles, in every application",
+    pro_1: "<b>Unlimited voice dictation</b>, 90+ languages",
+    pro_2: "<b>Unlimited rewrites</b> — no more 10-per-day limit",
+    pro_3: "<b>All 7 Styles</b>, in every application — E-mail, Messages, Notes, To-do, AI prompt…",
+    pro_4: "<b>Power profiles</b> — the intelligence adapts to your machine",
+    pro_5: "Automatic Style detection based on the app",
+    pro_6: "100% private — everything stays on your computer",
     ultra_ctx: "<b>Context reading</b> — Nova reads your screen to reply in context",
     ultra_turbo: "<b>Turbo</b> — top speed, online",
     ultra_stt: "Online voice transcription",
-    pro_btn: "Try Pro for free", price_ultra: "€19.99<small> / month</small>",
+    pro_btn: "Try Pro for free", price_ultra: "€14.99<small> / month</small>",
     ultra_1: "<b>Everything in Pro</b>, at maximum quality", ultra_2: "Custom Styles, per application",
     ultra_3: "Full personalization — orb, name, colors", ultra_btn: "Get Ultra",
     trial_note: "14 days of Pro on install — no card",
@@ -1852,9 +1866,9 @@ let LANG = "en";
 // tant qu'ils sont vides, la bascule reste masquée et le mensuel s'affiche.
 const PAY = {
   pro:   { m: "https://buy.stripe.com/aFa6oGeJ4g5kdkPbRIefC05",
-           y: "https://buy.stripe.com/eVqcN4dF0g5k2Gb9JAefC07" },   // 99 €/an, essai 7 j
+           y: "https://buy.stripe.com/eVqcN4dF0g5k2Gb9JAefC07" },   // 49 €/an, essai 7 j
   ultra: { m: "https://buy.stripe.com/9B63cu8kG1aqdkPdZQefC06",
-           y: "https://buy.stripe.com/00w6oGcAW1aq4OjdZQefC08" },   // 199 €/an
+           y: "https://buy.stripe.com/00w6oGcAW1aq4OjdZQefC08" },   // 149 €/an
 };
 let BILL = "y";                       // annuel par défaut (MRR + trésorerie)
 function syncBilling() {
