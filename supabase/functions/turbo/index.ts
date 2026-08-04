@@ -105,7 +105,8 @@ Deno.serve(async (req: Request) => {
     const tok = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
     const p = await verifyToken(tok);
     if (!p || p.t !== "ultra") return json(401, { ok: false, error: "Licence Ultra requise." });
-    if (p.x && Date.now() / 1000 > Number(p.x)) {
+    // un jeton SANS expiration (x absent/0) est invalide, pas éternel
+    if (!p.x || Date.now() / 1000 > Number(p.x)) {
       return json(401, { ok: false, error: "Licence expirée." });
     }
     const machine = String(p.m || "");
@@ -122,11 +123,29 @@ Deno.serve(async (req: Request) => {
     const seconds = Math.max(1, Math.round((wav.length - 44) / 32000));
 
     // — fair-use quotidien (silencieux : l'app retombe en local sur 429) —
+    // Consommation ATOMIQUE plafonnée AVANT l'appel fournisseur : ferme la
+    // course où N requêtes concurrentes lisaient toutes le même compteur.
+    // Repli sur l'ancien schéma (contrôle puis incrément post-succès) tant que
+    // la migration 20260804 n'est pas appliquée.
     const today = new Date().toISOString().slice(0, 10);
-    const { data: u } = await supa.from("turbo_usage").select("seconds")
-      .eq("machine_hash", machine).eq("day", today).maybeSingle();
-    const used = u?.seconds || 0;
-    if (used + seconds > DAILY_CAP_S) return json(429, { ok: false, error: "quota" });
+    let consumed = false;
+    {
+      const { data, error } = await supa.rpc("turbo_consume_capped", {
+        p_machine: machine, p_seconds: seconds, p_cap: DAILY_CAP_S });
+      if (error) {
+        // RPC absente (migration en retard) → repli legacy ; vraie erreur DB →
+        // fail-open (on n'enferme jamais un client légitime), comme avant.
+        const { data: u } = await supa.from("turbo_usage").select("seconds")
+          .eq("machine_hash", machine).eq("day", today).maybeSingle();
+        if ((u?.seconds || 0) + seconds > DAILY_CAP_S) {
+          return json(429, { ok: false, error: "quota" });
+        }
+      } else if (data !== true) {
+        return json(429, { ok: false, error: "quota" });
+      } else {
+        consumed = true;
+      }
+    }
 
     // — transcription via la clé serveur —
     const key = await serverGroqKey();
@@ -134,7 +153,11 @@ Deno.serve(async (req: Request) => {
     const url = new URL(req.url);
     const form = new FormData();
     form.append("file", new Blob([wav], { type: "audio/wav" }), "audio.wav");
-    form.append("model", (url.searchParams.get("model") || "whisper-large-v3-turbo").slice(0, 60));
+    // allowlist : le paramètre model n'est JAMAIS relayé tel quel — seuls les
+    // modèles audio prévus (sinon, un client Ultra choisit un modèle plus coûteux)
+    const ALLOWED_MODELS = ["whisper-large-v3-turbo", "whisper-large-v3", "distil-whisper-large-v3-en"];
+    const reqModel = url.searchParams.get("model") || "";
+    form.append("model", ALLOWED_MODELS.includes(reqModel) ? reqModel : ALLOWED_MODELS[0]);
     const lang = (url.searchParams.get("language") || "").slice(0, 8);
     if (lang) form.append("language", lang);
     const prompt = (url.searchParams.get("prompt") || "").slice(0, 200);
@@ -144,12 +167,19 @@ Deno.serve(async (req: Request) => {
       headers: { Authorization: `Bearer ${key}` },
       body: form,
     });
-    if (!r.ok) return json(502, { ok: false, error: "Turbo momentanément indisponible." });
+    if (!r.ok) {
+      // remboursement : un échec fournisseur ne consomme pas le quota
+      if (consumed) {
+        await supa.rpc("turbo_consume", { p_machine: machine, p_seconds: -seconds });
+      }
+      return json(502, { ok: false, error: "Turbo momentanément indisponible." });
+    }
     const text = ((await r.json()).text || "").trim();
 
-    // usage compté après succès (un échec fournisseur ne consomme pas le quota),
-    // via un incrément ATOMIQUE en base — pas de perte de mise à jour concurrente
-    await supa.rpc("turbo_consume", { p_machine: machine, p_seconds: seconds });
+    // schéma legacy (RPC plafonnée absente) : consommation après succès
+    if (!consumed) {
+      await supa.rpc("turbo_consume", { p_machine: machine, p_seconds: seconds });
+    }
     return json(200, { ok: true, text });
   } catch (e) {
     console.error("turbo error", e);

@@ -51,10 +51,14 @@ async function sha256hex(s: string): Promise<string> {
   return [...new Uint8Array(h)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-// empreinte réseau pseudonyme : hash tronqué de la 1re IP de x-forwarded-for
+// empreinte réseau pseudonyme : hash tronqué de l'IP du client. On prend la
+// DERNIÈRE IP de x-forwarded-for : la chaîne est « client, …, IP-vue-par-la-
+// passerelle » — la première valeur est fournie par le client (falsifiable,
+// contournait la limite d'envois par IP), la dernière est ajoutée par la
+// passerelle Supabase et ne peut pas être usurpée.
 async function ipHash(req: Request): Promise<string> {
   const xff = req.headers.get("x-forwarded-for") || "";
-  const ip = xff.split(",")[0].trim();
+  const ip = xff.split(",").pop()!.trim();
   if (!ip) return "";
   return (await sha256hex(IP_SALT + ":" + ip)).slice(0, 16);
 }

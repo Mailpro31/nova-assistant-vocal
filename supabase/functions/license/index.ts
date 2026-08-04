@@ -81,8 +81,18 @@ async function activate(req: Request): Promise<Response> {
   if (lic.status === "canceled") {
     return json(403, { ok: false, error: "Abonnement résilié — réabonnez-vous pour réactiver Nova." });
   }
+  if (lic.status === "pending") {
+    // checkout encaissé en différé (SEPA…) : la clé existe mais le paiement
+    // n'est pas confirmé — invoice.paid la fera passer "active".
+    return json(403, { ok: false, error: "Paiement en cours de confirmation — réessayez dans quelques minutes." });
+  }
   const end = lic.current_period_end ? new Date(lic.current_period_end).getTime() : 0;
-  if (end && Date.now() > end + GRACE_MS) {
+  // une licence SANS fin de période est une anomalie : refuser plutôt que
+  // d'émettre un jeton sans expiration (x=0)
+  if (!end) {
+    return json(403, { ok: false, error: "Licence sans période active — contactez le support." });
+  }
+  if (Date.now() > end + GRACE_MS) {
     return json(403, { ok: false, error: "Abonnement expiré — le paiement n'a pas été renouvelé." });
   }
   const { data: acts } = await supa.from("activations").select("*")

@@ -24,6 +24,11 @@ const supa = createClient(
 );
 
 const TRIAL_DAYS = 14;
+// Anti-reset : nombre de NOUVELLES empreintes machine scellées par empreinte
+// réseau (IP hachée) et par jour. Sans ça, un script déclare des machines
+// fantômes à l'infini (essai perpétuel + remplissage de trial_starts).
+const MAX_NEW_PER_IP_DAY = 5;
+const IP_SALT = "nova-trial-v1";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -60,6 +65,18 @@ function b64url(bytes: Uint8Array): string {
   return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
+async function sha256hex(s: string): Promise<string> {
+  const h = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return [...new Uint8Array(h)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+// empreinte réseau pseudonyme : DERNIÈRE IP de x-forwarded-for (ajoutée par
+// la passerelle, non falsifiable — la première est fournie par le client).
+async function ipHash(req: Request): Promise<string> {
+  const ip = (req.headers.get("x-forwarded-for") || "").split(",").pop()!.trim();
+  if (!ip) return "";
+  return (await sha256hex(IP_SALT + ":" + ip)).slice(0, 16);
+}
+
 // Jeton d'essai signé, lié à l'empreinte machine.
 async function mintTrialToken(machine: string, startEpoch: number): Promise<string> {
   const payload = new TextEncoder().encode(JSON.stringify({
@@ -85,20 +102,45 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Scelle la date au 1er contact ; ne fait rien si déjà scellée (atomique).
-    await supa.from("trial_starts").insert({ machine_hash: machine })
-      .then(() => {}, () => {}); // conflit de PK = déjà scellée → ignoré
-    const { data, error } = await supa.from("trial_starts")
-      .select("started_on").eq("machine_hash", machine).single();
-    if (error || !data) throw new Error("lecture impossible");
+    const iph = await ipHash(req);
+    const today = new Date().toISOString().slice(0, 10);
+
+    let { data: row } = await supa.from("trial_starts")
+      .select("started_on").eq("machine_hash", machine).maybeSingle();
+
+    if (!row) {
+      // Nouvelle empreinte : borne par empreinte réseau — casse le reset
+      // d'essai industrialisé (machines fantômes déclarées en boucle).
+      if (iph) {
+        const { count } = await supa.from("trial_starts")
+          .select("machine_hash", { count: "exact", head: true })
+          .eq("iph", iph).eq("started_on", today);
+        if ((count || 0) >= MAX_NEW_PER_IP_DAY) {
+          return json(200, { ok: false, error: "indisponible" });
+        }
+      }
+      // Scelle la date au 1er contact (conflit de PK = déjà scellée → ignoré).
+      // L'insertion avec iph peut échouer si la colonne n'existe pas encore
+      // (migration 20260804 non appliquée) → repli sans iph, jamais bloquant.
+      const { error: insErr } = await supa.from("trial_starts")
+        .insert({ machine_hash: machine, iph });
+      if (insErr) {
+        await supa.from("trial_starts").insert({ machine_hash: machine })
+          .then(() => {}, () => {});
+      }
+      const { data: sealed, error } = await supa.from("trial_starts")
+        .select("started_on").eq("machine_hash", machine).single();
+      if (error || !sealed) throw new Error("lecture impossible");
+      row = sealed;
+    }
 
     // started_on est une DATE (minuit UTC). Epoch secondes de ce minuit.
-    const startEpoch = Math.floor(new Date(`${data.started_on}T00:00:00Z`).getTime() / 1000);
+    const startEpoch = Math.floor(new Date(`${row.started_on}T00:00:00Z`).getTime() / 1000);
     const token = await mintTrialToken(machine, startEpoch);
     return json(200, {
       ok: true,
       token,
-      started_on: data.started_on,
+      started_on: row.started_on,
       trial_days: TRIAL_DAYS,
     });
   } catch (_e) {

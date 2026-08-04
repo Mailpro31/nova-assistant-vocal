@@ -125,7 +125,8 @@ Deno.serve(async (req: Request) => {
     const tok = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
     const p = await verifyToken(tok);
     if (!p || p.t !== "ultra") return json(401, { ok: false, error: "Licence Ultra requise." });
-    if (p.x && Date.now() / 1000 > Number(p.x)) {
+    // un jeton SANS expiration (x absent/0) est invalide, pas éternel
+    if (!p.x || Date.now() / 1000 > Number(p.x)) {
       return json(401, { ok: false, error: "Licence expirée." });
     }
     const machine = String(p.m || "");
@@ -145,10 +146,24 @@ Deno.serve(async (req: Request) => {
     }
 
     // — fair-use quotidien (silencieux : l'app continue sans contexte sur 429) —
+    // Consommation ATOMIQUE plafonnée AVANT l'appel fournisseur (ferme la
+    // course concurrente) ; repli legacy tant que la migration n'est pas
+    // appliquée. Remboursé si Groq échoue ou si rien d'exploitable n'est rendu.
     const today = new Date().toISOString().slice(0, 10);
-    const { data: u } = await supa.from("turbo_vision_usage").select("images")
-      .eq("machine_hash", machine).eq("day", today).maybeSingle();
-    if ((u?.images || 0) + 1 > DAILY_CAP) return json(429, { ok: false, error: "quota" });
+    let consumed = false;
+    {
+      const { data, error } = await supa.rpc("turbo_vision_consume_capped", {
+        p_machine: machine, p_images: 1, p_cap: DAILY_CAP });
+      if (error) {
+        const { data: u } = await supa.from("turbo_vision_usage").select("images")
+          .eq("machine_hash", machine).eq("day", today).maybeSingle();
+        if ((u?.images || 0) + 1 > DAILY_CAP) return json(429, { ok: false, error: "quota" });
+      } else if (data !== true) {
+        return json(429, { ok: false, error: "quota" });
+      } else {
+        consumed = true;
+      }
+    }
 
     // — description via la clé serveur —
     const key = await serverGroqKey();
@@ -179,15 +194,25 @@ Deno.serve(async (req: Request) => {
         ],
       }),
     });
-    if (!r.ok) return json(502, { ok: false, error: "Vision momentanément indisponible." });
+    if (!r.ok) {
+      if (consumed) {
+        await supa.rpc("turbo_vision_consume", { p_machine: machine, p_images: -1 });
+      }
+      return json(502, { ok: false, error: "Vision momentanément indisponible." });
+    }
     const text = (((await r.json()).choices?.[0]?.message?.content) || "").trim();
     if (!text || /^\(aucun contexte\)\.?$/i.test(text)) {
-      // rien d'exploitable : ne consomme pas le quota, renvoie vide
+      // rien d'exploitable : rembourse le quota, renvoie vide
+      if (consumed) {
+        await supa.rpc("turbo_vision_consume", { p_machine: machine, p_images: -1 });
+      }
       return json(200, { ok: true, text: "" });
     }
 
-    // quota compté après succès, via un incrément ATOMIQUE en base.
-    await supa.rpc("turbo_vision_consume", { p_machine: machine, p_images: 1 });
+    // schéma legacy (RPC plafonnée absente) : consommation après succès
+    if (!consumed) {
+      await supa.rpc("turbo_vision_consume", { p_machine: machine, p_images: 1 });
+    }
     return json(200, { ok: true, text });
   } catch (e) {
     console.error("turbo-vision error", e);

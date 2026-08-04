@@ -163,6 +163,12 @@ async function onCheckoutCompleted(s: Record<string, any>) {
   const { data: existing } = await supa.from("licenses").select("id")
     .eq("checkout_session_id", s.id).maybeSingle();
   if (existing) return;
+  // ANTI-FRAUDE : la licence n'est active et la clé envoyée que si le
+  // paiement est confirmé MAINTENANT. Un checkout à débit différé (SEPA) ou
+  // une carte qui échouera donne checkout.session.completed avec
+  // payment_status != "paid" → licence "pending", sans e-mail ; invoice.paid
+  // l'activera si (et seulement si) l'encaissement aboutit.
+  const paid = s.payment_status === "paid";
   const key = newKey();
   const email = s.customer_details?.email || "";
   await supa.from("licenses").insert({
@@ -172,15 +178,17 @@ async function onCheckoutCompleted(s: Record<string, any>) {
     stripe_customer_id: String(s.customer || ""),
     stripe_subscription_id: String(s.subscription || ""),
     checkout_session_id: s.id,
-    status: "active",
+    status: paid ? "active" : "pending",
     current_period_end: new Date(Date.now() + PROVISIONAL_MS).toISOString(),
     seats: 2,
   });
-  await sendKeyEmail(email, key, tier);   // best-effort, jamais bloquant
+  if (paid) await sendKeyEmail(email, key, tier);   // best-effort, jamais bloquant
 }
 
-// remboursement → licence désactivée (politique anti-abus des CGV)
+// remboursement INTÉGRAL → licence désactivée (politique anti-abus des CGV) ;
+// un remboursement partiel (geste commercial) ne touche à rien.
 async function onChargeRefunded(ch: Record<string, any>) {
+  if (!ch.refunded) return;
   const cust = String(ch.customer || "");
   if (!cust) return;
   await supa.from("licenses").update({ status: "canceled" })
@@ -195,15 +203,30 @@ async function onInvoicePaid(inv: Record<string, any>) {
     if (line.period?.end && line.period.end > end) end = line.period.end;
   }
   if (!end) return;
+  // Paiement différé confirmé : les licences "pending" passent "active" et
+  // reçoivent ENFIN leur clé (jamais envoyée au checkout, cf. onCheckoutCompleted).
+  const { data: pending } = await supa.from("licenses")
+    .select("key, email, tier")
+    .eq("stripe_subscription_id", subId)
+    .eq("status", "pending");
   await supa.from("licenses")
     .update({ current_period_end: new Date(end * 1000).toISOString(), status: "active" })
     .eq("stripe_subscription_id", subId);
+  for (const lic of pending || []) {
+    await sendKeyEmail(lic.email, lic.key, lic.tier);
+  }
 }
 
 async function onSubscriptionEvent(sub: Record<string, any>, deleted: boolean) {
+  // Statuts Stripe : incomplete (1er paiement en cours/échoué) et paused ne
+  // doivent JAMAIS donner "active" — sinon une carte qui échoue conserve une
+  // licence pleinement utilisable. incomplete_expired / unpaid → résilié.
   const status = deleted ? "canceled"
-    : (sub.status === "past_due" || sub.status === "unpaid") ? "past_due"
-    : sub.status === "canceled" ? "canceled" : "active";
+    : sub.status === "incomplete" ? "pending"
+    : sub.status === "past_due" ? "past_due"
+    : (sub.status === "incomplete_expired" || sub.status === "unpaid"
+        || sub.status === "canceled" || sub.status === "paused") ? "canceled"
+    : "active";   // active | trialing
   await supa.from("licenses").update({ status })
     .eq("stripe_subscription_id", String(sub.id));
 }
