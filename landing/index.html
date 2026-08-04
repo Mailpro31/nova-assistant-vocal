@@ -15,7 +15,7 @@
 <meta property="og:image" content="https://novaspeak.app/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Nova — l'agent d'écriture qui lit le contexte à l'écran, sur Windows.">
+<meta property="og:image:alt" content="Nova — the writing agent that reads on-screen context, on Windows.">
 <meta property="og:locale" content="en_US">
 <meta property="og:locale:alternate" content="fr_FR">
 <meta property="og:site_name" content="Nova">
@@ -23,10 +23,9 @@
 <meta name="twitter:title" content="Nova — The new agent that writes for you.">
 <meta name="twitter:description" content="The new writing agent for Windows. Speak — Nova reads the context on your screen, rewrites and writes for you, privately on your machine.">
 <meta name="twitter:image" content="https://novaspeak.app/og.png">
-<meta name="twitter:image:alt" content="Nova — l'agent d'écriture qui lit le contexte à l'écran, sur Windows.">
+<meta name="twitter:image:alt" content="Nova — the writing agent that reads on-screen context, on Windows.">
 <link rel="canonical" href="https://novaspeak.app/">
 <link rel="alternate" hreflang="en" href="https://novaspeak.app/">
-<link rel="alternate" hreflang="fr" href="https://novaspeak.app/">
 <link rel="alternate" hreflang="x-default" href="https://novaspeak.app/">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -101,6 +100,14 @@
   .btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;
     stroke-linecap:round;stroke-linejoin:round}
 
+  /* chips de preuve sous le hero — réassurance immédiate */
+  .proof{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;padding:30px 6vw 4px}
+  .pchip{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:999px;
+    border:1px solid var(--line);background:color-mix(in srgb, var(--card) 60%, transparent);
+    font-size:12.5px;color:var(--mut)}
+  .pchip svg{width:14px;height:14px;flex:none;stroke:currentColor;fill:none;stroke-width:2;
+    stroke-linecap:round;stroke-linejoin:round;color:var(--blue)}
+
   /* ------------------------------------------------------------- nav ----- */
   nav{position:fixed;top:0;left:0;right:0;z-index:60;display:flex;align-items:center;
     justify-content:space-between;padding:14px 5vw;
@@ -129,7 +136,38 @@
     box-shadow:0 0 14px rgba(174,190,236,.55)}
   nav .links{display:flex;gap:26px;font-size:13.5px;color:var(--mut)}
   nav .links a:hover{color:var(--txt)}
-  @media(max-width:720px){nav .links{display:none}}
+  /* menu hamburger — panneau mobile sous la barre nav */
+  #menuBtn{display:none;width:34px;height:34px;border-radius:50%;border:1px solid var(--line);
+    background:transparent;cursor:pointer;align-items:center;justify-content:center;
+    color:var(--mut);transition:color .2s,background .2s}
+  #menuBtn:hover{color:var(--txt);background:rgba(127,127,127,.12)}
+  #menuBtn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+  #menuBtn .x{display:none}
+  nav.open #menuBtn .burger{display:none}
+  nav.open #menuBtn .x{display:block}
+  @media(max-width:720px){
+    #menuBtn{display:inline-flex}
+    nav .links{position:absolute;top:calc(100% + 8px);left:12px;right:12px;
+      flex-direction:column;gap:2px;padding:8px;border-radius:14px;
+      border:1px solid var(--line);
+      background:color-mix(in srgb, var(--bg) 96%, transparent);
+      backdrop-filter:blur(24px) saturate(1.4);-webkit-backdrop-filter:blur(24px) saturate(1.4);
+      box-shadow:0 18px 50px rgba(0,0,0,.32),0 2px 8px rgba(0,0,0,.14);
+      opacity:0;transform:translateY(-8px);pointer-events:none;
+      transition:opacity .18s,transform .2s}
+    nav.open .links{opacity:1;transform:none;pointer-events:auto}
+    nav .links a{padding:12px 13px;border-radius:9px;font-size:15px}
+    nav .links a:active{background:rgba(127,127,127,.13)}
+    nav .links .navdrop>button{width:100%;justify-content:space-between;
+      padding:12px 13px;font-size:15px}
+    /* le sous-menu Guides s'affiche en flux, pas en carte flottante */
+    nav .links .dropmenu{position:static;transform:none;min-width:0;
+      opacity:1;pointer-events:auto;box-shadow:none;border:none;background:none;
+      backdrop-filter:none;-webkit-backdrop-filter:none;padding:0 0 4px 14px;display:none}
+    nav .links .navdrop.open .dropmenu,
+    nav .links .navdrop:focus-within .dropmenu{display:block}
+    nav .links .dropmenu a{padding:10px 13px;font-size:14px}
+  }
   /* menu déroulant « Guides » — carte flottante style macOS */
   .navdrop{position:relative}
   .navdrop>button{display:inline-flex;align-items:center;gap:5px;background:none;border:none;
@@ -508,6 +546,17 @@
   .plan .trial{margin-top:10px;min-height:15px;font-size:11.5px;color:var(--ok);font-weight:500}
   .plansNote{margin-top:24px;color:var(--mut);font-size:12.5px}
   .plansNote a{color:var(--blue)}
+  /* prix de lancement verrouillé — le levier FOMO de la section */
+  .plansNote.launch{margin-top:18px;display:inline-flex;align-items:center;gap:9px;
+    padding:10px 16px;border-radius:999px;border:1px solid color-mix(in srgb, var(--blue) 35%, transparent);
+    background:color-mix(in srgb, var(--blue) 10%, transparent);color:var(--txt)}
+  .plansNote.launch::before{content:"";width:8px;height:8px;flex:none;border-radius:50%;
+    background:var(--blue);box-shadow:0 0 10px var(--blue)}
+  .plansNote.launch b{color:var(--blue)}
+  /* prix d'ancre sous le tarif annuel (prix mensuel barré + cadence) */
+  .price .anchor{display:block;margin-top:7px;font-size:12px;font-weight:500;
+    letter-spacing:0;color:var(--mut)}
+  .price .anchor s{opacity:.7}
 
   /* ----------------------------------------------- développeurs ---------- */
   .dev{position:relative;padding:130px 6vw 110px;text-align:center}
@@ -707,37 +756,41 @@
 
 <nav>
   <a class="brand" href="#top"><span class="dot"></span>Nova</a>
-  <div class="links">
-    <a href="#film" data-t="nav_film">Le film</a>
-    <a href="#tons" data-t="nav_demo">La démo</a>
-    <a href="#tarifs" data-t="nav_pricing">Tarifs</a>
+  <div class="links" id="navLinks">
+    <a href="#film" data-t="nav_film">The film</a>
+    <a href="#tons" data-t="nav_demo">The demo</a>
+    <a href="#tarifs" data-t="nav_pricing">Pricing</a>
     <a href="#faq" data-t="nav_faq">FAQ</a>
-    <a href="#maj" data-t="nav_maj">Mises à jour</a>
+    <a href="#maj" data-t="nav_maj">Updates</a>
     <div class="navdrop" id="navdrop">
       <button id="guidesBtn" aria-haspopup="true" aria-expanded="false">
         <span data-t="nav_guides">Guides</span>
         <svg viewBox="0 0 24 24"><path d="m6 9.5 6 6 6-6"/></svg>
       </button>
       <div class="dropmenu" role="menu">
-        <a href="/alternative-dragon.html" id="gdDragon" role="menuitem">
-          <b data-t="gd_dragon">Alternative à Dragon</b>
-          <small data-t="gd_dragon_s">Le comparatif des dictées Windows</small></a>
-        <a href="/nova-ou-wispr-flow.html" id="gdWispr" role="menuitem">
-          <b data-t="gd_wispr">Nova ou Wispr Flow</b>
-          <small data-t="gd_wispr_s">Deux philosophies, un face-à-face</small></a>
-        <a href="/dictee-vocale-hors-ligne.html" id="gdOffline" role="menuitem">
-          <b data-t="gd_offline">Dictée hors ligne</b>
-          <small data-t="gd_offline_s">Votre voix reste chez vous</small></a>
+        <a href="/dragon-alternative.html" id="gdDragon" role="menuitem">
+          <b data-t="gd_dragon">Dragon alternative</b>
+          <small data-t="gd_dragon_s">The Windows dictation comparison</small></a>
+        <a href="/nova-vs-wispr-flow.html" id="gdWispr" role="menuitem">
+          <b data-t="gd_wispr">Nova vs Wispr Flow</b>
+          <small data-t="gd_wispr_s">Two philosophies, head to head</small></a>
+        <a href="/offline-dictation-windows.html" id="gdOffline" role="menuitem">
+          <b data-t="gd_offline">Offline dictation</b>
+          <small data-t="gd_offline_s">Your voice stays home</small></a>
       </div>
     </div>
   </div>
   <div class="navr">
+    <button id="menuBtn" aria-label="Menu" aria-expanded="false" aria-controls="navLinks">
+      <svg class="burger" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      <svg class="x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
     <button id="langBtn" aria-label="Switch language">EN</button>
     <button id="themeBtn" aria-label="Basculer clair / sombre">
       <svg class="moon" viewBox="0 0 24 24"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
       <svg class="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
     </button>
-    <a class="btn small" href="#tarifs" data-t="nav_get">Obtenir Nova</a>
+    <a class="btn small" href="#tarifs" data-t="nav_get">Get Nova</a>
   </div>
 </nav>
 
@@ -750,8 +803,8 @@
     <div class="orb"></div>
   </div>
 
-  <h1 aria-label="Le nouvel agent qui écrit à votre place."><span id="line1">Le nouvel agent</span><br>
-    <span class="grad" id="line2">qui écrit à votre place.</span></h1>
+  <h1 aria-label="The new agent that writes for you."><span id="line1">The new agent</span><br>
+    <span class="grad" id="line2">that writes for you.</span></h1>
 
   <div class="try" id="try">
     <div class="stage">
@@ -761,24 +814,43 @@
       </div>
     </div>
     <span class="statepill" id="statepill"><span class="bars"><i></i><i></i><i></i><i></i><i></i></span>
-      <span id="stateTxt">Nova écoute…</span></span>
-    <button class="keycap" id="keycap" aria-label="Maintenir pour essayer la dictée">
-      <small data-t="key_hold">MAINTENIR</small>F9</button>
-    <p class="hint" id="hint" data-t="hint_idle"><b>Maintenez la touche</b> — comme dans Nova.</p>
+      <span id="stateTxt">Nova is listening…</span></span>
+    <button class="keycap" id="keycap" aria-label="Hold to try dictation">
+      <small data-t="key_hold">HOLD</small>F9</button>
+    <p class="hint" id="hint" data-t="hint_idle"><b>Hold the key</b> — just like in Nova.</p>
   </div>
 
   <div class="heroCta rv">
     <a class="btn" href="https://github.com/Mailpro31/nova-releases/releases/latest/download/Nova-Setup.exe">
       <svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16"/></svg>
-      <span data-t="hero_dl">Télécharger gratuitement</span></a>
-    <a class="btn ghost" href="#tarifs" data-t="hero_pricing">Voir les tarifs</a>
+      <span data-t="hero_dl">Download for free</span></a>
+    <a class="btn ghost" href="#tarifs" data-t="hero_pricing">See pricing</a>
   </div>
-  <p class="heroNote" data-t="hero_note">Windows 10/11 · sans carte bancaire · vos données restent chez vous</p>
+  <p class="heroNote" data-t="hero_note">Windows 10/11 · no credit card · your data stays on your device</p>
 </header>
+
+<section class="proof" aria-label="Highlights">
+  <div class="pchip rv">
+    <svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.4-3 8.4-7 10-4-1.6-7-5.6-7-10V6z"/><path d="m9 12 2 2 4-4"/></svg>
+    <span data-t="proof_1">100% private — your voice never leaves the PC</span>
+  </div>
+  <div class="pchip rv">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.7 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.7-3.8-9S9.5 5.6 12 3z"/></svg>
+    <span data-t="proof_2">90+ languages, auto-detected</span>
+  </div>
+  <div class="pchip rv">
+    <svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>
+    <span data-t="proof_3">Instant — works offline</span>
+  </div>
+  <div class="pchip rv">
+    <svg viewBox="0 0 24 24"><path d="M3 8h18v12H3zM3 8l2-4h14l2 4M10 12h4"/></svg>
+    <span data-t="proof_4">Free forever — no account, no card</span>
+  </div>
+</section>
 
 <div class="strip" aria-hidden="true">
   <div class="track" id="track">
-    <span><b>Français</b></span><span>English</span><span>Español</span><span>Deutsch</span>
+    <span>Français</span><span><b>English</b></span><span>Español</span><span>Deutsch</span>
     <span>Italiano</span><span>Português</span><span>Nederlands</span><span>Polski</span>
     <span>Русский</span><span>العربية</span><span>Türkçe</span><span>हिन्दी</span>
     <span>中文</span><span>日本語</span><span>한국어</span>
@@ -786,7 +858,7 @@
 </div>
 
 <section class="film" id="film">
-  <p class="kicker rv" data-t="film_kicker">Le film</p>
+  <p class="kicker rv" data-t="film_kicker">The film</p>
   <div class="vwrap rv" id="vwrap">
     <video id="filmv" poster="film3-poster.jpg" preload="metadata" muted loop playsinline
       src="nova-film3.mp4"></video>
@@ -794,425 +866,347 @@
       <svg class="voff" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="m17 9 4 6m0-6-4 6"/></svg>
       <svg class="von" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>
     </button>
-    <span id="vhint"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg><span data-t="film_hint">Cliquez pour activer le son</span></span>
+    <span id="vhint"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg><span data-t="film_hint">Click to turn the sound on</span></span>
   </div>
-  <p class="filmNote rv" data-t="film_note">Quarante-deux secondes. Pas une de trop.</p>
+  <p class="filmNote rv" data-t="film_note">Forty-two seconds. Not one too many.</p>
 </section>
 
 <section class="vitrine" id="app">
-  <p class="kicker rv" data-t="app_kicker">L'app</p>
-  <h2 class="rv" data-t="app_h2">Discrète, jusqu'à<br>ce que vous parliez.</h2>
+  <p class="kicker rv" data-t="app_kicker">The app</p>
+  <h2 class="rv" data-t="app_h2">Discreet, until<br>you speak.</h2>
   <div class="mocks rv" aria-hidden="true">
     <div class="mock pillmock"><span class="pbars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
-      <span data-t="pill_listen">Nova écoute…</span><small data-t="pill_release">relâchez pour coller</small></div>
+      <span data-t="pill_listen">Nova is listening…</span><small data-t="pill_release">release to paste</small></div>
     <div class="mock dockmock">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 2h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12a7 7 0 0 0 .1 1.2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 22h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6A7 7 0 0 0 19 12z"/></svg>
       <span class="sep"></span><span class="morb"></span><span class="sep"></span>
       <svg viewBox="0 0 24 24"><path d="M12 3l1.6 3.8L17.5 8l-2.8 2.7.7 4-3.4-1.9L8.6 14.7l.7-4L6.5 8z"/></svg>
     </div>
-    <div class="mock bubblemock" data-t="bubble_ready">Prête</div>
+    <div class="mock bubblemock" data-t="bubble_ready">Ready</div>
     <div class="mock badgemock">NOVA ULTRA</div>
     <div class="mock stymock">
       <div class="stitle" data-t="sty_title">Styles</div>
-      <div class="srow"><span data-t="sty_1">Automatique</span>
+      <div class="srow"><span data-t="sty_1">Automatic</span>
         <svg viewBox="0 0 24 24"><path d="M4.5 12.5 10 18 19.5 7"/></svg></div>
-      <div class="srow"><span data-t="sty_2">Normal</span></div>
-      <div class="srow"><span data-t="sty_3">E-mail</span></div>
-      <div class="srow"><span data-t="sty_4">Prise de notes</span></div>
+      <div class="srow"><span data-t="sty_2">Standard</span></div>
+      <div class="srow"><span data-t="sty_3">Email</span></div>
+      <div class="srow"><span data-t="sty_4">Notes</span></div>
       <div class="srow"><span data-t="sty_5">To-do list</span></div>
-      <div class="srow"><span data-t="sty_6">Prompt IA</span></div>
-      <div class="srow"><span data-t="sty_7">Sur mesure</span><span class="ulock">ULTRA</span></div>
+      <div class="srow"><span data-t="sty_6">AI prompt</span></div>
+      <div class="srow"><span data-t="sty_7">Custom</span><span class="ulock">ULTRA</span></div>
     </div>
   </div>
 </section>
 
 <section class="shotsec" id="captures">
-  <p class="kicker rv" data-t="shots_kicker">En vrai</p>
-  <h2 class="rv" data-t="shots_h2">L'app, telle quelle.</h2>
+  <p class="kicker rv" data-t="shots_kicker">For real</p>
+  <h2 class="rv" data-t="shots_h2">The app, as it is.</h2>
   <div class="gallery">
     <figure class="shot rv">
       <img src="shots/desk-bulle-menu.png"
         alt="La bulle Nova et son menu des Styles, ouverts sur le bureau" width="860" height="940" loading="lazy">
-      <figcaption data-t="shot_1"><b>Sept Styles, un clic.</b> La bulle ouvre le menu ; la pastille montre le Style actif.</figcaption>
+      <figcaption data-t="shot_1"><b>Seven Styles, one click.</b> The bubble opens the menu; the dot shows the active Style.</figcaption>
     </figure>
     <figure class="shot rv">
       <img src="shots/desk-modeles.png"
         alt="La collection de modèles Nova dans l'application" width="2560" height="1720" loading="lazy">
-      <figcaption data-t="shot_2"><b>La collection Nova.</b> Des modèles classés par famille — Direct, Monde, Précision — avec leur précision et leur vitesse.</figcaption>
+      <figcaption data-t="shot_2"><b>The Nova collection.</b> Models grouped by family — Direct, Monde, Précision — with their accuracy and speed.</figcaption>
     </figure>
     <figure class="shot rv">
       <img src="shots/desk-general.png"
         alt="Les réglages généraux de Nova" width="2560" height="1720" loading="lazy">
-      <figcaption data-t="shot_3"><b>Des réglages qui se lisent.</b> Raccourci de dictée, appuyer-pour-parler, langue, micro — tout tient sur une carte.</figcaption>
+      <figcaption data-t="shot_3"><b>Settings you can actually read.</b> Dictation shortcut, push-to-talk, language, microphone — it all fits on one card.</figcaption>
     </figure>
   </div>
 </section>
 
 <section class="tones" id="tons">
   <div class="stick">
-    <h2 class="rv" data-t="tones_h2">Une voix.<br>Tous vos Styles.</h2>
-    <p class="said rv"><span class="saidwin"><span class="sbars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span class="stx" data-t="tones_said">« euh on décale la réunion à demain… quatorze heures, faut prévenir Claire et penser à mettre à jour l'invitation »</span></span></p>
+    <h2 class="rv" data-t="tones_h2">One voice.<br>All your Styles.</h2>
+    <p class="said rv"><span class="saidwin"><span class="sbars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span class="stx" data-t="tones_said">“uh let’s move the meeting to tomorrow… two pm, gotta tell Claire and remember to update the invite”</span></span></p>
     <div class="frames" id="frames">
       <div class="frame" data-i="0">
-        <div class="fbar"><i></i><i></i><i></i>&nbsp;<span data-t="f1_bar">Nouveau message — E-mail</span>
-          <span class="fsty" data-t="fsty_1">Style · E-mail</span></div>
-        <div class="fbody" data-t="f1_body"><div class="to">À : Claire Fontaine</div>
-          Bonjour Claire,<br><br>
-          Notre réunion est décalée à demain 14 h. Pourriez-vous mettre à jour
-          l'invitation ?<br>
-          Merci d'avance, bonne journée.</div>
+        <div class="fbar"><i></i><i></i><i></i>&nbsp;<span data-t="f1_bar">New message — Email</span>
+          <span class="fsty" data-t="fsty_1">Style · Email</span></div>
+        <div class="fbody" data-t="f1_body"><div class="to">To: Claire Fontaine</div>Hi Claire,<br><br>Our meeting has moved to tomorrow at 2 pm. Could you update the invite?<br>Thanks in advance, have a great day.</div>
       </div>
       <div class="frame" data-i="1">
         <div class="fbar"><i></i><i></i><i></i>&nbsp;<span data-t="f2_bar">Notes</span>
-          <span class="fsty" data-t="fsty_2">Style · Prise de notes</span></div>
-        <div class="fbody" data-t="f2_body">— Réunion décalée : <b>demain, 14 h</b><br>— Prévenir Claire<br>— Mettre à jour l'invitation</div>
+          <span class="fsty" data-t="fsty_2">Style · Notes</span></div>
+        <div class="fbody" data-t="f2_body">— Meeting moved: <b>tomorrow, 2 pm</b><br>— Tell Claire<br>— Update the invite</div>
       </div>
       <div class="frame" data-i="2">
-        <div class="fbar"><i></i><i></i><i></i>&nbsp;<span data-t="f3_bar">À faire</span>
+        <div class="fbar"><i></i><i></i><i></i>&nbsp;<span data-t="f3_bar">To-do</span>
           <span class="fsty" data-t="fsty_3">Style · To-do list</span></div>
-        <div class="fbody" data-t="f3_body"><span class="cb"></span>Décaler la réunion à demain 14 h<br><span class="cb"></span>Prévenir Claire<br><span class="cb"></span>Mettre à jour l'invitation</div>
+        <div class="fbody" data-t="f3_body"><span class="cb"></span>Move the meeting to tomorrow 2 pm<br><span class="cb"></span>Tell Claire<br><span class="cb"></span>Update the invite</div>
       </div>
       <div class="frame" data-i="3">
-        <div class="fbar"><i></i><i></i><i></i>&nbsp;<span data-t="f4_bar">Assistant IA</span>
-          <span class="fsty" data-t="fsty_4">Style · Prompt IA</span></div>
-        <div class="fbody" data-t="f4_body"><div class="pbox">Rédige un message bref et cordial à Claire : la réunion est décalée à demain 14 h ; demande-lui de mettre à jour l'invitation. Ton professionnel, deux phrases maximum.</div></div>
+        <div class="fbar"><i></i><i></i><i></i>&nbsp;<span data-t="f4_bar">AI assistant</span>
+          <span class="fsty" data-t="fsty_4">Style · AI prompt</span></div>
+        <div class="fbody" data-t="f4_body"><div class="pbox">Write a brief, friendly message to Claire: the meeting has moved to tomorrow at 2 pm; ask her to update the invite. Professional tone, two sentences max.</div></div>
       </div>
     </div>
-    <div class="tabs"><span data-i="0" data-t="chip_1">E-mail</span><span data-i="1" data-t="chip_2">Prise de notes</span><span data-i="2" data-t="chip_3">To-do list</span><span data-i="3" data-t="chip_4">Prompt IA</span></div>
-    <p class="autonote rv" data-t="autonote">Et en <b>Automatique</b>, Nova détecte l'application
-      et choisit le bon Style toute seule.</p>
+    <div class="tabs"><span data-i="0" data-t="chip_1">Email</span><span data-i="1" data-t="chip_2">Notes</span><span data-i="2" data-t="chip_3">To-do list</span><span data-i="3" data-t="chip_4">AI prompt</span></div>
+    <p class="autonote rv" data-t="autonote">And on <b>Automatic</b>, Nova detects the app and picks the right Style on its own.</p>
   </div>
 </section>
 
 <section class="dev" id="dev">
-  <p class="kicker rv" data-t="dev_kicker">Pour les développeurs</p>
-  <h2 class="rv" data-t="dev_h2">Vos prompts,<br>pensés à voix haute.</h2>
-  <p class="devsub rv" data-t="dev_sub">Les bonnes réponses naissent d'instructions
-    détaillées — que personne n'aime taper. Maintenez la touche, décrivez ce que
-    vous voulez : le Style <b>Prompt IA</b> livre une consigne propre, prête pour
-    Cursor ou votre assistant IA.</p>
+  <p class="kicker rv" data-t="dev_kicker">For developers</p>
+  <h2 class="rv" data-t="dev_h2">Your prompts,<br>thought out loud.</h2>
+  <p class="devsub rv" data-t="dev_sub">Great answers come from detailed instructions — which nobody enjoys typing. Hold the key, describe what you want: the <b>AI prompt</b> Style delivers a clean instruction, ready for Cursor or your AI assistant.</p>
   <div class="codewin rv" aria-hidden="true">
     <div class="cbar"><i></i><i></i><i></i>&nbsp;<span data-t="dev_win">Cursor — nova_core.py</span>
-      <span class="fsty" data-t="dev_sty">Style · Prompt IA</span></div>
+      <span class="fsty" data-t="dev_sty">Style · AI prompt</span></div>
     <div class="cbody">
       <div class="cvoice"><span class="sbars"><i></i><i></i><i></i><i></i><i></i></span>
-        <span class="cvtx" data-t="dev_said">« euh refactore parse_invoice… sépare la
-        validation, ajoute des tests sur les dates invalides et documente tout ça »</span></div>
-      <div class="cprompt" data-t="dev_prompt">Refactore <code>parse_invoice()</code> :
-        extrais la validation dans un module dédié, ajoute des tests unitaires couvrant
-        les dates invalides et les montants nuls, puis documente les paramètres publics.</div>
+        <span class="cvtx" data-t="dev_said">“uh refactor parse_invoice… split out the validation, add tests for invalid dates and document the whole thing”</span></div>
+      <div class="cprompt" data-t="dev_prompt">Refactor <code>parse_invoice()</code>: extract validation into a dedicated module, add unit tests covering invalid dates and zero amounts, then document the public parameters.</div>
     </div>
   </div>
   <div class="devstats rv">
-    <div class="dstat"><b>40</b><span data-t="dev_s1">mots/min au clavier</span></div>
-    <div class="dstat"><b>150</b><span data-t="dev_s2">mots/min à la voix</span></div>
-    <div class="dstat"><b>0</b><span data-t="dev_s3">ligne de code envoyée — tout reste
-      sur votre machine</span></div>
+    <div class="dstat"><b>40</b><span data-t="dev_s1">words/min typing</span></div>
+    <div class="dstat"><b>150</b><span data-t="dev_s2">words/min speaking</span></div>
+    <div class="dstat"><b>0</b><span data-t="dev_s3">lines of code sent anywhere — everything stays on your machine</span></div>
   </div>
 </section>
 
 <section class="privacy">
   <span class="aura a"></span>
-  <h2 class="rv" data-t="priv_h2">Tout reste chez vous.<br><em>Par conception.</em></h2>
-  <p class="rv" data-t="priv_p">L'Intelligence privée de Nova écoute, écrit et met en forme
-    directement sur votre appareil — sans internet, sans compte.
-    Le reste n'est qu'une option.</p>
+  <h2 class="rv" data-t="priv_h2">Everything stays with you.<br><em>By design.</em></h2>
+  <p class="rv" data-t="priv_p">Nova's Private Intelligence listens, writes and formats right on your device — no internet, no account. Everything else is just an option.</p>
 </section>
 
 <section class="pricing" id="tarifs">
-  <p class="kicker rv" data-t="price_kicker">Tarifs</p>
-  <h2 class="rv" data-t="price_h2">Simple, comme le reste.</h2>
+  <p class="kicker rv" data-t="price_kicker">Pricing</p>
+  <h2 class="rv" data-t="price_h2">Simple, like everything else.</h2>
   <div class="billing rv" id="billing" hidden>
-    <button class="bseg" id="billM" data-t="bill_m">Mensuel</button>
-    <button class="bseg on" id="billY" data-t="bill_y">Annuel · 2 mois offerts</button>
+    <button class="bseg" id="billM" data-t="bill_m">Monthly</button>
+    <button class="bseg on" id="billY" data-t="bill_y">Yearly · 2 months free</button>
   </div>
   <div class="plans">
     <div class="plan rv">
-      <h3 data-t="plan_free">Gratuit</h3>
-      <div class="price" data-t="price_free">0 €</div>
+      <h3 data-t="plan_free">Free</h3>
+      <div class="price" data-t="price_free">€0</div>
       <ul>
-        <li data-t="free_1"><b>Dictée locale illimitée</b>, 90+ langues</li>
-        <li data-t="free_2">3 Styles essentiels — E-mail, Messages…</li>
-        <li data-t="free_3">10 reformulations par jour</li>
+        <li data-t="free_1"><b>Unlimited local dictation</b>, 90+ languages</li>
+        <li data-t="free_2">3 essential Styles — E-mail, Messages…</li>
+        <li data-t="free_3">10 rewrites per day</li>
       </ul>
-      <a class="btn ghost" href="https://github.com/Mailpro31/nova-releases/releases/latest/download/Nova-Setup.exe" data-t="free_btn">Télécharger</a>
-      <p class="trial" data-t="free_trial">14 jours de Pro à l'installation</p>
+      <a class="btn ghost" href="https://github.com/Mailpro31/nova-releases/releases/latest/download/Nova-Setup.exe" data-t="free_btn">Download</a>
+      <p class="trial" data-t="free_trial">14 days of Pro on install</p>
     </div>
     <div class="plan star rv">
-      <span class="badge" data-t="badge_pop">Le plus populaire</span>
+      <span class="badge" data-t="badge_pop">Most popular</span>
       <h3>Pro</h3>
-      <div class="price" data-t="price_pro">4,99 €<small> / mois</small></div>
+      <div class="price" data-t="price_pro">€4.99<small> / month</small></div>
       <ul>
-        <li data-t="pro_1"><b>Dictée vocale illimitée</b>, 90+ langues</li>
-        <li data-t="pro_2"><b>Reformulations illimitées</b> — fini la limite de 10 par jour</li>
-        <li data-t="pro_3"><b>Les 7 Styles</b>, dans chaque application — E-mail, Messages, Notes, To-do, Prompt IA…</li>
-        <li data-t="pro_4"><b>Profils de puissance</b> — l'intelligence s'adapte à votre machine</li>
-        <li data-t="pro_5">Détection automatique du Style selon l'application</li>
-        <li data-t="pro_6">100 % privé — tout reste sur votre ordinateur</li>
+        <li data-t="pro_1"><b>Unlimited voice dictation</b>, 90+ languages</li>
+        <li data-t="pro_2"><b>Unlimited rewrites</b> — no more 10-per-day limit</li>
+        <li data-t="pro_3"><b>All 7 Styles</b>, in every application — E-mail, Messages, Notes, To-do, AI prompt…</li>
+        <li data-t="pro_4"><b>Power profiles</b> — the intelligence adapts to your machine</li>
+        <li data-t="pro_5">Automatic Style detection based on the app</li>
+        <li data-t="pro_6">100% private — everything stays on your computer</li>
       </ul>
-      <a class="btn" id="buyPro" href="https://buy.stripe.com/9B68wO1Wif1g3Kfg7YefC09" data-t="pro_btn">Essayer Pro gratuitement</a>
-      <p class="trial" data-t="trial_note">14 jours de Pro offerts dès l'installation</p>
+      <a class="btn" id="buyPro" href="https://buy.stripe.com/9B68wO1Wif1g3Kfg7YefC09" data-t="pro_btn">Try Pro for free</a>
+      <p class="trial" data-t="trial_note">14 days of Pro on install — no card</p>
     </div>
     <div class="plan rv">
       <h3>Ultra</h3>
-      <div class="price" data-t="price_ultra">14,99 €<small> / mois</small></div>
+      <div class="price" data-t="price_ultra">€14.99<small> / month</small></div>
       <ul>
-        <li data-t="ultra_ctx"><b>Lecture de contexte</b> — Nova lit l'écran pour répondre juste</li>
-        <li data-t="ultra_1"><b>Tout Pro</b>, en qualité maximale</li>
-        <li data-t="ultra_turbo"><b>Turbo</b> — la vitesse maximale, en ligne</li>
-        <li data-t="ultra_stt">Transcription vocale en ligne</li>
-        <li data-t="ultra_2">Styles sur mesure, par application</li>
-        <li data-t="ultra_3">Personnalisation complète — orbe, nom, couleurs</li>
+        <li data-t="ultra_ctx"><b>Context reading</b> — Nova reads your screen to reply in context</li>
+        <li data-t="ultra_1"><b>Everything in Pro</b>, at maximum quality</li>
+        <li data-t="ultra_turbo"><b>Turbo</b> — top speed, online</li>
+        <li data-t="ultra_stt">Online voice transcription</li>
+        <li data-t="ultra_2">Custom Styles, per application</li>
+        <li data-t="ultra_3">Full personalization — orb, name, colors</li>
       </ul>
-      <a class="btn" id="buyUltra" href="https://buy.stripe.com/4gM28qfN8aL0cgL4pgefC0b" data-t="ultra_btn">Obtenir Ultra</a>
+      <a class="btn" id="buyUltra" href="https://buy.stripe.com/4gM28qfN8aL0cgL4pgefC0b" data-t="ultra_btn">Get Ultra</a>
       <p class="trial" aria-hidden="true"></p>
     </div>
   </div>
-  <p class="plansNote rv" data-t="plans_note">Annulable à tout moment ·
-    équipes : <a href="mailto:mailprosasha2@gmail.com">écrivez-nous</a></p>
+  <p class="plansNote launch rv" data-t="launch_lock">Launch pricing: it will rise as new versions ship. Members who subscribe now keep their rate <b>for life</b>.</p>
+  <p class="plansNote rv" data-t="plans_note">Cancel anytime · teams: <a href="mailto:mailprosasha2@gmail.com">write to us</a></p>
 </section>
 
 <section class="faq" id="faq">
   <p class="kicker rv" data-t="faq_kicker">Questions</p>
-  <h2 class="rv" data-t="faq_h2">Tout ce qu'on nous demande.</h2>
+  <h2 class="rv" data-t="faq_h2">Everything we get asked.</h2>
   <div class="faqlist rv">
     <details>
-      <summary><span data-t="faq_q1">Nova fonctionne-t-il sans internet ?</span>
+      <summary><span data-t="faq_q1">Does Nova work offline?</span>
         <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></summary>
-      <p data-t="faq_a1">Oui. L'<b>Intelligence privée</b> écoute, transcrit et reformule
-        entièrement sur votre ordinateur — sans connexion, sans compte. Seul
-        <b>Turbo</b>, l'option en ligne de Nova&nbsp;Ultra, utilise internet ; et sans
-        connexion, Nova repasse de lui-même en Intelligence privée.</p>
+      <p data-t="faq_a1">Yes. <b>Private Intelligence</b> listens, transcribes and rewrites entirely on your computer — no connection, no account. Only <b>Turbo</b>, Nova&nbsp;Ultra's online option, uses the internet; and without a connection, Nova falls back to Private Intelligence on its own.</p>
     </details>
     <details>
-      <summary><span data-t="faq_q2">Quelle machine faut-il ?</span>
+      <summary><span data-t="faq_q2">What machine do I need?</span>
         <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></summary>
-      <p data-t="faq_a2">Un PC sous <b>Windows 10 ou 11</b> (64 bits) et un micro —
-        celui d'un portable suffit. Nova mesure votre machine et choisit tout seul le
-        profil de puissance adapté : 8&nbsp;Go de RAM suffisent, davantage débloque
-        les profils de qualité supérieure.</p>
+      <p data-t="faq_a2">A PC running <b>Windows 10 or 11</b> (64-bit) and a microphone — a laptop's built-in mic is fine. Nova measures your machine and picks the right power profile by itself: 8&nbsp;GB of RAM is enough, more unlocks the higher-quality profiles.</p>
     </details>
     <details>
-      <summary><span data-t="faq_q3">Mes dictées sont-elles privées ?</span>
+      <summary><span data-t="faq_q3">Are my dictations private?</span>
         <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></summary>
-      <p data-t="faq_a3">Par conception. Avec l'Intelligence privée, l'audio, le texte
-        et votre vocabulaire <b>ne quittent jamais votre ordinateur</b> — nous ne
-        pouvons pas les lire. Pas de compte, pas de cookie de suivi. Les détails sont
-        dans la <a href="/confidentialite.html">politique de confidentialité</a>.</p>
+      <p data-t="faq_a3">By design. With Private Intelligence, the audio, the text and your vocabulary <b>never leave your computer</b> — we cannot read them. No account, no tracking cookies. Details in the <a href="/privacy.html">privacy policy</a>.</p>
     </details>
     <details>
-      <summary><span data-t="faq_q7">Comment Nova lit-il le contexte à l'écran ?</span>
+      <summary><span data-t="faq_q7">How does Nova read the on-screen context?</span>
         <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></summary>
-      <p data-t="faq_a7">La <b>lecture de contexte</b> (Nova&nbsp;Ultra) laisse Nova
-        comprendre la fenêtre active — à qui vous répondez, sur quel sujet — pour
-        rédiger une réponse juste. Elle fonctionne <b>en local par défaut</b> :
-        l'accessibilité de Windows, puis une reconnaissance de texte locale en repli.
-        Une option cloud, réservée à Ultra et <b>désactivée par défaut</b>, ne
-        s'utilise qu'à votre demande et ne conserve jamais l'image.
-        <a href="/dictee-qui-lit-votre-ecran.html">En savoir plus</a>.</p>
+      <p data-t="faq_a7"><b>Context reading</b> (Nova&nbsp;Ultra) lets Nova understand the active window — who you're replying to, about what — to write a fitting reply. It runs <b>locally by default</b>: Windows accessibility, then local text recognition as a fallback. A cloud option, Ultra-only and <b>off by default</b>, is used only at your request and never stores the image. <a href="/dictation-that-reads-your-screen.html">Learn more</a>.</p>
     </details>
     <details>
-      <summary><span data-t="faq_q4">Quelles langues sont prises en charge ?</span>
+      <summary><span data-t="faq_q4">Which languages are supported?</span>
         <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></summary>
-      <p data-t="faq_a4">Plus de <b>90 langues</b>, détectées automatiquement — dictez
-        en français, poursuivez en anglais si l'envie vous prend. La reformulation
-        suit la langue de votre dictée.</p>
+      <p data-t="faq_a4">More than <b>90 languages</b>, detected automatically — dictate in French, switch to English mid-thought if you like. Rewriting follows the language you speak.</p>
     </details>
     <details>
-      <summary><span data-t="faq_q5">Puis-je annuler ? Et les remboursements ?</span>
+      <summary><span data-t="faq_q5">Can I cancel? What about refunds?</span>
         <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></summary>
-      <p data-t="faq_a5">L'abonnement s'annule <b>à tout moment</b>, sans justification,
-        depuis le portail de facturation — Nova reste actif jusqu'à la fin de la
-        période. Nova offre 14&nbsp;jours de Pro dès l'installation, sans carte.
-        Les conditions de remboursement sont détaillées dans les
-        <a href="/conditions.html">conditions de vente</a>.</p>
+      <p data-t="faq_a5">Cancel <b>anytime</b>, no questions asked, from the billing portal — Nova stays active until the end of the period. Nova gives you 14 days of Pro on install, no card. Refund terms are detailed in the <a href="/terms.html">terms of sale</a>.</p>
     </details>
     <details>
-      <summary><span data-t="faq_q6">Sur combien d'ordinateurs ?</span>
+      <summary><span data-t="faq_q6">On how many computers?</span>
         <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></summary>
-      <p data-t="faq_a6">Chaque licence active Nova sur <b>deux ordinateurs</b>. Un
-        poste inutilisé pendant 30&nbsp;jours libère sa place automatiquement —
-        pratique quand on change de machine.</p>
+      <p data-t="faq_a6">Each license activates Nova on <b>two computers</b>. A device unused for 30&nbsp;days frees its seat automatically — handy when you switch machines.</p>
     </details>
   </div>
 </section>
 
 <section class="updates" id="maj">
-  <p class="kicker rv" data-t="maj_kicker">Mises à jour</p>
-  <h2 class="rv" data-t="maj_h2">Ce qui change, en clair.</h2>
-  <p class="maj-sub rv" data-t="maj_sub">Chaque version, sa date, et ce qu'elle vous apporte vraiment — rien d'autre.</p>
+  <p class="kicker rv" data-t="maj_kicker">Updates</p>
+  <h2 class="rv" data-t="maj_h2">What changes, in plain words.</h2>
+  <p class="maj-sub rv" data-t="maj_sub">Every version, its date, and what it actually gives you — nothing else.</p>
   <div class="timeline rv">
 
     <article class="rel">
+      <div class="rel-head"><span class="ver">v1.0.22</span>
+        <time class="when" data-t="maj_v1022_when">August 4, 2026 · 14:10</time></div>
+      <div class="tags"><span class="tag new" data-t="tag_new">New</span></div>
+      <ul class="rel-body" data-t="maj_v1022_body"><li><b>Nova unsticks itself from broken graphics drivers</b> — if the GPU hangs at startup, Nova automatically falls back to the processor on the next launch and dictation works again, with a one-click way back to the GPU.</li></ul>
+    </article>
+
+    <article class="rel">
       <div class="rel-head"><span class="ver">v1.0.21</span>
-        <time class="when" data-t="maj_v1021_when">3 août 2026 · 23:30</time></div>
-      <div class="tags"><span class="tag new" data-t="tag_new">Nouveau</span></div>
-      <ul class="rel-body" data-t="maj_v1021_body">
-        <li><b>Messages traduits</b> dans votre langue à chaque écran de Nova, y compris les cas rares qui affichaient encore de l'anglais.</li>
-      </ul>
+        <time class="when" data-t="maj_v1021_when">August 3, 2026 · 23:30</time></div>
+      <div class="tags"><span class="tag new" data-t="tag_new">New</span></div>
+      <ul class="rel-body" data-t="maj_v1021_body"><li><b>Translated messages</b> in your language on every Nova screen, including rare cases still showing English.</li></ul>
     </article>
 
     <article class="rel">
       <div class="rel-head"><span class="ver">v1.0.20</span>
-        <time class="when" data-t="maj_v1020_when">3 août 2026 · 21:00</time></div>
-      <div class="tags"><span class="tag new" data-t="tag_new">Nouveau</span></div>
-      <ul class="rel-body" data-t="maj_v1020_body">
-        <li><b>La première reformulation est plus rapide et fonctionne du premier coup</b> : l'Intelligence privée se prépare en arrière-plan dès l'ouverture de Nova.</li>
-        <li><b>Démarrage plus net</b> — plus de fenêtre parasite au lancement.</li>
-      </ul>
+        <time class="when" data-t="maj_v1020_when">August 3, 2026 · 21:00</time></div>
+      <div class="tags"><span class="tag new" data-t="tag_new">New</span></div>
+      <ul class="rel-body" data-t="maj_v1020_body"><li><b>The first rewrite is faster and works on the first try</b>: the private intelligence warms up in the background as soon as Nova opens.</li><li><b>Cleaner startup</b> — no more stray window on launch.</li></ul>
     </article>
 
     <article class="rel">
       <div class="rel-head"><span class="ver">v1.0.19</span>
-        <time class="when" data-t="maj_v1019_when">3 août 2026 · 08:30</time></div>
-      <div class="tags"><span class="tag new" data-t="tag_new">Nouveau</span></div>
-      <ul class="rel-body" data-t="maj_v1019_body">
-        <li><b>Le mode Automatique reste actif</b> quand vous y revenez après avoir choisi un autre Style manuellement.</li>
-        <li><b>Vos raccourcis personnels sont mieux reconnus</b> à la dictée (fini les acronymes mal transcrits comme un IBAN).</li>
-        <li><b>To-do et E-mail plus fins</b> : les listes de tâches distinguent mieux une vraie tâche d'une simple explication, et les réponses par e-mail sont plus naturelles.</li>
-      </ul>
+        <time class="when" data-t="maj_v1019_when">August 3, 2026 · 08:30</time></div>
+      <div class="tags"><span class="tag new" data-t="tag_new">New</span></div>
+      <ul class="rel-body" data-t="maj_v1019_body"><li><b>Automatic mode stays active</b> when you switch back to it after manually picking another Style.</li><li><b>Your personal shortcuts are recognized better</b> while dictating (no more mangled acronyms like an IBAN).</li><li><b>Sharper To-do and Email</b>: to-do lists better tell a real task apart from a plain explanation, and email replies read more naturally.</li></ul>
     </article>
 
     <article class="rel">
       <div class="rel-head"><span class="ver">v1.0.18</span>
-        <time class="when" data-t="maj_v1018_when">3 août 2026 · 05:50</time></div>
-      <div class="tags"><span class="tag new" data-t="tag_new">Nouveau</span></div>
-      <ul class="rel-body" data-t="maj_v1018_body">
-        <li><b>Des Styles qui collent mieux à l'intention</b> — chaque Style a été affiné : les styles « fidèles » restent au plus près de vos mots, les styles « libres » (e-mail, notes…) structurent mieux, et la langue dictée est toujours respectée.</li>
-      </ul>
+        <time class="when" data-t="maj_v1018_when">August 3, 2026 · 05:50</time></div>
+      <div class="tags"><span class="tag new" data-t="tag_new">New</span></div>
+      <ul class="rel-body" data-t="maj_v1018_body"><li><b>Styles that match your intent better</b> — every Style was refined: “faithful” styles stay closer to your words, “free” styles (email, notes…) structure things better, and the dictated language is always kept.</li></ul>
     </article>
 
     <article class="rel">
       <div class="rel-head"><span class="ver">v1.0.17</span>
-        <time class="when" data-t="maj_v1017_when">3 août 2026 · 05:15</time></div>
-      <div class="tags"><span class="tag new" data-t="tag_new">Nouveau</span></div>
-      <ul class="rel-body" data-t="maj_v1017_body">
-        <li><b>Reformulation plus nette et plus régulière</b> — les textes réécrits sont plus propres (fini les guillemets et « voici le texte : » en trop) et plus constants d'une fois à l'autre.</li>
-      </ul>
+        <time class="when" data-t="maj_v1017_when">August 3, 2026 · 05:15</time></div>
+      <div class="tags"><span class="tag new" data-t="tag_new">New</span></div>
+      <ul class="rel-body" data-t="maj_v1017_body"><li><b>Cleaner, steadier rewrites</b> — reworded text comes out tidier (no more stray quotes or “here's the text:” bits) and more consistent from one time to the next.</li></ul>
     </article>
 
     <article class="rel">
       <div class="rel-head"><span class="ver">v1.0.16</span>
-        <time class="when" data-t="maj_v1016_when">3 août 2026 · 04:30</time></div>
-      <div class="tags"><span class="tag new" data-t="tag_new">Nouveau</span></div>
-      <ul class="rel-body" data-t="maj_v1016_body">
-        <li><b>Vos infos, insérées intelligemment</b> — quand vous dictez une de vos informations enregistrées (IBAN, adresse…), Nova la place désormais au bon endroit et une seule fois, dans une phrase naturelle.</li>
-      </ul>
+        <time class="when" data-t="maj_v1016_when">August 3, 2026 · 04:30</time></div>
+      <div class="tags"><span class="tag new" data-t="tag_new">New</span></div>
+      <ul class="rel-body" data-t="maj_v1016_body"><li><b>Your info, placed intelligently</b> — when you dictate one of your saved details (IBAN, address…), Nova now drops it in the right spot, just once, inside a natural sentence.</li></ul>
     </article>
 
     <article class="rel">
       <div class="rel-head"><span class="ver">v1.0.15</span>
-        <time class="when" data-t="maj_v1015_when">2 août 2026 · 23:45</time></div>
-      <div class="tags"><span class="tag new" data-t="tag_new">Nouveau</span></div>
-      <ul class="rel-body" data-t="maj_v1015_body">
-        <li><b>Messages d'erreur plus clairs</b> lors du chargement d'un modèle, pour toujours savoir quoi faire en cas de souci.</li>
-      </ul>
+        <time class="when" data-t="maj_v1015_when">August 2, 2026 · 23:45</time></div>
+      <div class="tags"><span class="tag new" data-t="tag_new">New</span></div>
+      <ul class="rel-body" data-t="maj_v1015_body"><li><b>Clearer error messages</b> when loading a model, so you always know what to do if something goes wrong.</li></ul>
     </article>
 
     <article class="rel">
       <div class="rel-head"><span class="ver">v1.0.14</span>
-        <time class="when" data-t="maj_v1014_when">2 août 2026 · 14:30</time></div>
-      <div class="tags"><span class="tag new" data-t="tag_new">Nouveau</span></div>
-      <ul class="rel-body" data-t="maj_v1014_body">
-        <li><b>Nova démarre toujours</b> — un cas rare où l'app pouvait rester bloquée au lancement sur certains ordinateurs est corrigé.</li>
-      </ul>
+        <time class="when" data-t="maj_v1014_when">August 2, 2026 · 14:30</time></div>
+      <div class="tags"><span class="tag new" data-t="tag_new">New</span></div>
+      <ul class="rel-body" data-t="maj_v1014_body"><li><b>Nova always starts</b> — fixed a rare case where the app could get stuck on launch on certain computers.</li></ul>
     </article>
 
     <article class="rel">
       <div class="rel-head"><span class="ver">v1.0.13</span>
-        <time class="when" data-t="maj_v1013_when">1 août 2026 · 10:30</time></div>
-      <div class="tags"><span class="tag new" data-t="tag_new">Nouveau</span></div>
-      <ul class="rel-body" data-t="maj_v1013_body">
-        <li><b>Fiabilité renforcée</b> — l'accès rapide depuis la barre des tâches (icône et menu) reste disponible en toutes circonstances, même dans les cas limites.</li>
-        <li><b>Peaufinage sous le capot</b> pour une expérience plus fluide et plus cohérente au quotidien.</li>
-      </ul>
+        <time class="when" data-t="maj_v1013_when">August 1, 2026 · 10:30</time></div>
+      <div class="tags"><span class="tag new" data-t="tag_new">New</span></div>
+      <ul class="rel-body" data-t="maj_v1013_body"><li><b>Improved reliability</b> — quick access from the taskbar (icon and menu) stays available in all circumstances, even in edge cases.</li><li><b>Under-the-hood polish</b> for a smoother, more consistent day-to-day experience.</li></ul>
     </article>
 
     <article class="rel">
       <div class="rel-head"><span class="ver">v1.0.12</span>
-        <time class="when" data-t="maj_v1012_when">31 juillet 2026 · 08:20</time></div>
-      <div class="tags"><span class="tag new" data-t="tag_new">Nouveau</span></div>
-      <ul class="rel-body" data-t="maj_v1012_body">
-        <li><b>Dictée increvable, quelle que soit la ponctuation</b> — un mot-clé personnalisé collé à des guillemets ou des points de suspension pouvait interrompre la transcription ; ce n'est plus le cas.</li>
-        <li><b>Raccourcis plus fiables</b> — changer sa touche de dictée dans les Réglages ne peut plus la rendre inactive, et une même touche ne déclenche plus jamais deux dictées à la fois.</li>
-      </ul>
+        <time class="when" data-t="maj_v1012_when">July 31, 2026 · 08:20</time></div>
+      <div class="tags"><span class="tag new" data-t="tag_new">New</span></div>
+      <ul class="rel-body" data-t="maj_v1012_body"><li><b>Rock-solid dictation, whatever the punctuation</b> — a saved keyword sitting next to quotation marks or an ellipsis could interrupt transcription; that's fixed.</li><li><b>More reliable shortcuts</b> — changing your dictation key in Settings can no longer leave it inactive, and the same key press can never trigger two dictations at once.</li></ul>
     </article>
 
     <article class="rel">
       <div class="rel-head"><span class="ver">v1.0.11</span>
-        <time class="when" data-t="maj_v1011_when">30 juillet 2026 · 02:50</time></div>
-      <div class="tags"><span class="tag new" data-t="tag_new">Nouveau</span>
+        <time class="when" data-t="maj_v1011_when">July 30, 2026 · 02:50</time></div>
+      <div class="tags"><span class="tag new" data-t="tag_new">New</span>
         <span class="tag premium" data-t="tag_premium">Premium</span></div>
-      <ul class="rel-body" data-t="maj_v1011_body">
-        <li><b>Le mode « Automatique » fait le bon choix pour vous</b> — Nova adapte le rendu à l'application où vous écrivez, et votre dictée est mise au bon ton sans manipulation.</li>
-        <li><b>Vos informations s'insèrent à la lettre</b> — dictez un mot-clé (« mon IBAN »…) et Nova place la valeur exacte ; les nombres s'écrivent en chiffres, et le Style actif s'affiche dans la bulle.</li>
-      </ul>
+      <ul class="rel-body" data-t="maj_v1011_body"><li><b>“Automatic” mode makes the right choice for you</b> — Nova adapts the result to the app you're writing in, and your dictation is set to the right tone with no fiddling.</li><li><b>Your saved details are inserted verbatim</b> — say a keyword (“my IBAN”…) and Nova drops in the exact value; numbers are written as digits, and the active Style now shows in the bubble.</li></ul>
     </article>
 
     <article class="rel">
       <div class="rel-head"><span class="ver">v1.0.8</span>
-        <time class="when" data-t="maj_v108_when">29 juillet 2026 · 12:45</time></div>
-      <div class="tags"><span class="tag new" data-t="tag_new">Nouveau</span></div>
-      <ul class="rel-body" data-t="maj_v108_body">
-        <li><b>Fenêtre plus spacieuse</b> : tout se voit et se règle d'un coup d'œil, avec plus d'air et de confort.</li>
-        <li><b>La reformulation « Styles » est désormais immédiate</b>, dès l'installation — un raccourci, et votre texte dicté est mis au bon ton.</li>
-      </ul>
+        <time class="when" data-t="maj_v108_when">July 29, 2026 · 12:45</time></div>
+      <div class="tags"><span class="tag new" data-t="tag_new">New</span></div>
+      <ul class="rel-body" data-t="maj_v108_body"><li><b>Roomier window</b>: everything is visible and adjustable at a glance, with more space and comfort.</li><li><b>“Styles” rewriting now works right away</b>, from the first install — one shortcut, and your dictated text is set to the right tone.</li></ul>
     </article>
 
     <article class="rel">
       <div class="rel-head"><span class="ver">v1.0.6</span>
-        <time class="when" data-t="maj_v106_when">20 juillet 2026 · 21:10</time></div>
-      <div class="tags"><span class="tag new" data-t="tag_new">Nouveau</span>
+        <time class="when" data-t="maj_v106_when">July 20, 2026 · 21:10</time></div>
+      <div class="tags"><span class="tag new" data-t="tag_new">New</span>
         <span class="tag premium" data-t="tag_premium">Premium</span></div>
-      <ul class="rel-body" data-t="maj_v106_body">
-        <li><b>Lecture de contexte</b> : Nova lit ce qui est à l'écran pour répondre juste — à qui vous répondez, sur quel sujet, sur quel ton.</li>
-        <li>Local d'abord : la lecture se fait sur votre machine ; l'option cloud, réservée à <b>Nova Ultra</b>, reste entièrement à votre main.</li>
-      </ul>
+      <ul class="rel-body" data-t="maj_v106_body"><li><b>Context reading</b>: Nova reads what's on your screen to reply in context — who you're replying to, the subject, the tone.</li><li>Local first: reading happens on your machine; the cloud option, reserved for <b>Nova Ultra</b>, stays entirely in your hands.</li></ul>
     </article>
 
     <article class="rel">
       <div class="rel-head"><span class="ver">v1.0.3</span>
-        <time class="when" data-t="maj_v103_when">18 juillet 2026 · 06:30</time></div>
-      <div class="tags"><span class="tag new" data-t="tag_new">Nouveau</span>
-        <span class="tag power" data-t="tag_power">Puissance</span></div>
-      <ul class="rel-body" data-t="maj_v103_body">
-        <li><b>Intelligence privée embarquée</b> : l'app télécharge et démarre elle-même le moteur de reformulation local — zéro installation manuelle.</li>
-        <li>Trois profils <b>Nova Air / Aura / Apex</b>, avec recommandation automatique selon votre machine.</li>
-        <li>Accélération GPU quand une carte compatible est disponible, avec repli automatique et invisible sur le processeur sinon.</li>
-      </ul>
+        <time class="when" data-t="maj_v103_when">July 18, 2026 · 06:30</time></div>
+      <div class="tags"><span class="tag new" data-t="tag_new">New</span>
+        <span class="tag power" data-t="tag_power">Power</span></div>
+      <ul class="rel-body" data-t="maj_v103_body"><li><b>Embedded private intelligence</b>: the app downloads and starts the local rewriting engine itself — zero manual install.</li><li>Three profiles, <b>Nova Air / Aura / Apex</b>, automatically recommended based on your machine.</li><li>GPU acceleration when a compatible card is available, with an automatic, invisible fallback to CPU otherwise.</li></ul>
     </article>
 
     <article class="rel">
       <div class="rel-head"><span class="ver">v1.0.2</span>
-        <time class="when" data-t="maj_v102_when">18 juillet 2026 · 04:06</time></div>
-      <div class="tags"><span class="tag new" data-t="tag_new">Nouveau</span>
+        <time class="when" data-t="maj_v102_when">July 18, 2026 · 04:06</time></div>
+      <div class="tags"><span class="tag new" data-t="tag_new">New</span>
         <span class="tag premium" data-t="tag_premium">Premium</span></div>
-      <ul class="rel-body" data-t="maj_v102_body">
-        <li><b>14 jours de Nova Pro</b> offerts dès l'installation, sans carte bancaire.</li>
-        <li>Votre licence, une fois activée, <b>reste liée à l'app en permanence</b> — plus de risque de la retirer par erreur.</li>
-        <li>Turbo (moteur en ligne) réservé à <b>Nova Ultra</b>, avec confirmation explicite avant activation.</li>
-      </ul>
+      <ul class="rel-body" data-t="maj_v102_body"><li><b>14 days of Nova Pro</b> unlocked on install, no card required.</li><li>Once activated, your license <b>stays tied to the app permanently</b> — no more risk of removing it by mistake.</li><li>Turbo (the online engine) is reserved for <b>Nova Ultra</b>, with an explicit confirmation before activation.</li></ul>
     </article>
 
     <article class="rel">
       <div class="rel-head"><span class="ver">v1.0.1</span>
-        <time class="when" data-t="maj_v101_when">17 juillet 2026 · 20:07</time></div>
-      <div class="tags"><span class="tag new" data-t="tag_new">Nouveau</span>
+        <time class="when" data-t="maj_v101_when">July 17, 2026 · 20:07</time></div>
+      <div class="tags"><span class="tag new" data-t="tag_new">New</span>
         <span class="tag premium" data-t="tag_premium">Premium</span></div>
-      <ul class="rel-body" data-t="maj_v101_body">
-        <li>La <b>dictée n'est plus jamais bloquée</b>, quel que soit votre palier.</li>
-        <li><b>10 reformulations par jour</b> offertes en gratuit — au-delà, votre texte est collé brut, jamais de curseur vide.</li>
-      </ul>
+      <ul class="rel-body" data-t="maj_v101_body"><li><b>Dictation is never blocked anymore</b>, no matter your plan.</li><li><b>10 rewrites per day</b> on the free plan — beyond that, your raw text is pasted, never an empty cursor.</li></ul>
     </article>
 
     <article class="rel evergreen">
-      <div class="rel-head"><span class="ver" data-t="maj_priv_ver">Confidentialité</span>
-        <time class="when" data-t="maj_priv_when">garantie, depuis le premier jour</time></div>
-      <div class="tags"><span class="tag rgpd" data-t="tag_rgpd">RGPD</span></div>
-      <ul class="rel-body" data-t="maj_priv_body">
-        <li>Avec l'Intelligence privée, votre audio, vos textes et votre vocabulaire <b>ne quittent jamais votre ordinateur</b> — nous ne pouvons pas les lire.</li>
-        <li>Aucun compte requis, aucun cookie de suivi. <b>Conforme au RGPD par conception.</b></li>
-      </ul>
+      <div class="rel-head"><span class="ver" data-t="maj_priv_ver">Privacy</span>
+        <time class="when" data-t="maj_priv_when">guaranteed, from day one</time></div>
+      <div class="tags"><span class="tag rgpd" data-t="tag_rgpd">GDPR</span></div>
+      <ul class="rel-body" data-t="maj_priv_body"><li>With Private Intelligence, your audio, text and vocabulary <b>never leave your computer</b> — we can't read them.</li><li>No account required, no tracking cookie. <b>GDPR-compliant by design.</b></li></ul>
     </article>
 
   </div>
@@ -1220,39 +1214,38 @@
 
 <section class="final">
   <span class="aura b"></span>
-  <h2 class="rv" data-t="final_h2">Votre voix tape plus vite<br>que vos doigts.</h2>
+  <h2 class="rv" data-t="final_h2">Your voice types faster<br>than your fingers.</h2>
   <div class="cta rv">
     <a class="btn" href="https://github.com/Mailpro31/nova-releases/releases/latest/download/Nova-Setup.exe">
       <svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16"/></svg>
-      <span data-t="final_btn">Télécharger Nova gratuitement</span></a>
+      <span data-t="final_btn">Download Nova for free</span></a>
   </div>
   <div class="wl rv">
-    <p class="wlt" data-t="wl_t">Les nouveautés, sans le bruit</p>
+    <p class="wlt" data-t="wl_t">The news, without the noise</p>
     <form id="wlForm" class="wlform" novalidate>
       <input type="email" id="wlEmail" required autocomplete="email"
         placeholder="votre@email.com" aria-label="Votre adresse e-mail">
       <input type="text" id="wlSite" name="website" tabindex="-1" autocomplete="off"
         aria-hidden="true" style="position:absolute;left:-5000px;width:1px;height:1px">
-      <button class="btn" type="submit" data-t="wl_btn">Me prévenir</button>
+      <button class="btn" type="submit" data-t="wl_btn">Keep me posted</button>
     </form>
-    <p class="wlnote" id="wlNote" data-t="wl_note">Lancement, offres, grandes nouveautés —
-      jamais partagé, désinscription en un clic.</p>
+    <p class="wlnote" id="wlNote" data-t="wl_note">Launch, deals, big updates — never shared, one-click unsubscribe.</p>
   </div>
 </section>
 
 <footer>
   <span class="brand" style="font-size:14px"><span class="dot" style="width:16px;height:16px"></span>Nova</span>
   <div class="links">
-    <a href="#tons" data-t="foot_demo">La démo</a><a href="#tarifs" data-t="foot_pricing">Tarifs</a>
+    <a href="#tons" data-t="foot_demo">The demo</a><a href="#tarifs" data-t="foot_pricing">Pricing</a>
     <a href="#faq" data-t="foot_faq">FAQ</a>
-    <a href="/alternative-dragon.html" id="footDragon" data-t="foot_dragon">Alternative à Dragon</a>
-    <a href="/nova-ou-wispr-flow.html" id="footWispr" data-t="foot_wispr">Nova ou Wispr Flow</a>
-    <a href="/dictee-vocale-hors-ligne.html" id="footOffline" data-t="foot_offline">Dictée hors ligne</a>
-    <a href="/conditions.html" id="footTerms" data-t="foot_terms">Conditions</a>
-    <a href="/confidentialite.html" id="footPrivacy" data-t="foot_privacy">Confidentialité</a>
+    <a href="/dragon-alternative.html" id="footDragon" data-t="foot_dragon">Dragon alternative</a>
+    <a href="/nova-vs-wispr-flow.html" id="footWispr" data-t="foot_wispr">Nova vs Wispr Flow</a>
+    <a href="/offline-dictation-windows.html" id="footOffline" data-t="foot_offline">Offline dictation</a>
+    <a href="/terms.html" id="footTerms" data-t="foot_terms">Terms</a>
+    <a href="/privacy.html" id="footPrivacy" data-t="foot_privacy">Privacy</a>
     <a href="mailto:mailprosasha2@gmail.com">Contact</a>
   </div>
-  <span data-t="foot_copy">© 2026 Nova — dictée vocale pour Windows</span>
+  <span data-t="foot_copy">© 2026 Nova — voice dictation for Windows</span>
 </footer>
 
 <!-- porte e-mail du téléchargement gratuit : code de vérification 15 min -->
@@ -1263,41 +1256,38 @@
     <div class="dldot" aria-hidden="true"></div>
 
     <div id="dlStep1">
-      <h3 id="dlTitle" data-t="dl_t1">Recevez Nova</h3>
-      <p class="dlp" data-t="dl_p1">Entrez votre e-mail : nous vous envoyons un
-        code de vérification, et le téléchargement démarre.</p>
+      <h3 id="dlTitle" data-t="dl_t1">Get Nova</h3>
+      <p class="dlp" data-t="dl_p1">Enter your email: we'll send you a verification code, and your download starts.</p>
       <form class="dlrow" id="dlForm1" novalidate>
         <input type="email" id="dlEmail" required autocomplete="email"
           placeholder="votre@email.com" aria-label="Votre adresse e-mail">
         <input type="text" id="dlSite" name="website" tabindex="-1" autocomplete="off"
           aria-hidden="true" style="position:absolute;left:-5000px;width:1px;height:1px">
-        <button class="btn" type="submit" data-t="dl_send">Recevoir le code</button>
+        <button class="btn" type="submit" data-t="dl_send">Send the code</button>
       </form>
       <p class="dlerr" id="dlErr1"></p>
-      <p class="dlnote" data-t="dl_note">Vous recevrez aussi, de loin en loin, les
-        nouveautés de Nova — jamais partagé, désinscription en un clic.</p>
+      <p class="dlnote" data-t="dl_note">You'll also get Nova news once in a while — never shared, one-click unsubscribe.</p>
     </div>
 
     <div id="dlStep2" hidden>
-      <h3 data-t="dl_t2">Entrez le code</h3>
-      <p class="dlp"><span data-t="dl_p2">Envoyé à</span> <b id="dlMail"></b><br>
-        <span data-t="dl_p2b">Valable 15 minutes.</span></p>
+      <h3 data-t="dl_t2">Enter the code</h3>
+      <p class="dlp"><span data-t="dl_p2">Sent to</span> <b id="dlMail"></b><br>
+        <span data-t="dl_p2b">Valid for 15 minutes.</span></p>
       <form id="dlForm2" novalidate>
         <input id="dlCode" inputmode="numeric" autocomplete="one-time-code"
           maxlength="6" placeholder="••••••" aria-label="Code à 6 chiffres">
-        <button class="btn" type="submit" data-t="dl_verify">Vérifier et télécharger</button>
+        <button class="btn" type="submit" data-t="dl_verify">Verify and download</button>
       </form>
       <p class="dlerr" id="dlErr2"></p>
-      <p class="dlagain"><span data-t="dl_again">Rien reçu&nbsp;?</span>
-        <button id="dlResend" type="button" data-t="dl_resend">Renvoyer le code</button></p>
+      <p class="dlagain"><span data-t="dl_again">Nothing yet?</span>
+        <button id="dlResend" type="button" data-t="dl_resend">Resend the code</button></p>
     </div>
 
     <div id="dlStep3" hidden>
-      <h3 data-t="dl_t3">C'est parti.</h3>
-      <p class="dlp" data-t="dl_p3">Nova se télécharge. Lancez l'installation,
-        maintenez <b>F9</b>, parlez.</p>
+      <h3 data-t="dl_t3">Here we go.</h3>
+      <p class="dlp" data-t="dl_p3">Nova is downloading. Run the installer, hold <b>F9</b>, speak.</p>
       <p class="dlnote"><a id="dlFallback" href="#" style="color:var(--blue)"
-        data-t="dl_fallback">Le téléchargement n'a pas démarré ? Cliquez ici.</a></p>
+        data-t="dl_fallback">Download didn't start? Click here.</a></p>
     </div>
   </div>
 </div>
@@ -1582,6 +1572,10 @@ const I18N = {
     key_hold: "MAINTENIR",
     hero_dl: "Télécharger gratuitement", hero_pricing: "Voir les tarifs",
     hero_note: "Windows 10/11 · sans carte bancaire · vos données restent chez vous",
+    proof_1: "100 % privé — votre voix ne quitte jamais le PC",
+    proof_2: "90+ langues, détectées automatiquement",
+    proof_3: "Instantané — fonctionne hors ligne",
+    proof_4: "Gratuit pour toujours — sans compte ni carte",
     film_kicker: "Le film", film_note: "Quarante-deux secondes. Pas une de trop.",
     film_hint: "Cliquez pour activer le son",
     app_kicker: "L'app", app_h2: "Discrète, jusqu'à<br>ce que vous parliez.",
@@ -1614,7 +1608,8 @@ const I18N = {
     free_2: "3 Styles essentiels — E-mail, Messages…", free_3: "10 reformulations par jour", free_btn: "Télécharger",
     free_trial: "14 jours de Pro à l'installation",
     badge_pop: "Le plus populaire", price_pro: "4,99 €<small> / mois</small>",
-    price_pro_y: "49 €<small> / an</small>", price_ultra_y: "149 €<small> / an</small>",
+    price_pro_y: '4,08 €<small> / mois</small><span class="anchor"><s>4,99 €</s> · facturé 49 € / an — 2 mois offerts</span>',
+    price_ultra_y: '12,42 €<small> / mois</small><span class="anchor"><s>14,99 €</s> · facturé 149 € / an — 2 mois offerts</span>',
     bill_m: "Mensuel", bill_y: "Annuel · 2 mois offerts",
     pro_1: "<b>Dictée vocale illimitée</b>, 90+ langues",
     pro_2: "<b>Reformulations illimitées</b> — fini la limite de 10 par jour",
@@ -1630,6 +1625,7 @@ const I18N = {
     ultra_3: "Personnalisation complète — orbe, nom, couleurs", ultra_btn: "Obtenir Ultra",
     trial_note: "14 jours de Pro offerts dès l'installation",
     plans_note: 'Annulable à tout moment · équipes : <a href="mailto:mailprosasha2@gmail.com">écrivez-nous</a>',
+    launch_lock: 'Prix de lancement : il augmentera au fil des nouvelles versions. Les membres qui s\'abonnent maintenant gardent leur tarif <b>à vie</b>.',
     dev_kicker: "Pour les développeurs",
     dev_h2: "Vos prompts,<br>pensés à voix haute.",
     dev_sub: "Les bonnes réponses naissent d'instructions détaillées — que personne n'aime taper. Maintenez la touche, décrivez ce que vous voulez : le Style <b>Prompt IA</b> livre une consigne propre, prête pour Cursor ou votre assistant IA.",
@@ -1681,6 +1677,8 @@ const I18N = {
     maj_sub: "Chaque version, sa date, et ce qu'elle vous apporte vraiment — rien d'autre.",
     tag_new: "Nouveau", tag_premium: "Premium", tag_opt: "Optimisation",
     tag_power: "Puissance", tag_rgpd: "RGPD",
+    maj_v1022_when: "4 août 2026 · 14:10",
+    maj_v1022_body: "<li><b>Nova se débloque tout seul des pilotes graphiques défaillants</b> — si le GPU se fige au démarrage, Nova bascule automatiquement sur le processeur au lancement suivant et la dictée reprend, avec un retour au GPU en un clic.</li>",
     maj_v1021_when: "3 août 2026 · 23:30",
     maj_v1021_body: "<li><b>Messages traduits</b> dans votre langue à chaque écran de Nova, y compris les cas rares qui affichaient encore de l'anglais.</li>",
     maj_v1020_when: "3 août 2026 · 21:00",
@@ -1743,6 +1741,10 @@ const I18N = {
     key_hold: "HOLD",
     hero_dl: "Download for free", hero_pricing: "See pricing",
     hero_note: "Windows 10/11 · no credit card · your data stays on your device",
+    proof_1: "100% private — your voice never leaves the PC",
+    proof_2: "90+ languages, auto-detected",
+    proof_3: "Instant — works offline",
+    proof_4: "Free forever — no account, no card",
     film_kicker: "The film", film_note: "Forty-two seconds. Not one too many.",
     film_hint: "Click to turn the sound on",
     app_kicker: "The app", app_h2: "Discreet, until<br>you speak.",
@@ -1775,7 +1777,8 @@ const I18N = {
     free_2: "3 essential Styles — E-mail, Messages…", free_3: "10 rewrites per day", free_btn: "Download",
     free_trial: "14 days of Pro on install",
     badge_pop: "Most popular", price_pro: "€4.99<small> / month</small>",
-    price_pro_y: "€49<small> / year</small>", price_ultra_y: "€149<small> / year</small>",
+    price_pro_y: '€4.08<small> / month</small><span class="anchor"><s>€4.99</s> · billed €49/year — 2 months free</span>',
+    price_ultra_y: '€12.42<small> / month</small><span class="anchor"><s>€14.99</s> · billed €149/year — 2 months free</span>',
     bill_m: "Monthly", bill_y: "Yearly · 2 months free",
     pro_1: "<b>Unlimited voice dictation</b>, 90+ languages",
     pro_2: "<b>Unlimited rewrites</b> — no more 10-per-day limit",
@@ -1791,6 +1794,7 @@ const I18N = {
     ultra_3: "Full personalization — orb, name, colors", ultra_btn: "Get Ultra",
     trial_note: "14 days of Pro on install — no card",
     plans_note: 'Cancel anytime · teams: <a href="mailto:mailprosasha2@gmail.com">write to us</a>',
+    launch_lock: 'Launch pricing: it will rise as new versions ship. Members who subscribe now keep their rate <b>for life</b>.',
     dev_kicker: "For developers",
     dev_h2: "Your prompts,<br>thought out loud.",
     dev_sub: "Great answers come from detailed instructions — which nobody enjoys typing. Hold the key, describe what you want: the <b>AI prompt</b> Style delivers a clean instruction, ready for Cursor or your AI assistant.",
@@ -1842,6 +1846,8 @@ const I18N = {
     maj_sub: "Every version, its date, and what it actually gives you — nothing else.",
     tag_new: "New", tag_premium: "Premium", tag_opt: "Optimization",
     tag_power: "Power", tag_rgpd: "GDPR",
+    maj_v1022_when: "August 4, 2026 · 14:10",
+    maj_v1022_body: "<li><b>Nova unsticks itself from broken graphics drivers</b> — if the GPU hangs at startup, Nova automatically falls back to the processor on the next launch and dictation works again, with a one-click way back to the GPU.</li>",
     maj_v1021_when: "August 3, 2026 · 23:30",
     maj_v1021_body: "<li><b>Translated messages</b> in your language on every Nova screen, including rare cases still showing English.</li>",
     maj_v1020_when: "August 3, 2026 · 21:00",
@@ -2112,6 +2118,25 @@ document.addEventListener("click", (e) => {
   if (!navdrop.contains(e.target)) guidesSet(false);
 });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") guidesSet(false); });
+
+/* menu hamburger mobile : panneau sous la nav, se referme à la navigation,
+   au clic extérieur, à Échap et au retour en desktop */
+const navEl = document.querySelector("nav"), menuBtn = $("menuBtn");
+function menuSet(open) {
+  navEl.classList.toggle("open", open);
+  menuBtn.setAttribute("aria-expanded", String(open));
+}
+menuBtn.addEventListener("click", (e) => {
+  e.stopPropagation(); menuSet(!navEl.classList.contains("open"));
+});
+document.getElementById("navLinks").addEventListener("click", (e) => {
+  if (e.target.closest("a")) menuSet(false);
+});
+document.addEventListener("click", (e) => {
+  if (!navEl.contains(e.target)) menuSet(false);
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") menuSet(false); });
+addEventListener("resize", () => { if (innerWidth > 720) menuSet(false); });
 </script>
 <!-- Cloudflare Web Analytics (sans cookie, agrégé) --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "fb92a98d6b4645c2b9091607b52d1a0f"}'></script><!-- End Cloudflare Web Analytics -->
 </body>
