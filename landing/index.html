@@ -228,6 +228,8 @@
     -webkit-background-clip:text;background-clip:text;color:transparent}
   h1 .l{display:inline-block;opacity:0;transform:translateY(.6em) rotate(4deg);
     animation:pop .8s var(--spring) forwards}
+  /* les lettres restent groupées par mot : jamais de césure « y / ou. » */
+  h1 .w{display:inline-block;white-space:nowrap}
   h1 .grad .l{background:inherit;-webkit-background-clip:text;background-clip:text;color:transparent}
   @keyframes pop{to{opacity:1;transform:none}}
 
@@ -1333,12 +1335,19 @@ function splitTitle() {
   let d = 0.15;
   for (const el of [$("line1"), $("line2")]) {
     const text = el.textContent; el.textContent = "";
-    for (const ch of text) {
-      const s = document.createElement("span");
-      s.className = "l"; s.textContent = ch;
-      if (ch === " ") s.style.whiteSpace = "pre";
-      s.style.animationDelay = (d += 0.045) + "s";
-      el.appendChild(s);
+    // groupé par mot (span .w insécable) : la césure ne tombe jamais en plein
+    // milieu d'un mot (« that writes for y / ou. » sur mobile)
+    for (const word of text.split(" ")) {
+      const w = document.createElement("span");
+      w.className = "w";
+      for (const ch of word) {
+        const s = document.createElement("span");
+        s.className = "l"; s.textContent = ch;
+        s.style.animationDelay = (d += 0.045) + "s";
+        w.appendChild(s);
+      }
+      el.appendChild(w);
+      el.appendChild(document.createTextNode(" "));
     }
   }
 }
