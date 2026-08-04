@@ -32,7 +32,9 @@ async function sha256hex(s: string): Promise<string> {
   return [...new Uint8Array(h)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 async function ipHash(req: Request): Promise<string> {
-  const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim();
+  // DERNIÈRE IP de la chaîne : ajoutée par la passerelle, non falsifiable
+  // (la première est fournie par le client et contournerait la limite).
+  const ip = (req.headers.get("x-forwarded-for") || "").split(",").pop()!.trim();
   if (!ip) return "";
   return (await sha256hex(IP_SALT + ":" + ip)).slice(0, 16);
 }
