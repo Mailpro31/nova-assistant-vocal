@@ -218,18 +218,21 @@ async function onInvoicePaid(inv: Record<string, any>) {
 }
 
 // Palier d'un abonnement d'après son prix (montant + intervalle). Les price
-// IDs Stripe ne sont pas dans le code : on mappe sur les montants publics du
-// site (4,99 €/49 € = pro, 14,99 €/149 € = ultra). Inconnu → null (le tier
-// stocké est conservé). Indispensable pour l'upgrade Pro→Ultra du portail
-// client : sans ça, payer la différence ne débloquait rien.
+// IDs Stripe ne sont pas dans le code : on mappe sur les montants (tarifs de
+// lancement 4,99/49 et 14,99/149, ET anciens tarifs 9,99/99 et 19,99/199
+// pour les clients historiques). Inconnu → null (le tier stocké est
+// conservé). Indispensable pour l'upgrade Pro→Ultra du portail client : sans
+// ça, payer la différence ne débloquait rien.
 function tierForSubscription(sub: Record<string, any>): string | null {
   const price = sub?.items?.data?.[0]?.price;
   const amount = Number(price?.unit_amount || 0);
   const interval = String(price?.recurring?.interval || "");
   if (!amount || !interval) return null;
   const yearly = interval === "year";
-  if ((!yearly && amount === 499) || (yearly && amount === 4900)) return "pro";
-  if ((!yearly && amount === 1499) || (yearly && amount === 14900)) return "ultra";
+  if ((!yearly && (amount === 499 || amount === 999)) ||
+      (yearly && (amount === 4900 || amount === 9900))) return "pro";
+  if ((!yearly && (amount === 1499 || amount === 1999)) ||
+      (yearly && (amount === 14900 || amount === 19900))) return "ultra";
   return null;
 }
 
