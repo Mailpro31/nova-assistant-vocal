@@ -26,6 +26,7 @@ const supa = createClient(
 // clé PUBLIQUE de vérification des jetons NOVA1 (la même que dans l'app)
 const PUBLIC_KEY_B64 = "Q+U/LqaeFgLSDkvqiAXRcHQ8DSwqU9NcrHiPt8A6EJE=";
 const GRACE_MS = 7 * 24 * 3600 * 1000;
+const TRIAL_SECS = 14 * 24 * 3600; // durée de l'essai Pro
 const ANTHROPIC_MODEL = "claude-haiku-4-5-20251001";
 const MAX_TEXT_CHARS = 8000; // une dictée reste une dictée
 const MAX_SYSTEM_CHARS = 4000;
@@ -37,6 +38,7 @@ const DAILY_CAP: Record<string, number> = {
   ultra: 2000,
   business: 5000,
 };
+const TRIAL_DAILY_CAP = 50; // essai Pro : généreux mais borné
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -52,19 +54,42 @@ const json = (code: number, body: unknown) =>
 
 const PUB_BYTES = Uint8Array.from(atob(PUBLIC_KEY_B64), (c) => c.charCodeAt(0));
 
+const un64 = (s: string) =>
+  Uint8Array.from(
+    atob(s.replace(/-/g, "+").replace(/_/g, "/") +
+      "=".repeat((4 - s.length % 4) % 4)),
+    (c) => c.charCodeAt(0),
+  );
+
 async function verifyToken(tok: string): Promise<Record<string, unknown> | null> {
   const m = /^NOVA1\.([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)$/.exec(tok || "");
   if (!m) return null;
-  const un64 = (s: string) =>
-    Uint8Array.from(
-      atob(s.replace(/-/g, "+").replace(/_/g, "/") +
-        "=".repeat((4 - s.length % 4) % 4)),
-      (c) => c.charCodeAt(0),
-    );
+  // décodage + vérif + parse sous une seule garde : un segment base64 ou un
+  // JSON invalide renvoie null (→ 401), jamais une exception non gérée (→ 500)
   try {
     const payload = un64(m[1]), sig = un64(m[2]);
     if (!(await ed.verifyAsync(sig, payload, PUB_BYTES))) return null;
     return JSON.parse(new TextDecoder().decode(payload));
+  } catch {
+    return null;
+  }
+}
+
+// Jeton d'essai « NOVAT1.<payload>.<sig> » (émis par trial-check, même clé) :
+// { k:"trial", m:<machine>, s:<epoch début> }. Valide 14 jours après s.
+// Sans ça, un utilisateur EN ESSAI n'a aucun jeton NOVA1 à présenter : le
+// cloud lui répondait 401 et l'app retombait sur le moteur local (lent) —
+// exactement à l'opposé de la démonstration qu'on veut faire pendant l'essai.
+async function verifyTrialToken(tok: string): Promise<Record<string, unknown> | null> {
+  const m = /^NOVAT1\.([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)$/.exec(tok || "");
+  if (!m) return null;
+  try {
+    const payload = un64(m[1]), sig = un64(m[2]);
+    if (!(await ed.verifyAsync(sig, payload, PUB_BYTES))) return null;
+    const data = JSON.parse(new TextDecoder().decode(payload));
+    if (data.k !== "trial" || !data.m || !data.s) return null;
+    if (Date.now() / 1000 > Number(data.s) + TRIAL_SECS) return null;
+    return data;
   } catch {
     return null;
   }
@@ -113,20 +138,30 @@ Deno.serve(async (req: Request) => {
       return json(404, { ok: false, error: "Introuvable." });
     }
 
-    // — authentification : jeton NOVA1 signé, palier payant, non expiré —
+    // — authentification : jeton NOVA1 (abonné) ou NOVAT1 (essai) signé —
     const tok = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
-    const p = await verifyToken(tok);
-    const tier = String(p?.t || "");
-    if (!p || !(tier in DAILY_CAP)) {
-      return json(401, { ok: false, error: "Abonnement Nova requis." });
-    }
-    if (!p.x || Date.now() / 1000 > Number(p.x)) {
-      return json(401, { ok: false, error: "Licence expirée." });
-    }
-    const machine = String(p.m || "");
-    if (!machine) return json(401, { ok: false, error: "Jeton invalide." });
-    if (await licenseRevoked(machine)) {
-      return json(403, { ok: false, error: "Abonnement résilié." });
+    let machine: string;
+    let cap: number;
+    if (tok.startsWith("NOVAT1.")) {
+      const t = await verifyTrialToken(tok);
+      if (!t) return json(401, { ok: false, error: "Essai expiré ou jeton invalide." });
+      machine = String(t.m);
+      cap = TRIAL_DAILY_CAP;
+    } else {
+      const p = await verifyToken(tok);
+      const tier = String(p?.t || "");
+      if (!p || !(tier in DAILY_CAP)) {
+        return json(401, { ok: false, error: "Abonnement Nova requis." });
+      }
+      if (!p.x || Date.now() / 1000 > Number(p.x)) {
+        return json(401, { ok: false, error: "Licence expirée." });
+      }
+      machine = String(p.m || "");
+      if (!machine) return json(401, { ok: false, error: "Jeton invalide." });
+      if (await licenseRevoked(machine)) {
+        return json(403, { ok: false, error: "Abonnement résilié." });
+      }
+      cap = DAILY_CAP[tier];
     }
 
     // — requête au format OpenAI : messages[system? + user] —
@@ -149,7 +184,6 @@ Deno.serve(async (req: Request) => {
     if (!text.trim()) return json(400, { ok: false, error: "Texte vide." });
 
     // — quota quotidien atomique, consommé AVANT l'appel fournisseur —
-    const cap = DAILY_CAP[tier];
     let consumed = false;
     {
       const { data, error } = await supa.rpc("styles_consume_capped", {
