@@ -217,6 +217,22 @@ async function onInvoicePaid(inv: Record<string, any>) {
   }
 }
 
+// Palier d'un abonnement d'après son prix (montant + intervalle). Les price
+// IDs Stripe ne sont pas dans le code : on mappe sur les montants publics du
+// site (4,99 €/49 € = pro, 14,99 €/149 € = ultra). Inconnu → null (le tier
+// stocké est conservé). Indispensable pour l'upgrade Pro→Ultra du portail
+// client : sans ça, payer la différence ne débloquait rien.
+function tierForSubscription(sub: Record<string, any>): string | null {
+  const price = sub?.items?.data?.[0]?.price;
+  const amount = Number(price?.unit_amount || 0);
+  const interval = String(price?.recurring?.interval || "");
+  if (!amount || !interval) return null;
+  const yearly = interval === "year";
+  if ((!yearly && amount === 499) || (yearly && amount === 4900)) return "pro";
+  if ((!yearly && amount === 1499) || (yearly && amount === 14900)) return "ultra";
+  return null;
+}
+
 async function onSubscriptionEvent(sub: Record<string, any>, deleted: boolean) {
   // Statuts Stripe : incomplete (1er paiement en cours/échoué) et paused ne
   // doivent JAMAIS donner "active" — sinon une carte qui échoue conserve une
@@ -227,7 +243,15 @@ async function onSubscriptionEvent(sub: Record<string, any>, deleted: boolean) {
     : (sub.status === "incomplete_expired" || sub.status === "unpaid"
         || sub.status === "canceled" || sub.status === "paused") ? "canceled"
     : "active";   // active | trialing
-  await supa.from("licenses").update({ status })
+  const update: Record<string, unknown> = { status };
+  // Upgrade/downgrade (portail client) : le tier suit le prix réel de
+  // l'abonnement — jamais sur une résiliation (on conserve le tier pour
+  // l'historique, le statut « canceled » suffit à couper les droits).
+  if (!deleted) {
+    const tier = tierForSubscription(sub);
+    if (tier) update.tier = tier;
+  }
+  await supa.from("licenses").update(update)
     .eq("stripe_subscription_id", String(sub.id));
 }
 
