@@ -59,6 +59,11 @@ $$;
 -- 3) Remboursement : les RPC historiques acceptent désormais un delta
 --    NÉGATIF (plancher à 0) pour annuler la consommation d'un appel fournisseur
 --    en échec. Le comportement pour les deltas positifs est inchangé.
+--    (DROP préalable : les versions déployées renvoyaient un autre type, et
+--    CREATE OR REPLACE ne permet pas de changer le type de retour.)
+drop function if exists public.turbo_consume(text, integer);
+drop function if exists public.turbo_vision_consume(text, integer);
+
 create or replace function public.turbo_consume(p_machine text, p_seconds int)
 returns void
 language plpgsql security definer as $$
