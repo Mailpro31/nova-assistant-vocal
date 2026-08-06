@@ -147,3 +147,5 @@ if(soundBtn){
 }
 
 dots.forEach((dot,index)=>dot.addEventListener('click',()=>dots.forEach((d,i)=>d.classList.toggle('on',i===index))));
+
+import('/nova-preview-polish.js?v=2').catch(()=>{});

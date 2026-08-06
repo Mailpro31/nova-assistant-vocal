@@ -1,0 +1,108 @@
+/* Nova preview — premium interaction pass */
+:root{--mx:0px;--my:0px;--spot-x:50%;--spot-y:50%}
+html{scroll-padding-top:92px}
+body{overscroll-behavior-y:none}
+body::before{content:"";position:fixed;inset:0;z-index:890;pointer-events:none;background:radial-gradient(circle at 50% 46%,rgba(205,218,248,.42),rgba(255,255,255,.96) 36%,#fff 76%);opacity:0;visibility:hidden;transform:scale(.96);transition:opacity .72s var(--ease),transform .9s var(--ease-soft),visibility 0s linear .9s}
+body.page-enter::before{visibility:visible;opacity:1;transform:scale(1)}
+body.page-revealed::before{opacity:0;transform:scale(1.09);visibility:hidden}
+
+/* Opening sequence refinements */
+.intro-inner::before{content:"";position:absolute;left:50%;top:-18px;width:92px;height:92px;border:1px solid rgba(126,150,220,.13);border-radius:50%;transform:translate(-50%,-50%) scale(.5);opacity:0;pointer-events:none}
+.intro.loaded .intro-inner::before{animation:readyRing 1.15s var(--ease-soft) both}
+.intro.loaded .intro-count{color:#6f7380;transform:translateY(-1px)}
+.intro.loaded .intro-count::after{box-shadow:0 0 18px rgba(126,150,220,.3)}
+.intro .orb::after{content:"";position:absolute;inset:-8px;border:1px solid rgba(126,150,220,.15);border-radius:50%;opacity:0;transform:scale(.7)}
+.intro.loaded .orb::after{animation:markPulse 1.4s .08s var(--ease-soft) infinite}
+.enter{position:relative;isolation:isolate;overflow:hidden;padding-inline:23px 19px;display:inline-flex;align-items:center;gap:10px}
+.enter::before{content:"";position:absolute;inset:-1px;background:linear-gradient(105deg,transparent 25%,rgba(255,255,255,.24) 46%,transparent 66%);transform:translateX(-130%);z-index:-1;transition:transform .72s var(--ease)}
+.enter::after{content:"→";display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:rgba(255,255,255,.1);font-size:10px;transition:transform .34s var(--ease),background .34s var(--ease)}
+.enter:hover::before{transform:translateX(130%)}
+.enter:hover::after{transform:translateX(2px);background:rgba(255,255,255,.17)}
+.enter:active{scale:.97}
+.intro.leaving .enter{opacity:0!important;scale:.88;filter:blur(3px)}
+.intro.leaving .intro-count{opacity:0;transform:translateY(-7px)}
+.intro.leaving .orb{animation:exitMark .62s var(--ease-soft) forwards}
+@keyframes readyRing{0%{opacity:0;transform:translate(-50%,-50%) scale(.45)}48%{opacity:.55}100%{opacity:0;transform:translate(-50%,-50%) scale(1.35)}}
+@keyframes markPulse{0%,100%{opacity:0;transform:scale(.72)}45%{opacity:.6}75%{opacity:0;transform:scale(1.7)}}
+@keyframes exitMark{0%{scale:1}45%{scale:1.18;filter:brightness(1.06)}100%{scale:.72;opacity:0;filter:blur(5px)}}
+
+/* Top scene — subtle depth and precise hover feedback */
+#top::after{content:"";position:absolute;left:50%;top:50%;width:min(420px,58vw);aspect-ratio:1;border-radius:50%;border:1px solid rgba(126,150,220,.085);transform:translate(calc(-50% + var(--px,0px)),calc(-50% + var(--py,0px))) scale(.82);opacity:0;transition:opacity 1s .25s var(--ease),transform 1.2s var(--ease-soft);pointer-events:none}
+body.ready #top::after{opacity:1;transform:translate(calc(-50% + var(--px,0px)),calc(-50% + var(--py,0px))) scale(1)}
+.words{transform:translate3d(calc(var(--px,0px) * .18),calc(var(--py,0px) * .18),0);transition:transform .25s linear}
+.words span{position:relative;cursor:default;transition-property:opacity,transform,filter,color,text-shadow;transition-duration:.6s;transition-timing-function:var(--ease)}
+.words:hover span{opacity:.32!important;color:rgba(17,18,23,.42)}
+.words span:hover{opacity:1!important;color:#111217;transform:translateY(-3px) scale(1.055)!important;text-shadow:0 8px 26px rgba(106,128,195,.18)}
+.hero-note::before{content:"";display:inline-block;width:28px;height:1px;margin:0 13px 3px 0;background:linear-gradient(90deg,transparent,rgba(126,150,220,.55))}
+.hero-note::after{content:"";display:inline-block;width:28px;height:1px;margin:0 0 3px 13px;background:linear-gradient(90deg,rgba(126,150,220,.55),transparent)}
+
+/* Shared premium button system */
+.enter,.black-btn,.dock a,.dock button,.logo-top{translate:var(--mx,0px) var(--my,0px);will-change:translate}
+.black-btn,.dock .main{position:relative;isolation:isolate;overflow:hidden}
+.black-btn::before,.dock .main::before{content:"";position:absolute;inset:-1px;background:linear-gradient(105deg,transparent 27%,rgba(255,255,255,.2) 47%,transparent 67%);transform:translateX(-135%);z-index:-1;transition:transform .75s var(--ease)}
+.black-btn:hover::before,.dock .main:hover::before{transform:translateX(135%)}
+.black-btn::after{content:"→";display:inline-block;max-width:0;overflow:hidden;opacity:0;margin-left:0;transform:translateX(-6px);transition:max-width .34s var(--ease),opacity .3s var(--ease),margin-left .34s var(--ease),transform .34s var(--ease)}
+.black-btn:hover::after{max-width:20px;opacity:1;margin-left:9px;transform:none}
+.black-btn:active,.dock a:active,.dock button:active{scale:.965}
+.black-btn:focus-visible,.dock a:focus-visible,.dock button:focus-visible,.enter:focus-visible,.logo-top:focus-visible{outline:2px solid rgba(126,150,220,.75);outline-offset:4px}
+.press-ripple{position:absolute!important;pointer-events:none!important;border-radius:50%!important;background:rgba(255,255,255,.28)!important;transform:translate(-50%,-50%) scale(0)!important;animation:pressRipple .62s var(--ease) forwards!important;z-index:9!important}
+@keyframes pressRipple{to{transform:translate(-50%,-50%) scale(1)!important;opacity:0}}
+
+/* Logo and dock feel more like one living system */
+.logo-top{transition:opacity .7s .1s var(--ease),transform .7s .1s var(--ease),box-shadow .35s var(--ease),background .35s var(--ease),translate .18s linear}
+.logo-top:hover{background:rgba(255,255,255,.9);box-shadow:0 13px 42px rgba(68,80,119,.11)}
+.logo-top:hover .orb{animation:logoBreath 1.25s var(--ease-soft)}
+@keyframes logoBreath{50%{transform:scale(1.11);box-shadow:0 0 24px rgba(138,160,224,.5)}}
+.dock{transition:transform .72s .16s var(--ease),filter .4s var(--ease),opacity .4s var(--ease)}
+.dock.scrolling{filter:drop-shadow(0 11px 23px rgba(43,49,71,.1));opacity:.93}
+.dock a,.dock button{position:relative;transition:transform .3s var(--ease),background .3s var(--ease),box-shadow .3s var(--ease),translate .18s linear}
+.dock .circle::before{content:"";position:absolute;inset:5px;border-radius:50%;background:radial-gradient(circle at 35% 25%,rgba(255,255,255,.14),transparent 62%);opacity:0;transform:scale(.75);transition:opacity .3s var(--ease),transform .3s var(--ease)}
+.dock .circle:hover::before{opacity:1;transform:scale(1)}
+.dock .circle:hover svg{transform:scale(1.08) rotate(-2deg)}
+.dock svg{transition:transform .3s var(--ease)}
+.dock a.active{background:#252733;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),0 8px 25px rgba(20,21,28,.18)}
+
+/* Cinematic scene receives a responsive light spot */
+.cinema-media{--cinema-x:50%;--cinema-y:45%}
+.cinema-media .cinema-orb{transition:filter .45s var(--ease),box-shadow .45s var(--ease)}
+.cinema-media:hover .cinema-orb{filter:brightness(1.04);box-shadow:inset 8px 10px 20px rgba(255,255,255,.86),inset -13px -17px 28px rgba(70,89,172,.25),0 0 66px rgba(142,164,228,.66)}
+.cinema-media .shape-b{background:radial-gradient(circle at var(--cinema-x) var(--cinema-y),rgba(255,255,255,.72),rgba(255,255,255,.34) 38%,transparent 72%)}
+.cinema-copy p{transition:letter-spacing .55s var(--ease),text-shadow .55s var(--ease)}
+.cinema:hover .cinema-copy p{letter-spacing:-.035em;text-shadow:0 4px 30px rgba(52,66,96,.24)}
+
+/* Staggered reveals and art polish */
+.reveal{transition-delay:var(--reveal-delay,0ms)}
+.chapter-art-focus{filter:drop-shadow(0 22px 52px rgba(101,119,174,.11))}
+.chapter .orb,.inline-shot .orb{transition:filter .45s var(--ease),box-shadow .45s var(--ease)}
+.chapter:hover .orb,.inline-shot:hover .orb{filter:brightness(1.035);box-shadow:inset 8px 10px 20px rgba(255,255,255,.88),inset -13px -17px 28px rgba(70,89,172,.23),0 0 58px rgba(142,164,228,.58)}
+.chapter::after{content:"";position:absolute;left:50%;bottom:0;width:min(620px,72vw);height:1px;transform:translateX(-50%);background:linear-gradient(90deg,transparent,rgba(126,150,220,.12),transparent)}
+
+/* Cards react to the pointer without becoming flashy */
+.plan{position:relative;isolation:isolate;overflow:hidden;--spot-x:50%;--spot-y:50%}
+.plan::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(320px circle at var(--spot-x) var(--spot-y),rgba(174,191,236,.18),transparent 68%);opacity:0;transition:opacity .35s var(--ease)}
+.plan:hover::after{opacity:1}
+.plan.featured{box-shadow:0 22px 80px rgba(104,119,174,.13),inset 0 1px 0 rgba(255,255,255,.74)}
+.plan-badge{align-self:flex-start;margin:-10px 0 16px;padding:6px 9px;border-radius:999px;background:rgba(126,150,220,.12);color:#667bc0;font-size:9px;font-weight:750;letter-spacing:.11em;text-transform:uppercase}
+.plan li{transition:transform .3s var(--ease),color .3s var(--ease)}
+.plan:hover li{transform:translateX(2px);color:#646874}
+.case{border-radius:26px;padding:18px;margin:-18px;transition:background .4s var(--ease),transform .4s var(--ease)}
+.case:hover{background:linear-gradient(110deg,rgba(174,191,236,.07),rgba(201,187,237,.035),transparent);transform:translateX(4px)}
+.faq-item{transition:padding-left .4s var(--ease),background .4s var(--ease)}
+.faq-item:hover{padding-left:12px;background:linear-gradient(90deg,rgba(174,191,236,.055),transparent 65%)}
+.faq-item h3{transition:color .3s var(--ease)}
+.faq-item:hover h3{color:#6478b8}
+
+/* Tiny scroll cue after entry */
+.scroll-cue{position:fixed;left:50%;bottom:92px;z-index:105;translate:-50% 12px;display:flex;align-items:center;gap:8px;color:#8b8e96;font-size:8px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;opacity:0;pointer-events:none;transition:opacity .6s var(--ease),translate .6s var(--ease)}
+body.ready .scroll-cue.show{opacity:.72;translate:-50% 0}
+.scroll-cue i{display:block;width:1px;height:24px;background:linear-gradient(#899fdc,transparent);transform-origin:top;animation:cueLine 1.8s var(--ease) infinite}
+@keyframes cueLine{0%{transform:scaleY(.15);opacity:.2}55%{transform:scaleY(1);opacity:.9}100%{transform:translateY(9px) scaleY(.2);opacity:0}}
+
+@media(max-width:680px){
+  .words:hover span{opacity:1!important}.words span:hover{transform:none!important}
+  .hero-note::before,.hero-note::after{width:16px;margin-inline:7px}
+  .scroll-cue{bottom:78px}
+  .case{padding:12px;margin:-12px}
+}
+@media(hover:none){.enter,.black-btn,.dock a,.dock button,.logo-top{translate:0 0!important}.plan::after{display:none}}
+@media(prefers-reduced-motion:reduce){body::before,.scroll-cue{display:none!important}.intro .orb::after,.intro-inner::before{animation:none!important}.enter,.black-btn,.dock a,.dock button,.logo-top{translate:0 0!important}}
