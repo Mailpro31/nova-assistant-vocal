@@ -148,4 +148,7 @@ if(soundBtn){
 
 dots.forEach((dot,index)=>dot.addEventListener('click',()=>dots.forEach((d,i)=>d.classList.toggle('on',i===index))));
 
-import('/nova-preview-polish.js?v=2').catch(()=>{});
+const polishScript=document.createElement('script');
+polishScript.src='/nova-preview-polish.js?v=3';
+polishScript.defer=true;
+document.body.appendChild(polishScript);
