@@ -1,0 +1,133 @@
+name: Patch preview layout
+on:
+  push:
+    branches:
+      - preview/tekiyo-inspired-nova
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Restore v1 look and fix display bugs
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('landing/index.html')
+          s = path.read_text(encoding='utf-8')
+
+          # Keep the first prototype's structure, but remove the real video element
+          # that triggers browser overlays and produces a dark fallback while loading.
+          s = s.replace(
+              '<section class="cinema" id="film"><video src="nova-film3.mp4" autoplay muted loop playsinline></video>',
+              '<section class="cinema" id="film"><div class="cinema-media" aria-hidden="true"><i class="cinema-shape shape-a"></i><i class="cinema-shape shape-b"></i><i class="cinema-shape shape-c"></i><span class="cinema-orb orb"></span></div>'
+          )
+
+          s = s.replace(
+              "enter.onclick=()=>{intro.classList.add('done');document.querySelector('.cinema video').play().catch(()=>{})};",
+              "enter.onclick=()=>{intro.classList.add('done')};"
+          )
+          s = s.replace(
+              "const soundBtn=document.getElementById('soundBtn'),video=document.querySelector('.cinema video');soundBtn.onclick=()=>{video.muted=!video.muted;soundBtn.style.opacity=video.muted?'.65':'1'};",
+              "const soundBtn=document.getElementById('soundBtn');soundBtn.onclick=()=>{document.body.classList.toggle('calm');soundBtn.style.opacity=document.body.classList.contains('calm')?'.55':'1'};"
+          )
+
+          fixes = r'''
+/* --- Display fixes: original Tekiyo-inspired version, white continuous canvas --- */
+:root{--paper:#fff}
+html,body,.soft,.experience,.usecases,.faq,.final{background:#fff}
+body{padding-bottom:84px}
+.intro{background:#fff}
+.logo-top{mix-blend-mode:normal;color:var(--ink);background:rgba(255,255,255,.78);padding:7px 12px;border-radius:999px;box-shadow:0 8px 32px rgba(70,82,126,.08);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.logo-top .orb{flex:none}
+.scene,.chapter,.usecases,.pricing,.faq{overflow:hidden}
+.words,.chapter-inner,.plans,.faq-list,.case-list{position:relative;z-index:2}
+.chapter-inner{width:min(760px,100%);margin-inline:auto}
+.chapter h2,.chapter p{overflow-wrap:anywhere}
+
+/* Replace the browser video with the same cinematic atmosphere, without controls. */
+.cinema{background:#fff;color:#fff;min-height:135svh;isolation:isolate}
+.cinema-media{position:sticky;top:0;width:calc(100% - 5vw);height:100svh;margin-inline:auto;border-radius:42px;overflow:hidden;background:radial-gradient(circle at 16% 38%,#9eb8d2 0,rgba(158,184,210,.82) 20%,transparent 48%),radial-gradient(circle at 79% 30%,#ead9b8 0,rgba(234,217,184,.82) 22%,transparent 49%),radial-gradient(circle at 62% 78%,#b9dccb 0,rgba(185,220,203,.84) 24%,transparent 52%),linear-gradient(135deg,#cbdce7,#efe5cb 54%,#cde4d7);box-shadow:0 32px 110px rgba(92,109,145,.13);transform:none}
+.cinema-media:before{content:"";position:absolute;inset:-12%;background:linear-gradient(112deg,transparent 0 34%,rgba(255,255,255,.24) 48%,transparent 62%),radial-gradient(ellipse at 43% 32%,rgba(255,255,255,.42),transparent 34%);filter:blur(26px);animation:cinemaFlow 10s ease-in-out infinite alternate}
+.cinema-media:after{content:"";position:absolute;left:-8%;right:-8%;bottom:-18%;height:58%;background:linear-gradient(transparent,#fff 78%);filter:blur(16px)}
+.cinema-shape{position:absolute;display:block;border-radius:50%;filter:blur(34px);opacity:.48;animation:cinemaFloat 9s ease-in-out infinite alternate}
+.shape-a{width:34%;height:74%;left:8%;bottom:-5%;background:rgba(75,97,132,.34);border-radius:48% 52% 18% 18%/26% 25% 10% 10%;transform:rotate(-8deg)}
+.shape-b{width:28%;height:30%;right:8%;top:18%;background:rgba(255,255,255,.5);animation-delay:-2s}
+.shape-c{width:22%;height:24%;right:27%;bottom:18%;background:rgba(177,201,239,.52);animation-delay:-4s}
+.cinema-orb{position:absolute;width:74px;height:74px;right:19%;top:42%;z-index:2;animation:orbFloat 5s ease-in-out infinite}
+.cinema:after{background:linear-gradient(180deg,rgba(255,255,255,0) 70%,#fff 99%);z-index:1}
+.cinema-copy{position:sticky;top:0;margin-top:-100svh;z-index:3;pointer-events:none}
+.cinema-copy p{color:#fff;text-shadow:0 2px 22px rgba(60,73,105,.18)}
+.cinema-copy small{color:rgba(31,34,43,.62)}
+body.calm .cinema-media:before,body.calm .cinema-shape,body.calm .cinema-orb{animation-play-state:paused}
+@keyframes cinemaFlow{to{transform:translate3d(5%,-3%,0) scale(1.09) rotate(2deg)}}
+@keyframes cinemaFloat{to{transform:translate3d(7%,-5%,0) scale(1.12)}}
+@keyframes orbFloat{50%{transform:translateY(-13px) scale(1.05)}}
+
+/* Prevent absolute text and cards from colliding. */
+.manifesto{padding-bottom:190px}
+.manifesto p{left:50%;transform:translateX(-50%);width:min(520px,86vw);bottom:9vh}
+.style-card strong{max-width:48%;z-index:2}
+.style-card .result{z-index:3}
+.context-viz,.voice-orb,.construct{max-width:100%}
+
+/* Keep the initial version's pricing layout, on the same white canvas. */
+.pricing{background:#fff;color:var(--ink)}
+.pricing>p{color:var(--muted)}
+.plan{border:1px solid rgba(20,22,30,.08);background:rgba(255,255,255,.86);color:var(--ink);box-shadow:0 18px 70px rgba(80,94,132,.08)}
+.plan.featured{background:linear-gradient(145deg,#eef3fd,#f4eefb)}
+.plan ul,.plan.featured ul{color:var(--muted)}
+.plan:not(.featured) .black-btn{background:#111;color:#fff}
+
+/* Fixed navigation stays centered and never exceeds the viewport. */
+.dock{max-width:calc(100vw - 24px);padding-inline:2px}
+.dock a,.dock button{flex:none}
+.dots{right:max(12px,env(safe-area-inset-right))}
+
+@media(max-width:760px){
+  body{padding-bottom:72px}
+  .logo-top{top:13px}
+  .scene,.chapter{padding-left:22px;padding-right:22px}
+  .cinema{min-height:125svh}
+  .cinema-media{width:calc(100% - 24px);height:94svh;border-radius:28px;top:3svh}
+  .cinema-copy{height:94svh;margin-top:-94svh}
+  .cinema-copy .a{left:8vw;top:18vh}
+  .cinema-copy .b{right:8vw;top:auto;bottom:24vh}
+  .cinema-copy small{bottom:8vh;font-size:8px;letter-spacing:.09em;max-width:82vw;text-align:center;white-space:normal}
+  .cinema-orb{right:15%;top:45%;width:58px;height:58px}
+  .manifesto{min-height:auto;padding-top:150px;padding-bottom:140px}
+  .manifesto p{position:relative;left:auto;bottom:auto;transform:none;margin:48px auto 0}
+  .chapter-inner{gap:24px}
+  .style-card{width:min(430px,100%);min-height:315px;aspect-ratio:auto;padding:20px}
+  .style-card strong{left:20px;right:20px;top:66px;bottom:auto;max-width:none;font-size:36px}
+  .style-card .result{left:20px;right:20px;bottom:18px;width:auto}
+  .plans{grid-template-columns:1fr;max-width:520px}
+  .plan{min-height:0}
+  .dock{gap:6px}
+  .dock .circle{width:44px;height:44px}
+  .dock .main{height:44px;min-width:0;padding:0 18px;white-space:nowrap}
+  .dock a[href="#film"]{display:none}
+  .dots{display:none}
+}
+@media(max-width:430px){
+  .dock #soundBtn{display:none}
+  .dock .main{font-size:12px;padding-inline:16px}
+  .case{grid-template-columns:34px 1fr;gap:12px}
+}
+'''
+          s = s.replace('</style>', fixes + '\n</style>', 1)
+          path.write_text(s, encoding='utf-8')
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/patch-preview-layout.yml
+          git add landing/index.html
+          git commit -m "fix(site): restaurer le prototype v1 et corriger les bugs visuels"
+          git push origin HEAD:preview/tekiyo-inspired-nova
