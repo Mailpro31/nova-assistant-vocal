@@ -1,0 +1,9 @@
+const intro=document.getElementById('intro'),count=document.getElementById('count'),enter=document.getElementById('enter');
+let n=0;const timer=setInterval(()=>{n=Math.min(100,n+7+Math.floor(Math.random()*8));count.textContent=n+' %';if(n===100)clearInterval(timer)},45);
+function closeIntro(){intro.classList.add('done')} enter.addEventListener('click',closeIntro); setTimeout(()=>{if(n===100)enter.focus()},700);
+const chapters=[...document.querySelectorAll('.chapter')],dots=[...document.querySelectorAll('.dots a')];
+const chapterIO=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){const i=chapters.indexOf(e.target);dots.forEach((d,k)=>d.classList.toggle('on',k===i))}}),{threshold:.5});chapters.forEach(c=>chapterIO.observe(c));
+const revealIO=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');revealIO.unobserve(e.target)}}),{threshold:.12,rootMargin:'0px 0px -4%'});document.querySelectorAll('.reveal').forEach(el=>revealIO.observe(el));
+const pixels=document.getElementById('pixels');const pixelIO=new IntersectionObserver(([e])=>{if(e.isIntersecting)pixels.classList.add('play')},{threshold:.25});pixelIO.observe(pixels);
+const langBtn=document.getElementById('langBtn');langBtn.addEventListener('click',()=>{document.body.classList.toggle('english');langBtn.firstChild.nodeValue=document.body.classList.contains('english')?'FR':'EN'});
+const soundBtn=document.getElementById('soundBtn');soundBtn.addEventListener('click',()=>{document.body.classList.toggle('calm');soundBtn.style.opacity=document.body.classList.contains('calm')?'.55':'1'});
