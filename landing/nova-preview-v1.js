@@ -164,6 +164,11 @@ tekiyoRefineScript.defer=true;
 document.body.appendChild(tekiyoRefineScript);
 
 const directScrollFixScript=document.createElement('script');
-directScrollFixScript.src='/nova-scroll-buttons-fix.js?v=2';
+directScrollFixScript.src='/nova-scroll-buttons-fix.js?v=3';
 directScrollFixScript.defer=true;
 document.body.appendChild(directScrollFixScript);
+
+const founderEmbedScript=document.createElement('script');
+founderEmbedScript.src='/nova-founder-embedded.js?v=1';
+founderEmbedScript.defer=true;
+document.body.appendChild(founderEmbedScript);
