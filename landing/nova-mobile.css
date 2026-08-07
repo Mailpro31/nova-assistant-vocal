@@ -11,13 +11,60 @@
   .manifesto h1,.chapter h2{font-size:clamp(50px,15vw,72px)!important;line-height:.92!important;letter-spacing:-.06em!important}
   .usecases h2,.pricing>h2,.faq>h2{font-size:clamp(46px,14vw,68px)!important;line-height:.94!important}
   .final h2{font-size:clamp(54px,16vw,76px)!important;line-height:.9!important}
-  .manifesto p,.chapter p,.pricing>p,.usecases p{font-size:14px!important;line-height:1.55!important;max-width:92%!important;margin-left:auto!important;margin-right:auto!important}
+  .chapter p,.pricing>p,.usecases p{font-size:14px!important;line-height:1.55!important;max-width:92%!important;margin-left:auto!important;margin-right:auto!important}
 
   /* Center manifesto / chapter composition precisely on mobile */
   .manifesto-inner,.chapter-inner,.scene-inner{align-items:center!important;text-align:center!important}
   .manifesto h1,.chapter h2,.scene h1{margin-left:auto!important;margin-right:auto!important;max-width:92vw!important;text-align:center!important}
-  .manifesto p,.chapter p,.scene p{margin-left:auto!important;margin-right:auto!important;max-width:88vw!important;text-align:center!important}
-  .inline-shot,.construct-card,.local-visual,.context-visual,.styles-visual,.voice-visual,.chapter .visual{display:block!important;margin:18px auto 0!important;transform:none!important;left:auto!important;right:auto!important}
+  .chapter p,.scene p{margin-left:auto!important;margin-right:auto!important;max-width:88vw!important;text-align:center!important}
+
+  /* Manifesto inline card: preserve the desktop orb scale/animation, but constrain it safely on phone. */
+  .manifesto .inline-shot{
+    display:inline-flex!important;
+    width:clamp(118px,14vw,206px)!important;
+    height:clamp(66px,8vw,116px)!important;
+    vertical-align:.05em!important;
+    margin:0 .08em!important;
+    position:relative!important;
+    overflow:hidden!important;
+    align-items:center!important;
+    justify-content:center!important;
+    transform:none!important;
+    left:auto!important;
+    right:auto!important;
+    isolation:isolate!important;
+  }
+  .manifesto .inline-shot .orb{
+    position:relative!important;
+    left:auto!important;
+    top:auto!important;
+    right:auto!important;
+    bottom:auto!important;
+    width:34%!important;
+    height:auto!important;
+    aspect-ratio:1!important;
+    margin:0!important;
+    transform:none!important;
+    transform-origin:center!important;
+    animation:miniOrb 4s ease-in-out infinite!important;
+    will-change:transform!important;
+  }
+  .manifesto>p{
+    position:absolute!important;
+    left:50%!important;
+    right:auto!important;
+    bottom:9vh!important;
+    transform:translateX(-50%)!important;
+    width:calc(100vw - 40px)!important;
+    max-width:520px!important;
+    margin:0!important;
+    padding:0!important;
+    color:var(--muted)!important;
+    font-size:14px!important;
+    line-height:1.68!important;
+    text-align:center!important;
+    text-wrap:balance!important;
+  }
 
   /* Decorative words: true visual centering on phone. */
   .scene#top{display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important}
