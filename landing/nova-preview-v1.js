@@ -164,6 +164,6 @@ tekiyoRefineScript.defer=true;
 document.body.appendChild(tekiyoRefineScript);
 
 const directScrollFixScript=document.createElement('script');
-directScrollFixScript.src='/nova-scroll-buttons-fix.js?v=1';
+directScrollFixScript.src='/nova-scroll-buttons-fix.js?v=2';
 directScrollFixScript.defer=true;
 document.body.appendChild(directScrollFixScript);
