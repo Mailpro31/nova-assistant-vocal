@@ -123,3 +123,5 @@ if(dockTargets.length){
   },{threshold:[.18,.35,.6],rootMargin:'-18% 0px -45%'});
   dockTargets.forEach(target=>dockObserver.observe(target));
 }
+
+const founderPolish=document.createElement('script');founderPolish.src='/nova-founder-polish.js?v=1';founderPolish.defer=true;document.body.appendChild(founderPolish);
