@@ -188,7 +188,7 @@ polishScript.defer=true;
 document.body.appendChild(polishScript);
 
 const compactScript=document.createElement('script');
-compactScript.src='/nova-compact-ui.js?v=1';
+compactScript.src='/nova-compact-ui.js?v=2';
 compactScript.defer=true;
 document.body.appendChild(compactScript);
 
