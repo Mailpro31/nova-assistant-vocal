@@ -172,3 +172,8 @@ const founderEmbedScript=document.createElement('script');
 founderEmbedScript.src='/nova-founder-embedded.js?v=1';
 founderEmbedScript.defer=true;
 document.body.appendChild(founderEmbedScript);
+
+const finalFixesScript=document.createElement('script');
+finalFixesScript.src='/nova-final-fixes.js?v=1';
+finalFixesScript.defer=true;
+document.body.appendChild(finalFixesScript);
