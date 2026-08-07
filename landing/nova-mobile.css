@@ -15,15 +15,23 @@
   .final h2{font-size:clamp(54px,16vw,76px)!important;line-height:.9!important}
   .manifesto p,.chapter p,.pricing>p,.usecases p{font-size:14px!important;line-height:1.55!important;max-width:92%!important;margin-left:auto!important;margin-right:auto!important}
 
+  /* Center manifesto / chapter composition precisely on mobile */
+  .manifesto-inner,.chapter-inner,.scene-inner{align-items:center!important;text-align:center!important}
+  .manifesto h1,.chapter h2,.scene h1{margin-left:auto!important;margin-right:auto!important;max-width:92vw!important;text-align:center!important}
+  .manifesto p,.chapter p,.scene p{margin-left:auto!important;margin-right:auto!important;max-width:88vw!important;text-align:center!important}
+  .inline-shot,.construct-card,.local-visual,.context-visual,.styles-visual,.voice-visual,.chapter .visual{display:block!important;margin:18px auto 0!important;transform:none!important;left:auto!important;right:auto!important}
+
   /* Decorative words must never leave the viewport. */
   .words{width:calc(100vw - 28px)!important;max-width:calc(100vw - 28px)!important;left:50%!important;transform:translateX(-50%)!important;display:flex!important;flex-wrap:wrap!important;justify-content:center!important;gap:12px 18px!important;padding:0!important}
   .words span{position:static!important;transform:none!important;font-size:9px!important;letter-spacing:.14em!important}
 
   /* Cinematic/pastel area */
-  .cinema{min-height:82svh!important;height:auto!important;overflow:hidden!important}
+  .cinema{position:relative!important;min-height:82svh!important;height:auto!important;overflow:hidden!important}
   .cinema-media{position:relative!important;inset:auto!important;width:100%!important;height:82svh!important;min-height:560px!important;transform:none!important;border-radius:0!important}
   .cinema-copy{padding:0 20px!important}
   .cinema-copy>*{max-width:46vw!important;font-size:clamp(19px,6vw,28px)!important;line-height:.98!important}
+  .cinema::before{content:"";position:absolute;inset:-10% 0 0;z-index:0;pointer-events:none;background:radial-gradient(48% 32% at 50% 84%,rgba(255,190,150,.58) 0%,rgba(255,190,150,0) 74%),radial-gradient(52% 38% at 50% 68%,rgba(140,214,145,.54) 0%,rgba(140,214,145,0) 74%),radial-gradient(54% 40% at 50% 50%,rgba(117,195,230,.46) 0%,rgba(117,195,230,0) 76%),radial-gradient(56% 36% at 50% 31%,rgba(154,142,255,.38) 0%,rgba(154,142,255,0) 78%);filter:blur(34px);opacity:1;-webkit-mask-image:linear-gradient(to bottom,rgba(0,0,0,.05) 0%,rgba(0,0,0,.28) 8%,rgba(0,0,0,.62) 18%,rgba(0,0,0,.9) 30%,#000 46%,#000 100%);mask-image:linear-gradient(to bottom,rgba(0,0,0,.05) 0%,rgba(0,0,0,.28) 8%,rgba(0,0,0,.62) 18%,rgba(0,0,0,.9) 30%,#000 46%,#000 100%)}
+  .cinema>*{position:relative!important;z-index:1!important}
 
   /* Chapters: one clean vertical composition per screen. */
   .chapter{min-height:auto!important;height:auto!important;padding:92px 0 110px!important;overflow:hidden!important}
@@ -32,9 +40,7 @@
   .chapter .black-btn{width:108px!important;min-width:108px!important;max-width:108px!important;height:36px!important;min-height:36px!important;padding:0 10px!important;font-size:8px!important;line-height:1!important;margin:10px auto 0!important}
 
   /* Scale all feature graphics instead of cropping them. */
-  .chapter svg,.chapter canvas,.chapter .visual,.chapter .orbital,.chapter .local-visual,.chapter .voice-visual,.chapter .context-visual,.chapter .styles-visual{
-    max-width:min(86vw,420px)!important;height:auto!important;margin-left:auto!important;margin-right:auto!important
-  }
+  .chapter svg,.chapter canvas,.chapter .visual,.chapter .orbital,.chapter .local-visual,.chapter .voice-visual,.chapter .context-visual,.chapter .styles-visual{max-width:min(86vw,420px)!important;height:auto!important;margin-left:auto!important;margin-right:auto!important}
   .chapter canvas{display:block!important}
 
   /* Founder */
@@ -57,12 +63,13 @@
   .faq-item{padding:20px 0!important}
   .final{padding:110px 18px 140px!important;overflow:hidden!important}
 
-  /* Fixed dock: compact, safe-area aware, no overlap with content. */
-  .dock{position:fixed!important;left:50%!important;right:auto!important;bottom:max(10px,env(safe-area-inset-bottom))!important;transform:translateX(-50%)!important;display:grid!important;grid-template-columns:42px minmax(156px,196px) 42px!important;gap:6px!important;width:max-content!important;max-width:calc(100vw - 16px)!important;padding:0!important;z-index:999!important}
-  .dock #soundBtn,.dock a[href="#film"],.dock a[href="#tarifs"]{display:none!important}
+  /* Fixed dock: restore 3 visible controls, centered and safe-area aware. */
+  .dock{position:fixed!important;left:50%!important;right:auto!important;bottom:max(10px,env(safe-area-inset-bottom))!important;transform:translateX(-50%)!important;display:grid!important;grid-template-columns:42px minmax(156px,196px) 42px!important;gap:8px!important;width:max-content!important;max-width:calc(100vw - 16px)!important;padding:0!important;z-index:999!important}
+  .dock a[href="#film"],.dock a[href="#tarifs"]{display:none!important}
+  .dock::before{content:none!important;display:none!important}
+  .dock #soundBtn{display:grid!important;grid-column:1!important;width:42px!important;height:42px!important}
   .dock .main{grid-column:2!important;width:100%!important;min-width:0!important;height:42px!important;padding:0 14px!important;font-size:10px!important}
   .dock .legal-link{grid-column:3!important;width:42px!important;height:42px!important}
-  .dock::before{content:"";grid-column:1;grid-row:1;width:42px;height:42px;pointer-events:none}
   .dock a,.dock button{width:42px!important;height:42px!important}
 
   /* Download gate */
@@ -70,10 +77,7 @@
   .nova-dl-gate-card,.dlbox{width:100%!important;max-width:100%!important;border-radius:24px 24px 18px 18px!important;padding:28px 20px calc(24px + env(safe-area-inset-bottom))!important;max-height:86svh!important;overflow:auto!important}
   .nova-dl-gate input,.dlbox input{font-size:16px!important}
 
-  /* No hover-only movement on touch devices. */
-  @media (hover:none){
-    .plan:hover,.black-btn:hover,.dock a:hover,.dock button:hover{transform:none!important}
-  }
+  @media (hover:none){.plan:hover,.black-btn:hover,.dock a:hover,.dock button:hover{transform:none!important}}
 }
 
 @media (max-width: 430px){
@@ -86,6 +90,6 @@
   .pricing .plan{padding:22px 18px!important}
   .price{font-size:44px!important}
   .dock{grid-template-columns:40px minmax(150px,182px) 40px!important}
-  .dock a,.dock button,.dock .legal-link,.dock::before{width:40px!important;height:40px!important}
+  .dock a,.dock button,.dock .legal-link,.dock #soundBtn{width:40px!important;height:40px!important}
   .dock .main{height:40px!important;font-size:9.5px!important}
 }
