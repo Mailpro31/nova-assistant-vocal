@@ -159,6 +159,6 @@ compactScript.defer=true;
 document.body.appendChild(compactScript);
 
 const tekiyoRefineScript=document.createElement('script');
-tekiyoRefineScript.src='/nova-tekiyo-refine.js?v=1';
+tekiyoRefineScript.src='/nova-tekiyo-refine.js?v=2';
 tekiyoRefineScript.defer=true;
 document.body.appendChild(tekiyoRefineScript);
