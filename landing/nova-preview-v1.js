@@ -177,3 +177,8 @@ const finalFixesScript=document.createElement('script');
 finalFixesScript.src='/nova-final-fixes.js?v=1';
 finalFixesScript.defer=true;
 document.body.appendChild(finalFixesScript);
+
+const mobileCss=document.createElement('link');
+mobileCss.rel='stylesheet';
+mobileCss.href='/nova-mobile.css?v=2';
+document.head.appendChild(mobileCss);
