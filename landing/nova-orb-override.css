@@ -1,0 +1,12 @@
+.voice-orb{width:320px;height:320px;isolation:isolate}
+.voice-orb::before{width:270px;height:270px;border-radius:48% 52% 57% 43%/50% 44% 56% 50%;background:radial-gradient(circle at 46% 43%,rgba(255,255,255,.98) 0 6%,rgba(242,247,255,.95) 11%,rgba(211,224,249,.96) 21%,rgba(176,195,238,.96) 38%,rgba(151,170,226,.94) 56%,rgba(196,181,235,.88) 72%,rgba(167,188,231,.78) 88%,rgba(127,150,220,.34) 100%);filter:blur(16px) saturate(.96);box-shadow:0 0 54px rgba(174,191,236,.34),0 0 100px rgba(201,187,237,.22);opacity:.96;animation:novaVoiceMorph 7s ease-in-out infinite}
+.voice-orb::after{content:"";position:absolute;width:244px;height:244px;border-radius:50%;background:radial-gradient(circle at 52% 50%,rgba(255,255,255,.44) 0 12%,rgba(220,230,251,.24) 32%,rgba(181,198,239,.16) 54%,transparent 74%);filter:blur(26px);mix-blend-mode:screen;opacity:.9;animation:novaVoiceGlow 5.8s ease-in-out infinite;z-index:1}
+.voice-orb .orb{position:relative;z-index:2;width:178px;height:178px;border-radius:50%;background:radial-gradient(circle at 34% 28%,#fff 0 7%,#f4f7ff 14%,#dde6fb 26%,#becdf1 43%,#a9bce9 58%,#98aee3 72%,#839bdc 87%,#7189d1 100%);box-shadow:inset 18px 16px 34px rgba(255,255,255,.82),inset -22px -24px 46px rgba(73,91,171,.22),0 0 36px rgba(139,162,226,.46),0 0 82px rgba(199,187,237,.26);filter:blur(.25px);animation:novaCoreFloat 5.8s ease-in-out infinite}
+.voice-orb .orb::before{content:"";position:absolute;inset:12%;border-radius:50%;background:radial-gradient(circle at 38% 30%,rgba(255,255,255,.9),rgba(255,255,255,.18) 30%,transparent 57%);filter:blur(8px)}
+.voice-orb .bars{z-index:4;filter:drop-shadow(0 2px 8px rgba(83,100,169,.18))}
+.voice-orb .bars i{background:rgba(255,255,255,.94);box-shadow:0 0 8px rgba(255,255,255,.5)}
+@keyframes novaVoiceMorph{0%,100%{border-radius:48% 52% 57% 43%/50% 44% 56% 50%;transform:rotate(-3deg) scale(.98)}40%{border-radius:56% 44% 47% 53%/43% 57% 44% 56%;transform:rotate(3deg) scale(1.045)}72%{border-radius:43% 57% 55% 45%/58% 42% 54% 46%;transform:rotate(-2deg) scale(1.01)}}
+@keyframes novaVoiceGlow{0%,100%{transform:scale(.96);opacity:.72}50%{transform:scale(1.09);opacity:1}}
+@keyframes novaCoreFloat{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-7px) scale(1.025)}}
+body.calm .voice-orb::after,body.calm .voice-orb .orb{animation-play-state:paused!important}
+@media(max-width:680px){.voice-orb{width:286px;height:286px}.voice-orb::before{width:236px;height:236px}.voice-orb::after{width:214px;height:214px}.voice-orb .orb{width:154px;height:154px}}
