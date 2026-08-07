@@ -2,6 +2,7 @@ const intro=document.getElementById('intro');
 const count=document.getElementById('count');
 const enter=document.getElementById('enter');
 const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const mobileCinema=matchMedia('(max-width: 768px)').matches;
 const clamp=(n,min=0,max=1)=>Math.min(max,Math.max(min,n));
 
 /* Always start from a clean entrance state. This also protects desktop browsers
@@ -23,7 +24,6 @@ function finishLoading(){
   count.textContent='100 %';
   count.style.setProperty('--load',1);
   intro.classList.add('loaded');
-  /* Explicit fallback so the Enter control can never remain transparent. */
   enter.style.opacity='1';
   enter.style.transform='none';
   enter.style.pointerEvents='auto';
@@ -49,7 +49,6 @@ if(reduce){
 function openExperience(){
   if(opened||!loaded)return;
   opened=true;
-  /* Hand control back to the stylesheet for the exit animation. */
   intro.style.removeProperty('opacity');
   intro.style.removeProperty('visibility');
   intro.style.removeProperty('display');
@@ -68,9 +67,6 @@ function openExperience(){
 enter.addEventListener('click',openExperience);
 intro.addEventListener('click',e=>{if(e.target===intro&&loaded)openExperience()});
 addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&loaded&&!opened){e.preventDefault();openExperience()}});
-
-/* Safari/Chrome may restore the page from BFCache without rerunning the script.
-   Reload in that specific case so the entrance gate is reconstructed correctly. */
 addEventListener('pageshow',e=>{if(e.persisted)location.reload()});
 
 const revealObserver=new IntersectionObserver(entries=>{
@@ -105,7 +101,22 @@ const manifest=document.querySelector('.manifesto');
 let ticking=false;
 function updateMotion(){
   ticking=false;
-  if(!cinema||!cinemaMedia||reduce)return;
+  if(!cinema||!cinemaMedia)return;
+
+  /* Mobile has its own deterministic layout. Never let the desktop sticky/morph
+     system write inline transforms or opacity there — this was the source of
+     the occasional blank pastel block during iOS loading/restoration. */
+  if(mobileCinema){
+    cinemaMedia.style.removeProperty('transform');
+    cinemaMedia.style.removeProperty('border-radius');
+    if(cinemaCopy){
+      cinemaCopy.style.removeProperty('opacity');
+      cinemaCopy.style.removeProperty('transform');
+    }
+    return;
+  }
+
+  if(reduce)return;
   const rect=cinema.getBoundingClientRect();
   const travel=Math.max(1,cinema.offsetHeight-innerHeight);
   const progress=clamp(-rect.top/travel);
@@ -203,5 +214,5 @@ document.body.appendChild(finalFixesScript);
 
 const mobileCss=document.createElement('link');
 mobileCss.rel='stylesheet';
-mobileCss.href='/nova-mobile.css?v=4';
+mobileCss.href='/nova-mobile.css?v=5';
 document.head.appendChild(mobileCss);
