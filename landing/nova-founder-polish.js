@@ -13,22 +13,39 @@
     .founder-story{position:relative;min-height:100svh;display:grid;place-items:center;padding:36px 24px 82px;background:#fff;overflow:hidden}
     .founder-story img{display:block;width:min(1120px,94vw);height:auto;object-fit:contain;mix-blend-mode:multiply}
 
-    .pricing{overflow:visible!important}
-    .pricing .plans{align-items:stretch!important;overflow:visible!important;padding-top:12px}
-    .pricing .plan{position:relative!important;overflow:hidden!important;transform:none!important;clip-path:none!important;min-height:450px!important;border-radius:28px!important;padding:30px!important}
-    .pricing .plan.reveal.in{transform:none!important}
-    .pricing .plan::before{display:none!important}
-    .pricing .plan-badge{position:static!important;margin:-8px 0 16px!important;transform:none!important}
-    .pricing .plan h3{margin-top:0!important}
-
-    .billing-switch{width:max-content;margin:-30px auto 48px;padding:4px;display:flex;gap:4px;border:1px solid rgba(17,18,23,.08);border-radius:999px;background:rgba(245,246,249,.88);box-shadow:0 8px 28px rgba(61,70,100,.05)}
-    .billing-switch button{border:0;background:transparent;color:#7b7f89;border-radius:999px;padding:10px 16px;font:inherit;font-size:12px;font-weight:650;cursor:pointer;transition:background .25s ease,color .25s ease,box-shadow .25s ease}
+    /* Pricing layout: force a clean editorial stack and prevent reveal/transform overlap. */
+    .pricing{position:relative!important;display:block!important;overflow:hidden!important;padding:150px max(24px,8vw) 180px!important;text-align:center!important;background:#fff!important}
+    .pricing>h2{position:relative!important;inset:auto!important;display:block!important;width:min(980px,100%)!important;max-width:980px!important;margin:0 auto!important;padding:0!important;font-size:clamp(54px,7vw,104px)!important;line-height:.92!important;letter-spacing:-.06em!important;transform:none!important;translate:none!important;filter:none!important;white-space:normal!important;overflow-wrap:normal!important}
+    .pricing>h2.reveal.in{transform:none!important;translate:none!important}
+    .pricing>p{position:relative!important;inset:auto!important;display:block!important;width:min(620px,100%)!important;max-width:620px!important;margin:30px auto 0!important;padding:0!important;font-size:15px!important;line-height:1.65!important;text-align:center!important;transform:none!important;translate:none!important;white-space:normal!important}
+    .pricing>p.reveal.in{transform:none!important;translate:none!important}
+    .billing-switch{position:relative!important;inset:auto!important;width:max-content!important;max-width:100%!important;margin:34px auto 54px!important;padding:4px!important;display:flex!important;align-items:center!important;gap:4px!important;border:1px solid rgba(17,18,23,.08)!important;border-radius:999px!important;background:rgba(245,246,249,.92)!important;box-shadow:0 8px 28px rgba(61,70,100,.05)!important;transform:none!important;translate:none!important;z-index:2!important}
+    .billing-switch button{border:0;background:transparent;color:#7b7f89;border-radius:999px;padding:10px 16px;font:inherit;font-size:12px;font-weight:650;cursor:pointer;transition:background .25s ease,color .25s ease,box-shadow .25s ease;white-space:nowrap}
     .billing-switch button.active{background:#111217;color:#fff;box-shadow:0 7px 18px rgba(17,18,23,.14)}
-    .billing-switch .save{margin-left:6px;color:#667bc0;font-size:9px;font-weight:750;letter-spacing:.08em;text-transform:uppercase;align-self:center;padding-right:8px}
+    .billing-switch .save{margin-left:6px;color:#667bc0;font-size:9px;font-weight:750;letter-spacing:.08em;text-transform:uppercase;align-self:center;padding-right:8px;white-space:nowrap}
+    .pricing .plans{position:relative!important;z-index:1!important;display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;align-items:stretch!important;gap:16px!important;width:min(1120px,100%)!important;max-width:1120px!important;margin:0 auto!important;padding:0!important;overflow:visible!important;transform:none!important;translate:none!important}
+    .pricing .plan{position:relative!important;overflow:hidden!important;transform:none!important;translate:none!important;clip-path:none!important;min-height:450px!important;border-radius:28px!important;padding:30px!important}
+    .pricing .plan.reveal,.pricing .plan.reveal.in{transform:none!important;translate:none!important;filter:none!important}
+    .pricing .plan::before{display:none!important}
+    .pricing .plan-badge{position:static!important;margin:-8px 0 16px!important;transform:none!important;translate:none!important}
+    .pricing .plan h3{margin-top:0!important}
     .price .annual-note{display:block;margin-top:7px;font-size:11px;font-weight:500;letter-spacing:0;color:#8b8e96}
 
-    @media(max-width:900px){.billing-switch{margin-top:-20px}.pricing .plan{min-height:0!important}}
-    @media(max-width:680px){.dots.chapter-rail{display:none!important}.founder-story{min-height:auto;padding:38px 12px 64px}.founder-story img{width:100%}.billing-switch{margin:-18px auto 36px}.billing-switch .save{display:none}}
+    @media(max-width:900px){
+      .pricing{padding:120px 24px 150px!important}
+      .pricing>h2{font-size:clamp(48px,10vw,82px)!important}
+      .pricing .plans{grid-template-columns:1fr!important;max-width:560px!important}
+      .pricing .plan{min-height:0!important}
+    }
+    @media(max-width:680px){
+      .dots.chapter-rail{display:none!important}
+      .founder-story{min-height:auto;padding:38px 12px 64px}.founder-story img{width:100%}
+      .pricing{padding:96px 20px 125px!important}
+      .pricing>h2{font-size:clamp(44px,14vw,66px)!important;line-height:.95!important}
+      .pricing>p{margin-top:24px!important;font-size:14px!important}
+      .billing-switch{margin:28px auto 42px!important}
+      .billing-switch .save{display:none!important}
+    }
   `;
   document.head.appendChild(style);
 
@@ -42,7 +59,6 @@
     });
   }
 
-  /* English is now the default language, while FR remains available. */
   document.body.classList.add('english');
   document.documentElement.lang='en';
   const langBtn=document.getElementById('langBtn');
