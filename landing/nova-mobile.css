@@ -1,0 +1,91 @@
+/* Nova mobile production layer — loaded last. */
+@media (max-width: 768px){
+  html,body{width:100%;max-width:100%;overflow-x:hidden!important;overscroll-behavior-x:none}
+  body{font-size:15px!important}
+  .logo-top{top:14px!important;left:50%!important;transform:translateX(-50%)!important;max-width:calc(100vw - 24px)!important}
+
+  /* Intro / hero */
+  .intro{padding:20px!important}
+  .intro-inner,.scene-inner,.manifesto-inner,.chapter-inner,.usecases-inner,.final-inner{width:100%!important;max-width:100%!important;padding-left:20px!important;padding-right:20px!important;margin-left:auto!important;margin-right:auto!important}
+  .intro h1,.hero h1,.manifesto h1,.chapter h2,.usecases h2,.pricing>h2,.faq>h2,.final h2{
+    max-width:100%!important;white-space:normal!important;overflow-wrap:normal!important;word-break:normal!important;text-wrap:balance!important;
+  }
+  .manifesto h1,.chapter h2{font-size:clamp(50px,15vw,72px)!important;line-height:.92!important;letter-spacing:-.06em!important}
+  .usecases h2,.pricing>h2,.faq>h2{font-size:clamp(46px,14vw,68px)!important;line-height:.94!important}
+  .final h2{font-size:clamp(54px,16vw,76px)!important;line-height:.9!important}
+  .manifesto p,.chapter p,.pricing>p,.usecases p{font-size:14px!important;line-height:1.55!important;max-width:92%!important;margin-left:auto!important;margin-right:auto!important}
+
+  /* Decorative words must never leave the viewport. */
+  .words{width:calc(100vw - 28px)!important;max-width:calc(100vw - 28px)!important;left:50%!important;transform:translateX(-50%)!important;display:flex!important;flex-wrap:wrap!important;justify-content:center!important;gap:12px 18px!important;padding:0!important}
+  .words span{position:static!important;transform:none!important;font-size:9px!important;letter-spacing:.14em!important}
+
+  /* Cinematic/pastel area */
+  .cinema{min-height:82svh!important;height:auto!important;overflow:hidden!important}
+  .cinema-media{position:relative!important;inset:auto!important;width:100%!important;height:82svh!important;min-height:560px!important;transform:none!important;border-radius:0!important}
+  .cinema-copy{padding:0 20px!important}
+  .cinema-copy>*{max-width:46vw!important;font-size:clamp(19px,6vw,28px)!important;line-height:.98!important}
+
+  /* Chapters: one clean vertical composition per screen. */
+  .chapter{min-height:auto!important;height:auto!important;padding:92px 0 110px!important;overflow:hidden!important}
+  .chapter-inner{min-height:auto!important;height:auto!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:flex-start!important;gap:22px!important;text-align:center!important}
+  .chapter-label{font-size:9px!important;margin:0 auto 12px!important}
+  .chapter .black-btn{width:108px!important;min-width:108px!important;max-width:108px!important;height:36px!important;min-height:36px!important;padding:0 10px!important;font-size:8px!important;line-height:1!important;margin:10px auto 0!important}
+
+  /* Scale all feature graphics instead of cropping them. */
+  .chapter svg,.chapter canvas,.chapter .visual,.chapter .orbital,.chapter .local-visual,.chapter .voice-visual,.chapter .context-visual,.chapter .styles-visual{
+    max-width:min(86vw,420px)!important;height:auto!important;margin-left:auto!important;margin-right:auto!important
+  }
+  .chapter canvas{display:block!important}
+
+  /* Founder */
+  .founder-story{padding:82px 16px 104px!important;min-height:auto!important}
+  .founder-story canvas,.founder-story img{width:min(92vw,520px)!important;max-width:92vw!important;height:auto!important;margin:0 auto!important;display:block!important}
+  .founder-copy,.founder-note{padding:0 10px!important;text-align:center!important}
+
+  /* Pricing */
+  .pricing{padding:96px 16px 128px!important;overflow:hidden!important}
+  .billing-switch{margin:28px auto 36px!important;transform:scale(.92)!important;transform-origin:center!important}
+  .pricing .plans{display:flex!important;flex-direction:column!important;gap:14px!important;width:100%!important;max-width:560px!important;margin:0 auto!important}
+  .pricing .plan{width:100%!important;min-height:0!important;padding:25px 22px!important;border-radius:24px!important;transform:none!important}
+  .pricing .plan:hover{transform:none!important}
+  .pricing .plan .black-btn{height:48px!important;min-height:48px!important;font-size:12px!important}
+  .price{font-size:48px!important}
+
+  /* FAQ / final */
+  .faq{padding:96px 18px 120px!important}
+  .faq-list{width:100%!important;max-width:100%!important}
+  .faq-item{padding:20px 0!important}
+  .final{padding:110px 18px 140px!important;overflow:hidden!important}
+
+  /* Fixed dock: compact, safe-area aware, no overlap with content. */
+  .dock{position:fixed!important;left:50%!important;right:auto!important;bottom:max(10px,env(safe-area-inset-bottom))!important;transform:translateX(-50%)!important;display:grid!important;grid-template-columns:42px minmax(156px,196px) 42px!important;gap:6px!important;width:max-content!important;max-width:calc(100vw - 16px)!important;padding:0!important;z-index:999!important}
+  .dock #soundBtn,.dock a[href="#film"],.dock a[href="#tarifs"]{display:none!important}
+  .dock .main{grid-column:2!important;width:100%!important;min-width:0!important;height:42px!important;padding:0 14px!important;font-size:10px!important}
+  .dock .legal-link{grid-column:3!important;width:42px!important;height:42px!important}
+  .dock::before{content:"";grid-column:1;grid-row:1;width:42px;height:42px;pointer-events:none}
+  .dock a,.dock button{width:42px!important;height:42px!important}
+
+  /* Download gate */
+  .nova-dl-gate,.dlov{padding:14px!important;align-items:flex-end!important}
+  .nova-dl-gate-card,.dlbox{width:100%!important;max-width:100%!important;border-radius:24px 24px 18px 18px!important;padding:28px 20px calc(24px + env(safe-area-inset-bottom))!important;max-height:86svh!important;overflow:auto!important}
+  .nova-dl-gate input,.dlbox input{font-size:16px!important}
+
+  /* No hover-only movement on touch devices. */
+  @media (hover:none){
+    .plan:hover,.black-btn:hover,.dock a:hover,.dock button:hover{transform:none!important}
+  }
+}
+
+@media (max-width: 430px){
+  .manifesto h1,.chapter h2{font-size:clamp(44px,14vw,60px)!important}
+  .pricing>h2,.usecases h2,.faq>h2{font-size:clamp(42px,13vw,58px)!important}
+  .chapter{padding-top:78px!important;padding-bottom:96px!important}
+  .chapter-inner,.manifesto-inner,.scene-inner{padding-left:16px!important;padding-right:16px!important}
+  .cinema-copy>*{max-width:49vw!important;font-size:20px!important}
+  .billing-switch{max-width:calc(100vw - 24px)!important;transform:scale(.86)!important}
+  .pricing .plan{padding:22px 18px!important}
+  .price{font-size:44px!important}
+  .dock{grid-template-columns:40px minmax(150px,182px) 40px!important}
+  .dock a,.dock button,.dock .legal-link,.dock::before{width:40px!important;height:40px!important}
+  .dock .main{height:40px!important;font-size:9.5px!important}
+}
