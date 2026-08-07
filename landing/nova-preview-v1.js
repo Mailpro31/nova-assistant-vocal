@@ -179,5 +179,5 @@ document.body.appendChild(finalFixesScript);
 
 const mobileCss=document.createElement('link');
 mobileCss.rel='stylesheet';
-mobileCss.href='/nova-mobile.css?v=3';
+mobileCss.href='/nova-mobile.css?v=4';
 document.head.appendChild(mobileCss);
