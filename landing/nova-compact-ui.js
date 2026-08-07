@@ -16,7 +16,7 @@
       width:46px!important;
       height:46px!important;
     }
-    .dock.dock-compact #soundBtn{grid-column:1!important}
+    .dock.dock-compact #soundBtn{grid-column:1!important;display:grid!important;place-items:center!important}
     .dock.dock-compact .main{
       grid-column:2!important;
       width:188px!important;
@@ -157,8 +157,8 @@
       dock.classList.add('dock-compact');
       /* The old play icon only jumped to the cinematic section and added visual noise. */
       dock.querySelector('a[href="#film"]')?.remove();
-      /* Pricing is already directly accessible in-page; keep the dock to one useful control on each side. */
-      dock.querySelector('a[href="#tarifs"]')?.remove();
+      /* Keep the dedicated left pricing shortcut; remove only duplicate pricing links. */
+      dock.querySelectorAll('a[href="#tarifs"]:not(#soundBtn)').forEach(link=>link.remove());
     }
 
     const pricing=document.querySelector('.pricing');
