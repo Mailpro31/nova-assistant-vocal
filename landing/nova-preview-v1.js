@@ -157,3 +157,8 @@ const compactScript=document.createElement('script');
 compactScript.src='/nova-compact-ui.js?v=1';
 compactScript.defer=true;
 document.body.appendChild(compactScript);
+
+const tekiyoRefineScript=document.createElement('script');
+tekiyoRefineScript.src='/nova-tekiyo-refine.js?v=1';
+tekiyoRefineScript.defer=true;
+document.body.appendChild(tekiyoRefineScript);
