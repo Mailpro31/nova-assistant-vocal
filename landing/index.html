@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="/nova-orb-override.css">
 <link rel="stylesheet" href="/nova-mobile.css?v=7">
 <link rel="stylesheet" href="/nova-mobile-hotfix.css?v=1">
+<link rel="stylesheet" href="/nova-orbit-hero.css?v=1">
 </head>
 <body class="english">
 <div class="noise"></div>
@@ -18,7 +19,7 @@
   <div class="intro-halo"></div><span class="intro-word iw1">DICTATE</span><span class="intro-word iw2">UNDERSTAND</span><span class="intro-word iw3">REWRITE</span><span class="intro-word iw4">WRITE</span>
   <div class="intro-inner"><span class="orb"></span><div class="intro-count" id="count">0 %</div><button class="enter" id="enter">Enter</button></div>
 </div>
-<a class="logo-top" href="#top" aria-label="Nova"><span class="orb"></span><span>Nova</span></a>
+<a class="logo-top" href="#film" aria-label="Nova"><span class="orb"></span><span>Nova</span></a>
 <div class="dots" aria-label="Progress"><a href="#local" class="on"></a><a href="#styles"></a><a href="#context"></a><a href="#voice"></a></div>
 <nav class="dock" aria-label="Quick navigation">
   <button class="circle" id="soundBtn" aria-label="Reduce motion"><svg viewBox="0 0 24 24"><path d="M5 9v6h4l5 4V5L9 9H5z"/><path d="M17 9a4 4 0 0 1 0 6"/></svg></button>
@@ -27,9 +28,27 @@
   <a class="circle" href="#tarifs" aria-label="Pricing"><svg viewBox="0 0 24 24"><path d="M4 7h16v12H4zM7 7V5h10v2M8 12h8"/></svg></a>
 </nav>
 <main>
-<section class="scene ambient" id="top"><div class="words"><span>DICTATE</span><span>WRITE</span><span>REPLY</span><span>REWRITE</span><span>SUMMARIZE</span><span>TRANSLATE</span><span>WINDOWS</span><span>LOCAL</span><span>PRIVATE</span><span>CONTEXT</span><span>STYLE</span><span>CONTROL</span></div><p class="hero-note">THE VOICE WRITING AGENT FOR WINDOWS</p></section>
 <section class="cinema" id="film">
-  <div class="cinema-media" aria-hidden="true"><i class="cinema-shape shape-a"></i><i class="cinema-shape shape-b"></i><i class="cinema-shape shape-c"></i><span class="cinema-orb orb"></span></div>
+  <div class="cinema-media" aria-hidden="true">
+    <i class="cinema-shape shape-a"></i><i class="cinema-shape shape-b"></i><i class="cinema-shape shape-c"></i>
+    <div class="cinema-orbit-shell">
+      <div class="cinema-orbit-track">
+        <span style="--i:0"><em>DICTATE</em></span>
+        <span style="--i:1"><em>WRITE</em></span>
+        <span style="--i:2"><em>REPLY</em></span>
+        <span style="--i:3"><em>REWRITE</em></span>
+        <span style="--i:4"><em>SUMMARIZE</em></span>
+        <span style="--i:5"><em>TRANSLATE</em></span>
+        <span style="--i:6"><em>WINDOWS</em></span>
+        <span style="--i:7"><em>LOCAL</em></span>
+        <span style="--i:8"><em>PRIVATE</em></span>
+        <span style="--i:9"><em>CONTEXT</em></span>
+        <span style="--i:10"><em>STYLE</em></span>
+        <span style="--i:11"><em>CONTROL</em></span>
+      </div>
+      <span class="cinema-orbit-core orb"></span>
+    </div>
+  </div>
   <div class="cinema-copy"><p class="a">Every word,<br>in its place.</p><p class="b">Every piece of data,<br>on your machine.</p><small>NOVA — BUILT EXCLUSIVELY FOR WINDOWS</small></div>
 </section>
 <section class="scene manifesto ambient"><h1 class="reveal">Your ideas move.<br>Your data <span class="inline-shot"><span class="orb"></span></span> stays.</h1><p class="reveal">Nova turns your voice into clean text, directly inside the app where you write. Local processing remains at the heart of the experience.</p></section>
@@ -46,5 +65,6 @@
 </main>
 <script src="/nova-preview-v1.js?v=7"></script>
 <script src="/nova-production-hotfix.js?v=1"></script>
+<script src="/nova-orbit-hero.js?v=1"></script>
 </body>
 </html>
