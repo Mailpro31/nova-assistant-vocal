@@ -4,6 +4,15 @@ const enter=document.getElementById('enter');
 const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const clamp=(n,min=0,max=1)=>Math.min(max,Math.max(min,n));
 
+/* Always start from a clean entrance state. This also protects desktop browsers
+   restoring a previous DOM snapshot from the back/forward cache. */
+intro.classList.remove('done','leaving','loaded');
+document.body.classList.remove('ready');
+intro.style.display='grid';
+intro.style.visibility='visible';
+intro.style.opacity='1';
+intro.style.zIndex='5000';
+intro.style.background='#fff';
 document.body.style.overflow='hidden';
 let loaded=false;
 let opened=false;
@@ -14,6 +23,10 @@ function finishLoading(){
   count.textContent='100 %';
   count.style.setProperty('--load',1);
   intro.classList.add('loaded');
+  /* Explicit fallback so the Enter control can never remain transparent. */
+  enter.style.opacity='1';
+  enter.style.transform='none';
+  enter.style.pointerEvents='auto';
   setTimeout(()=>enter.focus({preventScroll:true}),120);
 }
 
@@ -36,6 +49,13 @@ if(reduce){
 function openExperience(){
   if(opened||!loaded)return;
   opened=true;
+  /* Hand control back to the stylesheet for the exit animation. */
+  intro.style.removeProperty('opacity');
+  intro.style.removeProperty('visibility');
+  intro.style.removeProperty('display');
+  enter.style.removeProperty('opacity');
+  enter.style.removeProperty('transform');
+  enter.style.removeProperty('pointer-events');
   intro.classList.add('leaving');
   setTimeout(()=>{
     intro.classList.add('done');
@@ -48,6 +68,10 @@ function openExperience(){
 enter.addEventListener('click',openExperience);
 intro.addEventListener('click',e=>{if(e.target===intro&&loaded)openExperience()});
 addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&loaded&&!opened){e.preventDefault();openExperience()}});
+
+/* Safari/Chrome may restore the page from BFCache without rerunning the script.
+   Reload in that specific case so the entrance gate is reconstructed correctly. */
+addEventListener('pageshow',e=>{if(e.persisted)location.reload()});
 
 const revealObserver=new IntersectionObserver(entries=>{
   for(const entry of entries){
