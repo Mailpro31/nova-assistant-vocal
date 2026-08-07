@@ -89,6 +89,48 @@
     .plan-foot{margin-top:10px!important;font-size:9px!important}
     .billing-switch{margin:32px auto 48px!important;transform:scale(.94)!important}
 
+    /* Nova Voice — always-visible live speech animation on desktop. */
+    .voice-orb .bars{
+      position:absolute!important;
+      left:50%!important;
+      top:50%!important;
+      transform:translate(-50%,-50%)!important;
+      display:flex!important;
+      align-items:center!important;
+      justify-content:center!important;
+      gap:8px!important;
+      z-index:8!important;
+      pointer-events:none!important;
+    }
+    .voice-orb .bars i{
+      display:block!important;
+      width:5px!important;
+      height:24px!important;
+      border-radius:999px!important;
+      background:#fff!important;
+      opacity:.98!important;
+      transform-origin:center!important;
+      animation:novaSpeakBar 1.05s ease-in-out infinite!important;
+      will-change:transform,opacity!important;
+      box-shadow:0 0 10px rgba(255,255,255,.22)!important;
+    }
+    .voice-orb .bars i:nth-child(1){animation-delay:-.52s!important;--voice-scale:.42}
+    .voice-orb .bars i:nth-child(2){animation-delay:-.19s!important;--voice-scale:.82}
+    .voice-orb .bars i:nth-child(3){animation-delay:-.71s!important;--voice-scale:1.18}
+    .voice-orb .bars i:nth-child(4){animation-delay:-.34s!important;--voice-scale:.68}
+    .voice-orb .bars i:nth-child(5){animation-delay:-.61s!important;--voice-scale:1.02}
+    .voice-orb>.orb{animation:novaVoiceBreath 2.8s ease-in-out infinite!important}
+    @keyframes novaSpeakBar{
+      0%,100%{transform:scaleY(.34);opacity:.72}
+      22%{transform:scaleY(var(--voice-scale,.8));opacity:1}
+      48%{transform:scaleY(.52);opacity:.84}
+      72%{transform:scaleY(calc(var(--voice-scale,.8) * 1.12));opacity:1}
+    }
+    @keyframes novaVoiceBreath{
+      0%,100%{transform:scale(1)}
+      50%{transform:scale(1.018)}
+    }
+
     @media(max-width:900px){
       .pricing .plan{min-height:0!important}
     }
