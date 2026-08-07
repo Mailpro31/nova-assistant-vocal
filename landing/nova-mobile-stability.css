@@ -1,0 +1,81 @@
+/* Mobile Safari stability layer: critical hero copy must never depend on animation state. */
+@media (max-width:768px){
+  .cinema .cinema-copy{
+    display:block!important;
+    visibility:visible!important;
+    opacity:1!important;
+    filter:none!important;
+    transform:none!important;
+    position:absolute!important;
+    inset:0!important;
+    z-index:40!important;
+    pointer-events:none!important;
+    contain:none!important;
+  }
+  .cinema .cinema-copy p,
+  .cinema .cinema-copy small{
+    display:block!important;
+    visibility:visible!important;
+    opacity:1!important;
+    filter:none!important;
+    clip:auto!important;
+    clip-path:none!important;
+    -webkit-clip-path:none!important;
+    animation:none!important;
+    transition:none!important;
+  }
+  .cinema .cinema-copy .a{
+    position:absolute!important;
+    left:18px!important;
+    right:auto!important;
+    top:16%!important;
+    transform:none!important;
+    max-width:42vw!important;
+    color:rgba(17,18,23,.78)!important;
+    text-shadow:none!important;
+    text-align:left!important;
+    font-size:clamp(18px,5.4vw,24px)!important;
+    line-height:1!important;
+    font-weight:650!important;
+    letter-spacing:-.035em!important;
+  }
+  .cinema .cinema-copy .b{
+    position:absolute!important;
+    right:18px!important;
+    left:auto!important;
+    top:73%!important;
+    transform:none!important;
+    max-width:44vw!important;
+    color:rgba(17,18,23,.78)!important;
+    text-shadow:none!important;
+    text-align:right!important;
+    font-size:clamp(18px,5.4vw,24px)!important;
+    line-height:1!important;
+    font-weight:650!important;
+    letter-spacing:-.035em!important;
+  }
+  .cinema .cinema-copy small{
+    position:absolute!important;
+    left:50%!important;
+    right:auto!important;
+    bottom:8%!important;
+    transform:translateX(-50%)!important;
+    width:max-content!important;
+    max-width:88vw!important;
+    color:rgba(28,31,39,.56)!important;
+    font-size:8px!important;
+    line-height:1!important;
+    font-weight:650!important;
+    letter-spacing:.16em!important;
+    white-space:nowrap!important;
+    text-align:center!important;
+  }
+
+  /* Keep the organic words and orb below the copy but above the pastel background. */
+  .cinema .cinema-orbit-shell{z-index:20!important}
+  .cinema .cinema-media{z-index:1!important}
+
+  /* Critical dock controls also render independently from enhancement scripts. */
+  .dock{display:grid!important;visibility:visible!important;opacity:1!important}
+  .dock #soundBtn,.dock .main,.dock .legal-link{visibility:visible!important;opacity:1!important}
+}
