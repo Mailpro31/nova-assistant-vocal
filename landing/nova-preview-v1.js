@@ -152,3 +152,8 @@ const polishScript=document.createElement('script');
 polishScript.src='/nova-preview-polish.js?v=3';
 polishScript.defer=true;
 document.body.appendChild(polishScript);
+
+const compactScript=document.createElement('script');
+compactScript.src='/nova-compact-ui.js?v=1';
+compactScript.defer=true;
+document.body.appendChild(compactScript);
