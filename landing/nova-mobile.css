@@ -119,14 +119,15 @@
   .faq-item{padding:20px 0!important}
   .final{padding:110px 18px 140px!important;overflow:hidden!important}
 
-  /* Fixed dock: force the left sound control to remain visible. */
-  .dock{position:fixed!important;left:50%!important;right:auto!important;bottom:max(10px,env(safe-area-inset-bottom))!important;transform:translateX(-50%)!important;display:grid!important;grid-template-columns:42px minmax(156px,196px) 42px!important;grid-template-rows:42px!important;align-items:center!important;gap:8px!important;width:max-content!important;max-width:calc(100vw - 16px)!important;padding:0!important;z-index:999!important}
-  .dock a[href="#film"],.dock a[href="#tarifs"]{display:none!important}
+  /* Fixed dock: keep the pricing shortcut, download and legal controls visible even on slow iOS first paint. */
+  .dock{position:fixed!important;left:50%!important;right:auto!important;bottom:max(10px,env(safe-area-inset-bottom))!important;transform:translateX(-50%)!important;display:grid!important;grid-template-columns:42px minmax(156px,196px) 42px!important;grid-template-rows:42px!important;align-items:center!important;gap:8px!important;width:max-content!important;max-width:calc(100vw - 16px)!important;padding:0!important;z-index:999!important;opacity:1!important;visibility:visible!important}
+  .dock a[href="#film"]{display:none!important}
+  .dock a[href="#tarifs"]:not(#soundBtn){display:none!important}
   .dock::before{content:none!important;display:none!important}
   .dock #soundBtn,.dock.dock-compact #soundBtn{display:grid!important;place-items:center!important;grid-column:1!important;grid-row:1!important;order:1!important;width:42px!important;height:42px!important;min-width:42px!important;min-height:42px!important;opacity:1!important;visibility:visible!important;pointer-events:auto!important;position:relative!important;z-index:3!important;background:#111217!important;color:#fff!important;border:0!important;border-radius:999px!important;transform:none!important}
   .dock #soundBtn svg,.dock.dock-compact #soundBtn svg{display:block!important;width:14px!important;height:14px!important;stroke:#fff!important;fill:none!important;opacity:1!important}
-  .dock .main,.dock.dock-compact .main{grid-column:2!important;grid-row:1!important;order:2!important;width:100%!important;min-width:0!important;height:42px!important;padding:0 14px!important;font-size:10px!important}
-  .dock .legal-link,.dock.dock-compact .legal-link{grid-column:3!important;grid-row:1!important;order:3!important;width:42px!important;height:42px!important}
+  .dock .main,.dock.dock-compact .main{display:flex!important;align-items:center!important;justify-content:center!important;grid-column:2!important;grid-row:1!important;order:2!important;width:100%!important;min-width:0!important;height:42px!important;padding:0 14px!important;font-size:10px!important;opacity:1!important;visibility:visible!important}
+  .dock .legal-link,.dock.dock-compact .legal-link{display:grid!important;place-items:center!important;grid-column:3!important;grid-row:1!important;order:3!important;width:42px!important;height:42px!important;opacity:1!important;visibility:visible!important}
   .dock a,.dock button{height:42px!important}
 
   /* Download gate */
