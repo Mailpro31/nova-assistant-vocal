@@ -1,0 +1,134 @@
+/* Nova orbit hero — pastel first screen after Enter. */
+.cinema-orbit-shell{
+  --orbit-size:clamp(390px,42vw,560px);
+  --orbit-radius:calc(var(--orbit-size) * .405);
+  position:absolute;
+  left:50%;
+  top:48%;
+  width:var(--orbit-size);
+  height:var(--orbit-size);
+  transform:translate(-50%,-50%);
+  z-index:7;
+  display:grid;
+  place-items:center;
+  pointer-events:none;
+}
+.cinema-orbit-shell::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  border:1px solid rgba(77,93,137,.09);
+  border-radius:50%;
+  box-shadow:inset 0 0 80px rgba(255,255,255,.18);
+}
+.cinema-orbit-track{
+  position:absolute;
+  inset:0;
+  border-radius:50%;
+  animation:novaOrbitSpin 46s linear infinite;
+  will-change:transform;
+}
+.cinema-orbit-track>span{
+  --angle:calc((360deg / 12) * var(--i));
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:0;
+  height:0;
+  transform:rotate(var(--angle)) translateY(calc(var(--orbit-radius) * -1));
+  opacity:0;
+  transition:opacity .55s var(--ease),filter .55s var(--ease);
+  filter:blur(3px);
+}
+.cinema-orbit-track>span em{
+  position:absolute;
+  left:0;
+  top:0;
+  display:block;
+  transform-origin:0 0;
+  transform:translate(-50%,-50%) rotate(calc(var(--angle) * -1));
+  font-style:normal;
+  font-size:clamp(9px,.78vw,11px);
+  line-height:1;
+  font-weight:680;
+  letter-spacing:.17em;
+  color:rgba(17,18,23,.68);
+  white-space:nowrap;
+  animation:novaOrbitCounter 46s linear infinite;
+}
+body.ready .cinema-orbit-track>span{opacity:1;filter:none}
+body.ready .cinema-orbit-track>span:nth-child(1){transition-delay:.04s}
+body.ready .cinema-orbit-track>span:nth-child(2){transition-delay:.08s}
+body.ready .cinema-orbit-track>span:nth-child(3){transition-delay:.12s}
+body.ready .cinema-orbit-track>span:nth-child(4){transition-delay:.16s}
+body.ready .cinema-orbit-track>span:nth-child(5){transition-delay:.20s}
+body.ready .cinema-orbit-track>span:nth-child(6){transition-delay:.24s}
+body.ready .cinema-orbit-track>span:nth-child(7){transition-delay:.28s}
+body.ready .cinema-orbit-track>span:nth-child(8){transition-delay:.32s}
+body.ready .cinema-orbit-track>span:nth-child(9){transition-delay:.36s}
+body.ready .cinema-orbit-track>span:nth-child(10){transition-delay:.40s}
+body.ready .cinema-orbit-track>span:nth-child(11){transition-delay:.44s}
+body.ready .cinema-orbit-track>span:nth-child(12){transition-delay:.48s}
+.cinema-orbit-core{
+  position:relative;
+  z-index:2;
+  width:74px;
+  height:74px;
+  animation:novaOrbitOrb 5.4s ease-in-out infinite;
+  will-change:transform;
+}
+.cinema-orbit-core::after{
+  content:"";
+  position:absolute;
+  inset:-62%;
+  border-radius:50%;
+  background:radial-gradient(circle,rgba(151,170,234,.20),rgba(151,170,234,0) 68%);
+  z-index:-1;
+  filter:blur(8px);
+}
+@keyframes novaOrbitSpin{to{transform:rotate(360deg)}}
+@keyframes novaOrbitCounter{
+  from{transform:translate(-50%,-50%) rotate(calc(var(--angle) * -1)) rotate(0deg)}
+  to{transform:translate(-50%,-50%) rotate(calc(var(--angle) * -1)) rotate(-360deg)}
+}
+@keyframes novaOrbitOrb{
+  0%,100%{transform:translate3d(0,0,0) scale(1)}
+  28%{transform:translate3d(7px,-8px,0) scale(1.035)}
+  55%{transform:translate3d(-3px,6px,0) scale(.985)}
+  78%{transform:translate3d(-7px,-3px,0) scale(1.02)}
+}
+
+/* The pastel cinematic is now the first page: keep the copy clear around the orbit. */
+.cinema-copy .a{top:20vh}
+.cinema-copy .b{top:68vh}
+
+body.calm .cinema-orbit-track,
+body.calm .cinema-orbit-track>span em,
+body.calm .cinema-orbit-core{animation-play-state:paused!important}
+
+@media (prefers-reduced-motion:reduce){
+  .cinema-orbit-track,.cinema-orbit-track>span em,.cinema-orbit-core{animation:none!important}
+}
+
+@media (max-width:768px){
+  .cinema-orbit-shell{
+    --orbit-size:min(78vw,330px);
+    --orbit-radius:calc(var(--orbit-size) * .405);
+    top:47%;
+  }
+  .cinema-orbit-shell::before{border-color:rgba(77,93,137,.075)}
+  .cinema-orbit-core{width:56px;height:56px}
+  .cinema-orbit-track>span em{
+    font-size:8px;
+    letter-spacing:.12em;
+  }
+  html body .cinema .cinema-copy .a{top:15%!important}
+  html body .cinema .cinema-copy .b{top:72%!important}
+  html body .cinema .cinema-copy p{max-width:44vw!important}
+}
+
+@media (max-width:430px){
+  .cinema-orbit-shell{--orbit-size:min(80vw,300px);top:47%}
+  .cinema-orbit-core{width:52px;height:52px}
+  .cinema-orbit-track>span em{font-size:7.5px;letter-spacing:.105em}
+}
