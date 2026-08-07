@@ -48,7 +48,6 @@ function openExperience(){
 enter.addEventListener('click',openExperience);
 intro.addEventListener('click',e=>{if(e.target===intro&&loaded)openExperience()});
 addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&loaded&&!opened){e.preventDefault();openExperience()}});
-if(reduce)openExperience();
 
 const revealObserver=new IntersectionObserver(entries=>{
   for(const entry of entries){
@@ -180,5 +179,5 @@ document.body.appendChild(finalFixesScript);
 
 const mobileCss=document.createElement('link');
 mobileCss.rel='stylesheet';
-mobileCss.href='/nova-mobile.css?v=2';
+mobileCss.href='/nova-mobile.css?v=3';
 document.head.appendChild(mobileCss);
