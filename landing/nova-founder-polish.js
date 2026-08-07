@@ -9,20 +9,86 @@
     .dots.chapter-rail a{position:relative!important;width:8px!important;height:8px!important;border-radius:999px!important;background:rgba(17,18,23,.16)!important;overflow:visible!important;transition:transform .28s ease,background .28s ease,opacity .28s ease!important}
     .dots.chapter-rail a span,.dots.chapter-rail a em{display:none!important}
     .dots.chapter-rail a.on{height:8px!important;background:#111217!important;transform:scale(1.35)!important}
-    .founder-story{position:relative;min-height:100svh;display:grid;place-items:center;padding:90px 24px;background:#fff;overflow:hidden}
-    .founder-story img{display:block;width:min(760px,88vw);height:auto;object-fit:contain;mix-blend-mode:multiply}
-    @media(max-width:680px){.dots.chapter-rail{display:none!important}.founder-story{min-height:auto;padding:72px 18px}.founder-story img{width:min(560px,96vw)}}
+
+    .founder-story{position:relative;min-height:100svh;display:grid;place-items:center;padding:36px 24px 82px;background:#fff;overflow:hidden}
+    .founder-story img{display:block;width:min(1120px,94vw);height:auto;object-fit:contain;mix-blend-mode:multiply}
+
+    .pricing{overflow:visible!important}
+    .pricing .plans{align-items:stretch!important;overflow:visible!important;padding-top:12px}
+    .pricing .plan{position:relative!important;overflow:hidden!important;transform:none!important;clip-path:none!important;min-height:450px!important;border-radius:28px!important;padding:30px!important}
+    .pricing .plan.reveal.in{transform:none!important}
+    .pricing .plan::before{display:none!important}
+    .pricing .plan-badge{position:static!important;margin:-8px 0 16px!important;transform:none!important}
+    .pricing .plan h3{margin-top:0!important}
+
+    .billing-switch{width:max-content;margin:-30px auto 48px;padding:4px;display:flex;gap:4px;border:1px solid rgba(17,18,23,.08);border-radius:999px;background:rgba(245,246,249,.88);box-shadow:0 8px 28px rgba(61,70,100,.05)}
+    .billing-switch button{border:0;background:transparent;color:#7b7f89;border-radius:999px;padding:10px 16px;font:inherit;font-size:12px;font-weight:650;cursor:pointer;transition:background .25s ease,color .25s ease,box-shadow .25s ease}
+    .billing-switch button.active{background:#111217;color:#fff;box-shadow:0 7px 18px rgba(17,18,23,.14)}
+    .billing-switch .save{margin-left:6px;color:#667bc0;font-size:9px;font-weight:750;letter-spacing:.08em;text-transform:uppercase;align-self:center;padding-right:8px}
+    .price .annual-note{display:block;margin-top:7px;font-size:11px;font-weight:500;letter-spacing:0;color:#8b8e96}
+
+    @media(max-width:900px){.billing-switch{margin-top:-20px}.pricing .plan{min-height:0!important}}
+    @media(max-width:680px){.dots.chapter-rail{display:none!important}.founder-story{min-height:auto;padding:38px 12px 64px}.founder-story img{width:100%}.billing-switch{margin:-18px auto 36px}.billing-switch .save{display:none}}
   `;
   document.head.appendChild(style);
 
   const rail=document.querySelector('.dots');
   if(rail){
     rail.classList.add('chapter-rail');
-    rail.setAttribute('aria-label','Progression');
+    rail.setAttribute('aria-label','Progress');
     [...rail.querySelectorAll('a')].forEach((link,index)=>{
       link.textContent='';
       link.setAttribute('aria-label',['Local','Styles','Context','Voice'][index]||`Section ${index+1}`);
     });
+  }
+
+  /* English is now the default language, while FR remains available. */
+  document.body.classList.add('english');
+  document.documentElement.lang='en';
+  const langBtn=document.getElementById('langBtn');
+  if(langBtn)langBtn.firstChild.nodeValue='FR';
+
+  const words={
+    en:['DICTATE','WRITE','REPLY','REWRITE','SUMMARIZE','TRANSLATE','WINDOWS','LOCAL','PRIVATE','CONTEXT','STYLE','CONTROL'],
+    fr:['DICTER','ÉCRIRE','RÉPONDRE','REFORMULER','RÉSUMER','TRADUIRE','WINDOWS','LOCAL','PRIVÉ','CONTEXTE','STYLE','CONTRÔLE']
+  };
+  const introWords={en:['DICTATE','UNDERSTAND','REWRITE','WRITE'],fr:['DICTER','COMPRENDRE','REFORMULER','ÉCRIRE']};
+
+  const pricingCopy={
+    en:{
+      title:['Free','Nova Pro','Nova Ultra'],
+      features:[
+        ['Unlimited local dictation','90+ languages','3 essential Styles','10 rewrites per day'],
+        ['Unlimited dictation and rewriting','All Styles','Automatic app detection','Local processing on your PC','14 days free, no card required'],
+        ['Everything in Nova Pro','Context awareness','Custom Styles','Optional Nova Turbo','Full personalization']
+      ],
+      buttons:['Download','Try Pro','Get Ultra'],popular:'Most popular',monthly:'Monthly',annual:'Annual',save:'2 months free',month:'/ month',year:'/ year',billed:'billed annually'
+    },
+    fr:{
+      title:['Gratuit','Nova Pro','Nova Ultra'],
+      features:[
+        ['Dictée locale illimitée','90+ langues','3 Styles essentiels','10 reformulations par jour'],
+        ['Dictée et reformulation illimitées','Tous les Styles','Détection selon l’application','Traitement local sur votre PC','14 jours offerts sans carte'],
+        ['Tout Nova Pro','Lecture de contexte','Styles personnalisés','Nova Turbo optionnel','Personnalisation complète']
+      ],
+      buttons:['Télécharger','Essayer Pro','Obtenir Ultra'],popular:'Le plus choisi',monthly:'Mensuel',annual:'Annuel',save:'2 mois offerts',month:'/ mois',year:'/ an',billed:'facturé annuellement'
+    }
+  };
+
+  let billing='monthly';
+  function language(){return document.body.classList.contains('english')?'en':'fr'}
+  function syncDynamicLanguage(){
+    const lang=language();
+    document.documentElement.lang=lang;
+    document.querySelectorAll('.words span').forEach((el,i)=>{if(words[lang][i])el.textContent=words[lang][i]});
+    document.querySelectorAll('.intro-word').forEach((el,i)=>{if(introWords[lang][i])el.textContent=introWords[lang][i]});
+    const sw=document.querySelector('.billing-switch');
+    if(sw){
+      sw.querySelector('[data-billing="monthly"]').textContent=pricingCopy[lang].monthly;
+      sw.querySelector('[data-billing="annual"]').textContent=pricingCopy[lang].annual;
+      sw.querySelector('.save').textContent=pricingCopy[lang].save;
+    }
+    renderPricing();
   }
 
   document.querySelectorAll('.founder-story').forEach(el=>el.remove());
@@ -30,13 +96,58 @@
   if(pricing){
     const section=document.createElement('section');
     section.className='founder-story';
-    section.setAttribute('aria-label','Mot du fondateur');
+    section.setAttribute('aria-label','Founder note');
     const img=document.createElement('img');
     img.src='/sasha-founder.webp';
-    img.alt='Portrait en demi-teinte de Sasha, fondateur de Nova, avec un mot personnel.';
+    img.alt='Sasha, founder of Nova.';
     img.loading='eager';
     img.decoding='async';
     section.appendChild(img);
     pricing.before(section);
+
+    let sw=pricing.querySelector('.billing-switch');
+    if(!sw){
+      sw=document.createElement('div');
+      sw.className='billing-switch';
+      sw.setAttribute('aria-label','Billing period');
+      sw.innerHTML='<button type="button" class="active" data-billing="monthly">Monthly</button><button type="button" data-billing="annual">Annual</button><span class="save">2 months free</span>';
+      const plans=pricing.querySelector('.plans');
+      plans?.before(sw);
+      sw.querySelectorAll('button').forEach(btn=>btn.addEventListener('click',()=>{
+        billing=btn.dataset.billing;
+        sw.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b===btn));
+        renderPricing();
+      }));
+    }
   }
+
+  function renderPricing(){
+    const lang=language();
+    const copy=pricingCopy[lang];
+    const plans=[...document.querySelectorAll('.pricing .plan')];
+    const monthly=[0,4.99,14.99];
+    const annual=[0,49.90,149.90];
+    plans.forEach((plan,i)=>{
+      const h3=plan.querySelector('h3'); if(h3)h3.textContent=copy.title[i];
+      let badge=plan.querySelector('.plan-badge');
+      if(i===1){
+        if(!badge){badge=document.createElement('span');badge.className='plan-badge';plan.prepend(badge)}
+        badge.textContent=copy.popular;
+      } else if(badge){badge.remove()}
+      const price=plan.querySelector('.price');
+      if(price){
+        if(i===0){price.innerHTML='0 €'}
+        else if(billing==='monthly') price.innerHTML=`${monthly[i].toFixed(2).replace('.',',')} € <small>${copy.month}</small>`;
+        else price.innerHTML=`${annual[i].toFixed(2).replace('.',',')} € <small>${copy.year}</small><span class="annual-note">${copy.billed}</span>`;
+      }
+      const ul=plan.querySelector('ul');
+      if(ul)ul.innerHTML=copy.features[i].map(x=>`<li>${x}</li>`).join('');
+      const btn=plan.querySelector('.black-btn'); if(btn)btn.textContent=copy.buttons[i];
+    });
+  }
+
+  if(langBtn){
+    langBtn.addEventListener('click',()=>setTimeout(syncDynamicLanguage,0));
+  }
+  syncDynamicLanguage();
 })();
