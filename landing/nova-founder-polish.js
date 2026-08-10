@@ -178,7 +178,7 @@
     title:['Free','Nova Pro','Nova Ultra'],
     tier:['START HERE','UNLIMITED & PERSONAL','FULL INTELLIGENCE'],
     kicker:[
-      'Try Nova locally, then upgrade the moment the daily limits start slowing you down.',
+      'Try Nova locally, plus 20 free Turbo rewrites to see what cloud speed feels like.',
       'Every local limit removed, plus the personalization layer that makes Nova sound like you — vocabulary, variables, shortcuts.',
       'Nova’s complete intelligence: unlimited Turbo, meetings turned into notes automatically, and full context on everything you write.'
     ],
@@ -187,7 +187,7 @@
         {label:'Unlimited local dictation'},
         {label:'90+ languages'},
         {label:'3 essential Styles',limited:true,tag:'Free'},
-        {label:'3 Turbo rewrites / 24h',limited:true,tag:'Daily cap'}
+        {label:'20 free Turbo rewrites, once',limited:true,tag:'One-time'}
       ],
       [
         {label:'Unlimited dictation and rewriting'},
