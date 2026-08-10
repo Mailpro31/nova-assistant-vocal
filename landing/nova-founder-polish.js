@@ -82,7 +82,10 @@
     .pricing .plan>*{position:relative;z-index:1}
     .pricing .plan-badge{display:inline-flex!important;align-self:flex-start!important;margin:0 0 15px!important;padding:7px 10px!important;border-radius:999px!important;background:rgba(111,131,196,.11)!important;color:#6379bd!important;font-size:9px!important;line-height:1!important;transform:none!important;translate:none!important}
     .plan-tier{display:block;margin-bottom:17px;color:#a0a3aa;font-size:9px;line-height:1.2}
-    .pricing .plan h3{margin:0!important;font-size:17px!important;font-weight:600!important;letter-spacing:-.03em!important}
+    .pricing .plan h3{margin:0!important;font-size:17px!important;font-weight:600!important;letter-spacing:-.03em!important;display:flex!important;align-items:center!important;gap:8px!important}
+    .tier-badge{display:inline-flex!important;align-items:center!important;padding:3px 9px!important;border-radius:999px!important;font-size:9px!important;font-weight:700!important;letter-spacing:.08em!important;text-transform:uppercase!important;line-height:1.6!important;white-space:nowrap!important}
+    .tier-badge.pro{background:linear-gradient(135deg,#7FB6FF 0%,#0A84FF 45%,#0060DF 100%)!important;color:#fff!important;box-shadow:0 2px 10px rgba(10,132,255,.35)!important}
+    .tier-badge.ultra{background:linear-gradient(135deg,#D9C8F7 0%,#C9B6F0 45%,#9F86D9 100%)!important;color:#1F1F22!important;box-shadow:0 2px 10px rgba(159,134,217,.35)!important}
     .price{margin:23px 0 10px!important;font-size:54px!important;font-weight:500!important;letter-spacing:-.06em!important;line-height:1!important}
     .price small{font-size:12px!important;font-weight:400!important;letter-spacing:-.01em!important;color:#858891!important}
     .price .annual-note{display:block;margin-top:9px;font-size:11px;font-weight:400;letter-spacing:0;color:#8b8e96}
@@ -93,12 +96,14 @@
     .pricing .plan li.limited{color:#92959d!important}
     .pricing .plan li.limited::before{content:"·"!important;color:#b0b2b8!important;font-size:18px!important;line-height:.8!important}
     .limit-tag{display:inline-flex;margin-left:7px;padding:3px 5px;border-radius:999px;background:#f3f3f4;color:#94969c;font-size:8px;font-weight:650;letter-spacing:.06em;text-transform:uppercase;vertical-align:2px}
+    .limit-tag-new{background:linear-gradient(135deg,#D9C8F7 0%,#C9B6F0 45%,#9F86D9 100%)!important;color:#1F1F22!important;box-shadow:0 1px 6px rgba(159,134,217,.35)!important}
 
     .upgrade-preview{margin-top:25px;padding:16px 0 0;border-top:1px solid rgba(17,18,23,.07);display:grid;gap:9px}
     .upgrade-preview-title{font-size:9px;font-weight:650;letter-spacing:.12em;text-transform:uppercase;color:#a0a3aa}
     .upgrade-row{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px;color:#777b84}
     .upgrade-row span:last-child{flex:none;padding:4px 7px;border-radius:999px;background:#f1f2f5;color:#70747d;font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
-    .featured .upgrade-row span:last-child{background:rgba(111,131,196,.12);color:#657bc0}
+    .upgrade-tag.pro{background:rgba(10,132,255,.12)!important;color:#0A66D0!important}
+    .upgrade-tag.ultra{background:rgba(159,134,217,.16)!important;color:#7C5FBF!important}
     .upgrade-preview.unlocked{padding:15px 16px;border:1px solid rgba(126,150,220,.13);border-radius:16px;background:rgba(255,255,255,.48)}
     .upgrade-preview.unlocked .upgrade-preview-title{color:#667bc0}
     .upgrade-preview.unlocked p{margin:0;color:#646975;font-size:12px;line-height:1.45}
@@ -166,7 +171,7 @@
     const heading=pricing.querySelector(':scope > h2');
     const intro=pricing.querySelector(':scope > p');
     if(heading) heading.innerHTML='Start free.<br>Upgrade when Nova becomes essential.';
-    if(intro) intro.textContent='Free gives you the core local experience. Pro removes the daily writing limits. Ultra adds context awareness and full personalization.';
+    if(intro) intro.textContent='Free gives you the core local experience. Pro removes the daily writing limits and unlocks unlimited Nova Turbo. Ultra adds automatic meeting notes, context awareness and full personalization.';
   }
 
   const pricingCopy={
@@ -174,32 +179,32 @@
     tier:['START HERE','WRITE WITHOUT LIMITS','FULL NOVA'],
     kicker:[
       'Try Nova locally, then upgrade only when the writing limits start getting in your way.',
-      'Remove the daily rewrite cap and let Nova adapt to every app you write in.',
-      'Give Nova more context and shape the writing system around the way you work.'
+      'Remove the daily rewrite cap, get instant cloud speed with Nova Turbo, and let Nova tune itself to your machine.',
+      'Turn meetings into notes automatically, and give Nova full context to reply exactly right — every time.'
     ],
     features:[
       [
         {label:'Unlimited local dictation'},
         {label:'90+ languages'},
         {label:'3 essential Styles',limited:true,tag:'Free'},
-        {label:'10 rewrites per day',limited:true,tag:'Daily cap'}
+        {label:'10 Turbo rewrites / 24h',limited:true,tag:'Daily cap'}
       ],
       [
         {label:'Unlimited dictation and rewriting'},
-        {label:'All Styles'},
-        {label:'Automatic app detection'},
-        {label:'Local processing on your PC'},
-        {label:'14-day Pro trial'}
+        {label:'All Styles, including Automatic'},
+        {label:'Nova Turbo, unlimited'},
+        {label:'Adaptive performance profiles'},
+        {label:'Custom variables & shortcuts'}
       ],
       [
         {label:'Everything in Nova Pro'},
+        {label:'Meeting mode — auto notes',tag:'New'},
         {label:'Context awareness'},
         {label:'Custom Styles'},
-        {label:'Optional Nova Turbo'},
-        {label:'Full personalization'}
+        {label:'Nova’s best AI models'}
       ]
     ],
-    buttons:['Download Free','Start 14-day Pro trial','Get Nova Ultra'],
+    buttons:['Download Free','Start 7-day Pro trial','Get Nova Ultra'],
     foot:['No card required','No card required','For advanced workflows'],
     popular:'Most popular',monthly:'Monthly',annual:'Annual',save:'2 months free',month:'/ month',year:'/ year',billed:'2 months free · billed annually'
   };
@@ -224,13 +229,13 @@
     const box=document.createElement('div');
     if(index===0){
       box.className='upgrade-preview';
-      box.innerHTML='<span class="upgrade-preview-title">Unlock with Pro</span><div class="upgrade-row"><span>All Styles</span><span>Pro</span></div><div class="upgrade-row"><span>Automatic app detection</span><span>Pro</span></div>';
+      box.innerHTML='<span class="upgrade-preview-title">Unlock with Pro</span><div class="upgrade-row"><span>All Styles</span><span class="upgrade-tag pro">Pro</span></div><div class="upgrade-row"><span>Nova Turbo, unlimited</span><span class="upgrade-tag pro">Pro</span></div>';
     }else if(index===1){
       box.className='upgrade-preview';
-      box.innerHTML='<span class="upgrade-preview-title">Unlock with Ultra</span><div class="upgrade-row"><span>Context awareness</span><span>Ultra</span></div><div class="upgrade-row"><span>Custom Styles</span><span>Ultra</span></div>';
+      box.innerHTML='<span class="upgrade-preview-title">Unlock with Ultra</span><div class="upgrade-row"><span>Meeting mode — auto notes</span><span class="upgrade-tag ultra">Ultra</span></div><div class="upgrade-row"><span>Context awareness</span><span class="upgrade-tag ultra">Ultra</span></div>';
     }else{
       box.className='upgrade-preview unlocked';
-      box.innerHTML='<span class="upgrade-preview-title">Everything unlocked</span><p>Context, custom Styles and the complete Nova personalization layer.</p>';
+      box.innerHTML='<span class="upgrade-preview-title">Everything unlocked</span><p>Meeting mode, context awareness, custom Styles and the complete Nova personalization layer.</p>';
     }
     const button=plan.querySelector('.black-btn');
     if(button) plan.insertBefore(box,button); else plan.appendChild(box);
@@ -245,7 +250,14 @@
 
       const h3=plan.querySelector('h3');
       if(h3){
-        h3.textContent=pricingCopy.title[i];
+        h3.innerHTML='';
+        h3.appendChild(document.createTextNode(pricingCopy.title[i]));
+        if(i===1||i===2){
+          const tierBadge=document.createElement('span');
+          tierBadge.className=i===1?'tier-badge pro':'tier-badge ultra';
+          tierBadge.textContent=i===1?'Pro':'Ultra';
+          h3.appendChild(tierBadge);
+        }
         const tier=document.createElement('span');
         tier.className='plan-tier';
         tier.textContent=pricingCopy.tier[i];
@@ -278,7 +290,7 @@
           li.append(document.createTextNode(feature.label));
           if(feature.tag){
             const tag=document.createElement('span');
-            tag.className='limit-tag';
+            tag.className=feature.tag==='New'?'limit-tag limit-tag-new':'limit-tag';
             tag.textContent=feature.tag;
             li.appendChild(tag);
           }
