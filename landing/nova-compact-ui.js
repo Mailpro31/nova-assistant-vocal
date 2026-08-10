@@ -24,8 +24,10 @@
       height:46px!important;
       padding:0 18px!important;
       font-size:11px!important;
-      display:grid!important;
-      place-items:center!important;
+      display:inline-flex!important;
+      align-items:center!important;
+      justify-content:center!important;
+      gap:8px!important;
       transform:none!important;
     }
     .dock.dock-compact .legal-link{
