@@ -1902,6 +1902,9 @@ function applyLang(l) {
   document.querySelector('meta[property="og:description"]').setAttribute("content", d._desc);
   document.querySelector('meta[name="twitter:title"]').setAttribute("content", d._title);
   document.querySelector('meta[name="twitter:description"]').setAttribute("content", d._desc);
+  const ogImg = l === "en" ? "https://novaspeak.app/og-en.png" : "https://novaspeak.app/og.png";
+  document.querySelector('meta[property="og:image"]').setAttribute("content", ogImg);
+  document.querySelector('meta[name="twitter:image"]').setAttribute("content", ogImg);
   // une seule passe sur le DOM plutôt qu'un querySelectorAll par clé
   document.querySelectorAll("[data-t]").forEach((el) => {
     const v = d[el.dataset.t];
