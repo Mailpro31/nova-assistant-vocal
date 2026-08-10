@@ -1,4 +1,4 @@
-const polishLink=document.createElement('link');polishLink.rel='stylesheet';polishLink.href='/nova-preview-polish.css?v=2';document.head.appendChild(polishLink);
+/* nova-preview-polish.css is now a static <link> in index.html's <head>. */
 
 /* Premium interaction layer */
 const finePointer=matchMedia('(hover:hover) and (pointer:fine)').matches;
@@ -124,4 +124,4 @@ if(dockTargets.length){
   dockTargets.forEach(target=>dockObserver.observe(target));
 }
 
-const founderPolish=document.createElement('script');founderPolish.src='/nova-founder-polish.js?v=1';founderPolish.defer=true;document.body.appendChild(founderPolish);
+/* nova-founder-polish.js is now a static <script defer> in index.html's <head>. */

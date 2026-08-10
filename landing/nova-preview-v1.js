@@ -182,37 +182,10 @@ if(soundBtn){
 
 dots.forEach((dot,index)=>dot.addEventListener('click',()=>dots.forEach((d,i)=>d.classList.toggle('on',i===index))));
 
-const polishScript=document.createElement('script');
-polishScript.src='/nova-preview-polish.js?v=3';
-polishScript.defer=true;
-document.body.appendChild(polishScript);
-
-const compactScript=document.createElement('script');
-compactScript.src='/nova-compact-ui.js?v=2';
-compactScript.defer=true;
-document.body.appendChild(compactScript);
-
-const tekiyoRefineScript=document.createElement('script');
-tekiyoRefineScript.src='/nova-tekiyo-refine.js?v=2';
-tekiyoRefineScript.defer=true;
-document.body.appendChild(tekiyoRefineScript);
-
-const directScrollFixScript=document.createElement('script');
-directScrollFixScript.src='/nova-scroll-buttons-fix.js?v=3';
-directScrollFixScript.defer=true;
-document.body.appendChild(directScrollFixScript);
-
-const founderEmbedScript=document.createElement('script');
-founderEmbedScript.src='/nova-founder-embedded.js?v=1';
-founderEmbedScript.defer=true;
-document.body.appendChild(founderEmbedScript);
-
-const finalFixesScript=document.createElement('script');
-finalFixesScript.src='/nova-final-fixes.js?v=1';
-finalFixesScript.defer=true;
-document.body.appendChild(finalFixesScript);
-
-const mobileCss=document.createElement('link');
-mobileCss.rel='stylesheet';
-mobileCss.href='/nova-mobile.css?v=6';
-document.head.appendChild(mobileCss);
+/* nova-preview-polish.js, nova-compact-ui.js, nova-tekiyo-refine.js,
+   nova-scroll-buttons-fix.js, nova-founder-embedded.js, nova-final-fixes.js
+   and nova-founder-polish.js used to be injected here at runtime (a 2-level
+   waterfall discovered only after this script executed, plus a duplicate,
+   stale nova-mobile.css?v=6 re-fetch that could shadow the real ?v=8 one).
+   They're now static <link>/<script defer> tags in index.html's <head>, so
+   the browser can fetch everything in parallel from the start. */
