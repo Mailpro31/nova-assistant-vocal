@@ -41,18 +41,25 @@
   transition:opacity .65s var(--ease),filter .65s var(--ease);
   animation:novaWordDrift var(--dur,14s) ease-in-out var(--delay,0s) infinite alternate;
   will-change:transform;
+  pointer-events:auto;
+  cursor:default;
 }
 .cinema-orbit-track>span em{
   display:block;
   font-style:normal;
-  font-size:clamp(9px,.78vw,11px);
+  font-size:clamp(7px,.58vw,8.5px);
   line-height:1;
   font-weight:680;
   letter-spacing:.17em;
   color:rgba(17,18,23,.67);
   white-space:nowrap;
+  transition:color .3s var(--ease);
 }
 body.ready .cinema-orbit-track>span{opacity:1;filter:none}
+
+/* Survol : le mot pointé reste net, les autres passent en gris. */
+.cinema-orbit-track:hover>span:not(:hover) em{color:rgba(17,18,23,.22)}
+.cinema-orbit-track>span:hover em{color:rgba(17,18,23,.85)}
 
 /* Deliberately irregular placement: a loose constellation, not a circle. */
 .cinema-orbit-track>span:nth-child(1){--x:47%;--y:8%;--dx:2px;--dy:-2px;--dur:15s;--delay:-3s}
@@ -115,7 +122,7 @@ body.calm .cinema-orbit-core{animation-play-state:paused!important}
   }
   .cinema-orbit-shell::before{width:78%;height:78%;filter:blur(22px)}
   .cinema-orbit-core{width:56px;height:56px}
-  .cinema-orbit-track>span em{font-size:8px;letter-spacing:.115em}
+  .cinema-orbit-track>span em{font-size:6.5px;letter-spacing:.115em}
   html body .cinema .cinema-copy .a{top:13%!important}
   html body .cinema .cinema-copy .b{top:75%!important}
   html body .cinema .cinema-copy p{max-width:42vw!important}
@@ -138,5 +145,5 @@ body.calm .cinema-orbit-core{animation-play-state:paused!important}
 @media (max-width:430px){
   .cinema-orbit-shell{width:min(94vw,340px);height:min(82vw,310px)}
   .cinema-orbit-core{width:52px;height:52px}
-  .cinema-orbit-track>span em{font-size:7.5px;letter-spacing:.1em}
+  .cinema-orbit-track>span em{font-size:6px;letter-spacing:.1em}
 }
