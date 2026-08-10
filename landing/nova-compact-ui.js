@@ -4,7 +4,7 @@
     /* Compact, optically centered controls. */
     .dock.dock-compact{
       display:grid!important;
-      grid-template-columns:46px 46px 188px 46px!important;
+      grid-template-columns:46px 188px 46px!important;
       align-items:center!important;
       gap:7px!important;
       width:max-content!important;
@@ -12,14 +12,13 @@
       filter:drop-shadow(0 12px 24px rgba(43,49,71,.12))!important;
       transition:transform .35s ease,opacity .25s ease!important;
     }
-    .dock.dock-compact a,.dock.dock-compact button,.dock.dock-compact .win-badge{
+    .dock.dock-compact a,.dock.dock-compact button{
       width:46px!important;
       height:46px!important;
     }
     .dock.dock-compact #soundBtn{grid-column:1!important;display:grid!important;place-items:center!important}
-    .dock.dock-compact .win-badge{grid-column:2!important;display:grid!important;place-items:center!important}
     .dock.dock-compact .main{
-      grid-column:3!important;
+      grid-column:2!important;
       width:188px!important;
       min-width:188px!important;
       height:46px!important;
@@ -30,7 +29,7 @@
       transform:none!important;
     }
     .dock.dock-compact .legal-link{
-      grid-column:4!important;
+      grid-column:3!important;
       width:46px!important;
       height:46px!important;
     }
@@ -137,11 +136,10 @@
     }
     @media(max-width:680px){
       .dock.dock-compact{
-        grid-template-columns:42px 42px minmax(158px,184px) 42px!important;
+        grid-template-columns:42px minmax(158px,184px) 42px!important;
         gap:6px!important;
       }
       .dock.dock-compact a,.dock.dock-compact button,
-      .dock.dock-compact .win-badge,
       .dock.dock-compact .legal-link{width:42px!important;height:42px!important}
       .dock.dock-compact .main{width:100%!important;min-width:0!important;height:42px!important;font-size:10.5px!important}
       .chapter .black-btn{width:168px!important;height:42px!important;min-height:42px!important}

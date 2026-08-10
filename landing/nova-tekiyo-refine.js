@@ -48,13 +48,12 @@
     }
     #voice .chapter-inner{padding-bottom:18px!important}
 
-    /* Keep the dock compact and symmetric around Download Nova. */
+    /* Keep the dock compact and perfectly symmetric around Download Nova. */
     .dock.dock-compact{
-      grid-template-columns:42px 42px 176px 42px!important;
+      grid-template-columns:42px 176px 42px!important;
       gap:6px!important;
     }
     .dock.dock-compact a,.dock.dock-compact button,
-    .dock.dock-compact .win-badge,
     .dock.dock-compact .legal-link{width:42px!important;height:42px!important}
     .dock.dock-compact .main{
       width:176px!important;
@@ -217,8 +216,8 @@
         min-height:34px!important;
         margin-bottom:54px!important;
       }
-      .dock.dock-compact{grid-template-columns:40px 40px minmax(154px,170px) 40px!important}
-      .dock.dock-compact a,.dock.dock-compact button,.dock.dock-compact .win-badge,.dock.dock-compact .legal-link{width:40px!important;height:40px!important}
+      .dock.dock-compact{grid-template-columns:40px minmax(154px,170px) 40px!important}
+      .dock.dock-compact a,.dock.dock-compact button,.dock.dock-compact .legal-link{width:40px!important;height:40px!important}
       .dock.dock-compact .main{width:100%!important;min-width:0!important;height:40px!important}
       .manifesto{padding:125px 20px 150px!important}
       .manifesto h1{font-size:clamp(39px,11vw,55px)!important;width:94vw!important}
