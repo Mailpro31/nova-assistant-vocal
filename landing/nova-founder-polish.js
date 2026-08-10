@@ -170,38 +170,43 @@
 
     const heading=pricing.querySelector(':scope > h2');
     const intro=pricing.querySelector(':scope > p');
-    if(heading) heading.innerHTML='Start free.<br>Upgrade when Nova becomes essential.';
-    if(intro) intro.textContent='Free gives you the core local experience. Pro removes the daily writing limits and unlocks unlimited Nova Turbo. Ultra adds automatic meeting notes, context awareness and full personalization.';
+    if(heading) heading.innerHTML='Start free.<br>Unlock the full Nova.';
+    if(intro) intro.textContent='Free covers the essentials. Pro removes every local limit and adds true personalization — vocabulary, variables, shortcuts, all yours. Ultra brings Nova’s full intelligence: unlimited Turbo, automatic meeting notes and real context awareness.';
   }
 
   const pricingCopy={
     title:['Free','Nova Pro','Nova Ultra'],
-    tier:['START HERE','WRITE WITHOUT LIMITS','FULL NOVA'],
+    tier:['START HERE','UNLIMITED & PERSONAL','FULL INTELLIGENCE'],
     kicker:[
-      'Try Nova locally, then upgrade only when the writing limits start getting in your way.',
-      'Remove the daily rewrite cap, get instant cloud speed with Nova Turbo, and let Nova tune itself to your machine.',
-      'Turn meetings into notes automatically, and give Nova full context to reply exactly right — every time.'
+      'Try Nova locally, then upgrade the moment the daily limits start slowing you down.',
+      'Every local limit removed, plus the personalization layer that makes Nova sound like you — vocabulary, variables, shortcuts.',
+      'Nova’s complete intelligence: unlimited Turbo, meetings turned into notes automatically, and full context on everything you write.'
     ],
     features:[
       [
         {label:'Unlimited local dictation'},
         {label:'90+ languages'},
         {label:'3 essential Styles',limited:true,tag:'Free'},
-        {label:'10 Turbo rewrites / 24h',limited:true,tag:'Daily cap'}
+        {label:'3 Turbo rewrites / 24h',limited:true,tag:'Daily cap'}
       ],
       [
         {label:'Unlimited dictation and rewriting'},
-        {label:'All Styles, including Automatic'},
-        {label:'Nova Turbo, unlimited'},
+        {label:'All Styles, including Automatic',tag:'New'},
+        {label:'Personalized vocabulary & glossary',tag:'New'},
+        {label:'Smart variables & templates',tag:'New'},
+        {label:'Custom keyboard shortcuts',tag:'New'},
+        {label:'Unlimited history + export'},
         {label:'Adaptive performance profiles'},
-        {label:'Custom variables & shortcuts'}
+        {label:'Priority support'}
       ],
       [
         {label:'Everything in Nova Pro'},
+        {label:'Nova Turbo, unlimited',tag:'New'},
         {label:'Meeting mode — auto notes',tag:'New'},
-        {label:'Context awareness'},
-        {label:'Custom Styles'},
-        {label:'Nova’s best AI models'}
+        {label:'Context awareness',tag:'New'},
+        {label:'Build your own Styles',tag:'New'},
+        {label:'Nova Apex — maximum power'},
+        {label:'Priority support, direct line'}
       ]
     ],
     buttons:['Download Free','Start 7-day Pro trial','Get Nova Ultra'],
@@ -229,13 +234,13 @@
     const box=document.createElement('div');
     if(index===0){
       box.className='upgrade-preview';
-      box.innerHTML='<span class="upgrade-preview-title">Unlock with Pro</span><div class="upgrade-row"><span>All Styles</span><span class="upgrade-tag pro">Pro</span></div><div class="upgrade-row"><span>Nova Turbo, unlimited</span><span class="upgrade-tag pro">Pro</span></div>';
+      box.innerHTML='<span class="upgrade-preview-title">Unlock with Pro</span><div class="upgrade-row"><span>All Styles, unlimited</span><span class="upgrade-tag pro">Pro</span></div><div class="upgrade-row"><span>Personalized vocabulary</span><span class="upgrade-tag pro">Pro</span></div>';
     }else if(index===1){
       box.className='upgrade-preview';
-      box.innerHTML='<span class="upgrade-preview-title">Unlock with Ultra</span><div class="upgrade-row"><span>Meeting mode — auto notes</span><span class="upgrade-tag ultra">Ultra</span></div><div class="upgrade-row"><span>Context awareness</span><span class="upgrade-tag ultra">Ultra</span></div>';
+      box.innerHTML='<span class="upgrade-preview-title">Unlock with Ultra</span><div class="upgrade-row"><span>Nova Turbo, unlimited</span><span class="upgrade-tag ultra">Ultra</span></div><div class="upgrade-row"><span>Meeting mode — auto notes</span><span class="upgrade-tag ultra">Ultra</span></div>';
     }else{
       box.className='upgrade-preview unlocked';
-      box.innerHTML='<span class="upgrade-preview-title">Everything unlocked</span><p>Meeting mode, context awareness, custom Styles and the complete Nova personalization layer.</p>';
+      box.innerHTML='<span class="upgrade-preview-title">Everything unlocked</span><p>Unlimited Turbo, meeting mode, context awareness, custom Styles — Nova’s full intelligence.</p>';
     }
     const button=plan.querySelector('.black-btn');
     if(button) plan.insertBefore(box,button); else plan.appendChild(box);
