@@ -47,8 +47,8 @@
     .dots.chapter-rail a.on{height:7px!important;background:#111217!important;transform:scale(1.35)!important}
 
     /* Symmetrical dock: the main Download button is now exactly centered in the viewport. */
-    .dock{display:grid!important;grid-template-columns:58px 58px 236px 58px 58px!important;align-items:center!important;gap:8px!important;width:max-content!important;max-width:calc(100vw - 24px)!important}
-    .dock a,.dock button{width:58px!important;height:58px!important}
+    .dock{display:grid!important;grid-template-columns:58px 58px 58px 236px 58px 58px!important;align-items:center!important;gap:8px!important;width:max-content!important;max-width:calc(100vw - 24px)!important}
+    .dock a,.dock button,.dock .win-badge{width:58px!important;height:58px!important}
     .dock .main{width:236px!important;min-width:236px!important;padding:0 22px!important;display:grid!important;place-items:center!important;white-space:nowrap!important}
     .dock .legal-link{position:relative}
     .dock .legal-link::after{content:"Legal";position:absolute;left:50%;bottom:calc(100% + 9px);transform:translate(-50%,5px);padding:6px 9px;border-radius:999px;background:#111217;color:#fff;font-size:9px;font-weight:600;letter-spacing:.01em;opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease}
