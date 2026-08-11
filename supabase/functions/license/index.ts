@@ -15,8 +15,10 @@ const SUCCESS_PAGE = "https://novaspeak.app/merci.html";
 const GRACE_MS = 7 * 24 * 3600 * 1000;      // 7 j de grâce après fin de période
 const SEAT_IDLE_MS = 30 * 24 * 3600 * 1000; // un poste inactif 30 j libère sa place
 
+// Restreint au site Nova (les apps desktop appellent en direct, sans CORS).
+const ALLOWED_ORIGIN = "https://www.novaspeak.app";
 const CORS = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };

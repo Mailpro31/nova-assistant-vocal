@@ -20,8 +20,10 @@ const MAX_SENDS_IP_H = 12;   // envois max par empreinte réseau et par heure
 const MAX_ATTEMPTS = 5;      // essais de code max par adresse (fenêtre active)
 const IP_SALT = "nova-dl-v1"; // sel de hachage d'empreinte (anti-abus, pseudonyme)
 
+// Restreint au site Nova (les apps desktop appellent en direct, sans CORS).
+const ALLOWED_ORIGIN = "https://www.novaspeak.app";
 const CORS = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
@@ -51,14 +53,13 @@ async function sha256hex(s: string): Promise<string> {
   return [...new Uint8Array(h)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-// empreinte réseau pseudonyme : hash tronqué de l'IP du client. On prend la
-// DERNIÈRE IP de x-forwarded-for : la chaîne est « client, …, IP-vue-par-la-
-// passerelle » — la première valeur est fournie par le client (falsifiable,
-// contournait la limite d'envois par IP), la dernière est ajoutée par la
-// passerelle Supabase et ne peut pas être usurpée.
+// empreinte réseau pseudonyme : PREMIÈRE IP de x-forwarded-for. La dernière
+// (ajoutée par la passerelle) variait à chaque requête sur l'infra Supabase —
+// les plafonds par IP ne se déclenchaient jamais (pentest 2026-08-11). La
+// première est client-fournie (falsifiable) : utile contre les bots naïfs.
 async function ipHash(req: Request): Promise<string> {
   const xff = req.headers.get("x-forwarded-for") || "";
-  const ip = xff.split(",").pop()!.trim();
+  const ip = xff.split(",")[0].trim();
   if (!ip) return "";
   return (await sha256hex(IP_SALT + ":" + ip)).slice(0, 16);
 }
@@ -124,7 +125,7 @@ async function sendCode(cfg: { key: string; from: string }, to: string,
   }
 }
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const EMAIL_RE = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/;
 
 async function requestCode(b: Record<string, unknown>, iph: string): Promise<Response> {
   if (b.website) return json(200, { ok: true, sent: true });   // pot de miel

@@ -22,8 +22,10 @@ const DAILY_CAP_S = 3 * 3600; // fair-use : 3 h d'audio / jour / machine
 const MAX_BYTES = 25 * 1024 * 1024;
 const GRACE_MS = 7 * 24 * 3600 * 1000; // aligné sur la fonction « license »
 
+// Restreint au site Nova (les apps desktop appellent en direct, sans CORS).
+const ALLOWED_ORIGIN = "https://www.novaspeak.app";
 const CORS = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
