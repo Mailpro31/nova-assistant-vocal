@@ -39,6 +39,7 @@ const DAILY_CAP: Record<string, number> = {
   business: 5000,
 };
 const TRIAL_DAILY_CAP = 50; // essai Pro : généreux mais borné
+const FREE_LIFETIME_CAP = 20; // palier gratuit : 20 reformulations À VIE
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -147,6 +148,17 @@ Deno.serve(async (req: Request) => {
       if (!t) return json(401, { ok: false, error: "Essai expiré ou jeton invalide." });
       machine = String(t.m);
       cap = TRIAL_DAILY_CAP;
+    } else if (tok.startsWith("NOVAFREE.")) {
+      // Palier GRATUIT : l'app envoie NOVAFREE.<empreinte machine> (non signé —
+      // la seule chose qu'il protège est un crédit borné, pas une identité).
+      // Le quota est À VIE (20 cumulés, jamais remis à zéro), géré plus bas
+      // par styles_free_consume_capped — pas de cap journalier ici.
+      const fp = tok.slice("NOVAFREE.".length);
+      if (!/^[a-f0-9]{16,64}$/i.test(fp)) {
+        return json(401, { ok: false, error: "Jeton invalide." });
+      }
+      machine = fp.toLowerCase();
+      cap = -1; // sentinel : quota à vie, cf. bloc quota plus bas
     } else {
       const p = await verifyToken(tok);
       const tier = String(p?.t || "");
@@ -183,9 +195,27 @@ Deno.serve(async (req: Request) => {
     ).slice(0, MAX_TEXT_CHARS);
     if (!text.trim()) return json(400, { ok: false, error: "Texte vide." });
 
-    // — quota quotidien atomique, consommé AVANT l'appel fournisseur —
+    // — quota atomique, consommé AVANT l'appel fournisseur —
+    // cap === -1 → palier FREE : crédit À VIE (20 cumulés, jamais remis à
+    // zéro) via styles_free_consume_capped. Sinon quota journalier.
     let consumed = false;
-    {
+    let freeConsumed = false;
+    if (cap === -1) {
+      const { data, error } = await supa.rpc("styles_free_consume_capped", {
+        p_machine: machine, p_cap: FREE_LIFETIME_CAP });
+      if (error) {
+        // RPC absente (migration en retard) → repli legacy fail-open
+        const { data: u } = await supa.from("styles_free_usage").select("count")
+          .eq("machine_hash", machine).maybeSingle();
+        if ((u?.count || 0) + 1 > FREE_LIFETIME_CAP) {
+          return json(429, { ok: false, error: "quota" });
+        }
+      } else if (data !== true) {
+        return json(429, { ok: false, error: "quota" });
+      } else {
+        freeConsumed = true;
+      }
+    } else {
       const { data, error } = await supa.rpc("styles_consume_capped", {
         p_machine: machine, p_count: 1, p_cap: cap });
       if (error) {
@@ -230,6 +260,9 @@ Deno.serve(async (req: Request) => {
       if (consumed) {
         await supa.rpc("styles_consume", { p_machine: machine, p_count: -1 });
       }
+      if (freeConsumed) {
+        await supa.rpc("styles_free_consume", { p_machine: machine, p_count: -1 });
+      }
       return json(502, { ok: false, error: "Service momentanément indisponible." });
     }
     const out = await r.json();
@@ -238,12 +271,18 @@ Deno.serve(async (req: Request) => {
       if (consumed) {
         await supa.rpc("styles_consume", { p_machine: machine, p_count: -1 });
       }
+      if (freeConsumed) {
+        await supa.rpc("styles_free_consume", { p_machine: machine, p_count: -1 });
+      }
       return json(502, { ok: false, error: "Réponse vide." });
     }
 
     // schéma legacy (RPC plafonnée absente) : consommation après succès
-    if (!consumed) {
+    if (!consumed && cap !== -1) {
       await supa.rpc("styles_consume", { p_machine: machine, p_count: 1 });
+    }
+    if (!freeConsumed && cap === -1) {
+      await supa.rpc("styles_free_consume", { p_machine: machine, p_count: 1 });
     }
 
     // Réponse au format OpenAI attendu par le client de l'app
