@@ -69,3 +69,6 @@ assets/*.mp4
 landing/film/nova-film-audio.wav
 nova-crash.log
 nova.log.1
+
+# Local Supabase CLI state
+supabase/.temp/
