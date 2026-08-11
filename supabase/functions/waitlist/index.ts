@@ -15,8 +15,10 @@ const supa = createClient(
 const MAX_PER_IP_H = 10;       // inscriptions max par empreinte réseau et par heure
 const IP_SALT = "nova-wl-v1";  // sel de hachage d'empreinte (anti-abus, pseudonyme)
 
+// Restreint au site Nova (les apps desktop appellent en direct, sans CORS).
+const ALLOWED_ORIGIN = "https://www.novaspeak.app";
 const CORS = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
@@ -39,7 +41,7 @@ async function ipHash(req: Request): Promise<string> {
   return (await sha256hex(IP_SALT + ":" + ip)).slice(0, 16);
 }
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const EMAIL_RE = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/;
 
 Deno.serve(async (req: Request) => {
   try {

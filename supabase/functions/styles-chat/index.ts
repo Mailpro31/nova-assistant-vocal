@@ -41,8 +41,10 @@ const DAILY_CAP: Record<string, number> = {
 const TRIAL_DAILY_CAP = 50; // essai Pro : généreux mais borné
 const FREE_LIFETIME_CAP = 20; // palier gratuit : 20 reformulations À VIE
 
+// Restreint au site Nova (les apps desktop appellent en direct, sans CORS).
+const ALLOWED_ORIGIN = "https://www.novaspeak.app";
 const CORS = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
@@ -76,20 +78,24 @@ async function verifyToken(tok: string): Promise<Record<string, unknown> | null>
   }
 }
 
-// Jeton d'essai « NOVAT1.<payload>.<sig> » (émis par trial-check, même clé) :
-// { k:"trial", m:<machine>, s:<epoch début> }. Valide 14 jours après s.
+// Jetons d'essai « NOVAT1 » et gratuit « NOVAF1 » (émis par trial-check, même
+// clé) : { k:"trial"|"free", m:<machine>, s:<epoch début> }. NOVAT1 valide
+// 14 jours ; NOVAF1 ne expire pas (le quota à vie est son plafond).
 // Sans ça, un utilisateur EN ESSAI n'a aucun jeton NOVA1 à présenter : le
 // cloud lui répondait 401 et l'app retombait sur le moteur local (lent) —
 // exactement à l'opposé de la démonstration qu'on veut faire pendant l'essai.
-async function verifyTrialToken(tok: string): Promise<Record<string, unknown> | null> {
-  const m = /^NOVAT1\.([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)$/.exec(tok || "");
+async function verifyDeviceToken(tok: string): Promise<Record<string, unknown> | null> {
+  const m = /^(NOVAT1|NOVAF1)\.([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)$/.exec(tok || "");
   if (!m) return null;
   try {
-    const payload = un64(m[1]), sig = un64(m[2]);
+    const payload = un64(m[2]), sig = un64(m[3]);
     if (!(await ed.verifyAsync(sig, payload, PUB_BYTES))) return null;
     const data = JSON.parse(new TextDecoder().decode(payload));
-    if (data.k !== "trial" || !data.m || !data.s) return null;
-    if (Date.now() / 1000 > Number(data.s) + TRIAL_SECS) return null;
+    const kind = m[1] === "NOVAT1" ? "trial" : "free";
+    if (data.k !== kind || !data.m || !data.s) return null;
+    if (kind === "trial" && Date.now() / 1000 > Number(data.s) + TRIAL_SECS) {
+      return null;
+    }
     return data;
   } catch {
     return null;
@@ -139,26 +145,29 @@ Deno.serve(async (req: Request) => {
       return json(404, { ok: false, error: "Introuvable." });
     }
 
-    // — authentification : jeton NOVA1 (abonné) ou NOVAT1 (essai) signé —
+    // — authentification : NOVA1 (abonné), NOVAT1 (essai) ou NOVAF1 (gratuit),
+    //   tous SIGNÉS Ed25519 par le serveur. Le vieux NOVAFREE non signé était
+    //   forgeable à volonté (pentest 2026-08-11) : rejeté. Les apps à jour
+    //   obtiennent un NOVAF1 via trial-check. —
     const tok = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
     let machine: string;
     let cap: number;
     if (tok.startsWith("NOVAT1.")) {
-      const t = await verifyTrialToken(tok);
+      const t = await verifyDeviceToken(tok);
       if (!t) return json(401, { ok: false, error: "Essai expiré ou jeton invalide." });
       machine = String(t.m);
       cap = TRIAL_DAILY_CAP;
-    } else if (tok.startsWith("NOVAFREE.")) {
-      // Palier GRATUIT : l'app envoie NOVAFREE.<empreinte machine> (non signé —
-      // la seule chose qu'il protège est un crédit borné, pas une identité).
-      // Le quota est À VIE (20 cumulés, jamais remis à zéro), géré plus bas
-      // par styles_free_consume_capped — pas de cap journalier ici.
-      const fp = tok.slice("NOVAFREE.".length);
-      if (!/^[a-f0-9]{16,64}$/i.test(fp)) {
-        return json(401, { ok: false, error: "Jeton invalide." });
-      }
-      machine = fp.toLowerCase();
+    } else if (tok.startsWith("NOVAF1.")) {
+      // Palier GRATUIT : jeton SIGNÉ émis par trial-check. Quota À VIE (20
+      // cumulés, jamais remis à zéro) via styles_free_consume_capped plus bas.
+      const f = await verifyDeviceToken(tok);
+      if (!f) return json(401, { ok: false, error: "Jeton gratuit invalide." });
+      machine = String(f.m);
       cap = -1; // sentinel : quota à vie, cf. bloc quota plus bas
+    } else if (tok.startsWith("NOVAFREE.")) {
+      // Ancien format non signé : REFUSÉ (forgeable). L'app ≥1.0.32 utilise
+      // NOVAF1 ; les versions antérieures retombent sur l'Intelligence privée.
+      return json(401, { ok: false, error: "Jeton invalide — mettez Nova à jour." });
     } else {
       const p = await verifyToken(tok);
       const tier = String(p?.t || "");

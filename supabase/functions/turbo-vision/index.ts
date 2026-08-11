@@ -32,8 +32,10 @@ const MODEL_ALLOW = new Set([
   "meta-llama/llama-4-maverick-17b-128e-instruct",
 ]);
 
+// Restreint au site Nova (les apps desktop appellent en direct, sans CORS).
+const ALLOWED_ORIGIN = "https://www.novaspeak.app";
 const CORS = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
