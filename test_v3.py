@@ -633,7 +633,7 @@ def test_free_offer_sync():
     base = os.path.dirname(__file__)
     html = open(os.path.join(base, "landing", "index.html"),
                 encoding="utf-8").read()
-    counts = _re.findall(r"(\d+)\s+(?:writing\s+)?Styles\b", html)
+    counts = _re.findall(r"(\d+)\s+(?:\w+\s+)?Styles\b", html)
     check("landing : au moins une mention du compte de Styles",
           bool(counts), True)
     # Le plan Gratuit doit annoncer exactement len(FREE_MODES) - auto Styles ;

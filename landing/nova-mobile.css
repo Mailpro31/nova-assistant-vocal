@@ -1,0 +1,156 @@
+/* Nova mobile production layer — loaded last. */
+@media (max-width: 768px){
+  html,body{width:100%;max-width:100%;overflow-x:hidden!important;overscroll-behavior-x:none}
+  body{font-size:15px!important}
+  .logo-top{top:14px!important;left:50%!important;transform:translateX(-50%)!important;max-width:calc(100vw - 24px)!important}
+
+  /* Intro / hero */
+  .intro{padding:20px!important}
+  .intro-inner,.scene-inner,.manifesto-inner,.chapter-inner,.usecases-inner,.final-inner{width:100%!important;max-width:100%!important;padding-left:20px!important;padding-right:20px!important;margin-left:auto!important;margin-right:auto!important}
+  .intro h1,.hero h1,.manifesto h1,.chapter h2,.usecases h2,.pricing>h2,.faq>h2,.final h2{max-width:100%!important;white-space:normal!important;overflow-wrap:normal!important;word-break:normal!important;text-wrap:balance!important}
+  .manifesto h1,.chapter h2{font-size:clamp(50px,15vw,72px)!important;line-height:.92!important;letter-spacing:-.06em!important}
+  .usecases h2,.pricing>h2,.faq>h2{font-size:clamp(46px,14vw,68px)!important;line-height:.94!important}
+  .final h2{font-size:clamp(54px,16vw,76px)!important;line-height:.9!important}
+  .chapter p,.pricing>p,.usecases p{font-size:14px!important;line-height:1.55!important;max-width:92%!important;margin-left:auto!important;margin-right:auto!important}
+
+  /* Center manifesto / chapter composition precisely on mobile */
+  .manifesto-inner,.chapter-inner,.scene-inner{align-items:center!important;text-align:center!important}
+  .manifesto h1,.chapter h2,.scene h1{margin-left:auto!important;margin-right:auto!important;max-width:92vw!important;text-align:center!important}
+  .chapter p,.scene p{margin-left:auto!important;margin-right:auto!important;max-width:88vw!important;text-align:center!important}
+
+  /* Manifesto inline card: preserve the desktop orb scale/animation, but constrain it safely on phone. */
+  .manifesto .inline-shot{
+    display:inline-flex!important;
+    width:clamp(118px,14vw,206px)!important;
+    height:clamp(66px,8vw,116px)!important;
+    vertical-align:.05em!important;
+    margin:0 .08em!important;
+    position:relative!important;
+    overflow:hidden!important;
+    align-items:center!important;
+    justify-content:center!important;
+    transform:none!important;
+    left:auto!important;
+    right:auto!important;
+    isolation:isolate!important;
+  }
+  .manifesto .inline-shot .orb{
+    position:relative!important;
+    left:auto!important;
+    top:auto!important;
+    right:auto!important;
+    bottom:auto!important;
+    width:34%!important;
+    height:auto!important;
+    aspect-ratio:1!important;
+    margin:0!important;
+    transform:none!important;
+    transform-origin:center!important;
+    animation:miniOrb 4s ease-in-out infinite!important;
+    will-change:transform!important;
+  }
+  .manifesto>p{
+    position:absolute!important;
+    left:50%!important;
+    right:auto!important;
+    bottom:9vh!important;
+    transform:translateX(-50%)!important;
+    width:calc(100vw - 40px)!important;
+    max-width:520px!important;
+    margin:0!important;
+    padding:0!important;
+    color:var(--muted)!important;
+    font-size:14px!important;
+    line-height:1.68!important;
+    text-align:center!important;
+    text-wrap:balance!important;
+  }
+
+  /* Decorative words: true visual centering on phone. */
+  .scene#top{display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important}
+  .scene#top .scene-inner{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;text-align:center!important}
+  .words{position:relative!important;left:auto!important;right:auto!important;transform:none!important;width:calc(100vw - 36px)!important;max-width:560px!important;margin:0 auto!important;display:flex!important;flex-wrap:wrap!important;justify-content:center!important;align-items:center!important;align-content:center!important;gap:12px 18px!important;padding:0!important;text-align:center!important}
+  .words span{position:static!important;transform:none!important;font-size:9px!important;letter-spacing:.14em!important;text-align:center!important}
+  .hero-note{left:50%!important;right:auto!important;transform:translateX(-50%)!important;width:calc(100vw - 36px)!important;max-width:560px!important;text-align:center!important;padding:0!important}
+  body.ready .hero-note{transform:translateX(-50%)!important}
+
+  /* Cinematic/pastel area: fully deterministic on mobile, no sticky/morph race. */
+  .cinema{position:relative!important;min-height:82svh!important;height:82svh!important;overflow:hidden!important;background:#fff!important;isolation:isolate!important}
+  .cinema-media{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;min-height:0!important;transform:none!important;border-radius:0!important;will-change:auto!important;z-index:1!important}
+  .cinema-media::before{animation:none!important;transform:none!important}
+  .cinema-media::after{background:linear-gradient(180deg,#fff 0,rgba(255,255,255,.82) 5%,rgba(255,255,255,.28) 13%,rgba(255,255,255,0) 24%,rgba(255,255,255,0) 75%,rgba(255,255,255,.44) 91%,#fff 100%)!important}
+  .cinema-shape{animation:none!important}
+  .cinema-copy{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;margin:0!important;padding:0 20px!important;opacity:1!important;transform:none!important;z-index:8!important;pointer-events:none!important}
+  .cinema-copy p{opacity:1!important;filter:none!important;transform:none!important}
+  .cinema-copy .a{left:20px!important;top:25%!important;right:auto!important;text-align:left!important}
+  .cinema-copy .b{right:20px!important;top:54%!important;left:auto!important;text-align:right!important}
+  .cinema-copy small{left:50%!important;bottom:7%!important;transform:translateX(-50%)!important;white-space:nowrap!important}
+  .cinema-copy>*{max-width:46vw!important;font-size:clamp(19px,6vw,28px)!important;line-height:.98!important}
+  .cinema::before{content:"";position:absolute;inset:-10% 0 0;z-index:0;pointer-events:none;background:radial-gradient(48% 32% at 50% 84%,rgba(255,190,150,.58) 0%,rgba(255,190,150,0) 74%),radial-gradient(52% 38% at 50% 68%,rgba(140,214,145,.54) 0%,rgba(140,214,145,0) 74%),radial-gradient(54% 40% at 50% 50%,rgba(117,195,230,.46) 0%,rgba(117,195,230,0) 76%),radial-gradient(56% 36% at 50% 31%,rgba(154,142,255,.38) 0%,rgba(154,142,255,0) 78%);filter:blur(34px);opacity:1;-webkit-mask-image:linear-gradient(to bottom,rgba(0,0,0,.05) 0%,rgba(0,0,0,.28) 8%,rgba(0,0,0,.62) 18%,rgba(0,0,0,.9) 30%,#000 46%,#000 100%);mask-image:linear-gradient(to bottom,rgba(0,0,0,.05) 0%,rgba(0,0,0,.28) 8%,rgba(0,0,0,.62) 18%,rgba(0,0,0,.9) 30%,#000 46%,#000 100%)}
+  .cinema-orb{z-index:5!important}
+
+  /* Chapters: one clean vertical composition per screen. */
+  .chapter{min-height:auto!important;height:auto!important;padding:92px 0 110px!important;overflow:hidden!important}
+  .chapter-inner{min-height:auto!important;height:auto!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:flex-start!important;gap:22px!important;text-align:center!important}
+  .chapter-label{font-size:9px!important;margin:0 auto 12px!important}
+  .chapter .black-btn{width:108px!important;min-width:108px!important;max-width:108px!important;height:36px!important;min-height:36px!important;padding:0 10px!important;font-size:8px!important;line-height:1!important;margin:10px auto 0!important}
+
+  /* Scale all feature graphics instead of cropping them. */
+  .chapter svg,.chapter canvas,.chapter .visual,.chapter .orbital,.chapter .local-visual,.chapter .voice-visual,.chapter .context-visual,.chapter .styles-visual{max-width:min(86vw,420px)!important;height:auto!important;margin-left:auto!important;margin-right:auto!important}
+  .chapter canvas{display:block!important}
+
+  /* Founder */
+  .founder-story{padding:82px 16px 104px!important;min-height:auto!important}
+  .founder-story canvas,.founder-story img{width:min(92vw,520px)!important;max-width:92vw!important;height:auto!important;margin:0 auto!important;display:block!important}
+  .founder-copy,.founder-note{padding:0 10px!important;text-align:center!important}
+
+  /* Pricing */
+  .pricing{padding:96px 16px 128px!important;overflow:hidden!important}
+  .billing-switch{margin:28px auto 36px!important;transform:scale(.92)!important;transform-origin:center!important}
+  .pricing .plans{display:flex!important;flex-direction:column!important;gap:14px!important;width:100%!important;max-width:560px!important;margin:0 auto!important}
+  .pricing .plan{width:100%!important;min-height:0!important;padding:25px 22px!important;border-radius:24px!important;transform:none!important}
+  .pricing .plan:hover{transform:none!important}
+  .pricing .plan .black-btn{height:48px!important;min-height:48px!important;font-size:12px!important}
+  .price{font-size:48px!important}
+
+  /* FAQ / final */
+  .faq{padding:96px 18px 120px!important}
+  .faq-list{width:100%!important;max-width:100%!important}
+  .faq-item{padding:20px 0!important}
+  .final{padding:110px 18px 140px!important;overflow:hidden!important}
+
+  /* Fixed dock: keep the pricing shortcut, download and legal controls visible even on slow iOS first paint. */
+  .dock{position:fixed!important;left:50%!important;right:auto!important;bottom:max(10px,env(safe-area-inset-bottom))!important;transform:translateX(-50%)!important;display:grid!important;grid-template-columns:42px minmax(156px,196px) 42px!important;grid-template-rows:42px!important;align-items:center!important;gap:8px!important;width:max-content!important;max-width:calc(100vw - 16px)!important;padding:0!important;z-index:999!important;opacity:1!important;visibility:visible!important}
+  .dock a[href="#film"]{display:none!important}
+  .dock a[href="#tarifs"]:not(#soundBtn){display:none!important}
+  .dock::before{content:none!important;display:none!important}
+  .dock #soundBtn,.dock.dock-compact #soundBtn{display:grid!important;place-items:center!important;grid-column:1!important;grid-row:1!important;order:1!important;width:42px!important;height:42px!important;min-width:42px!important;min-height:42px!important;opacity:1!important;visibility:visible!important;pointer-events:auto!important;position:relative!important;z-index:3!important;background:#111217!important;color:#fff!important;border:0!important;border-radius:999px!important;transform:none!important}
+  .dock #soundBtn svg,.dock.dock-compact #soundBtn svg{display:block!important;width:14px!important;height:14px!important;stroke:#fff!important;fill:none!important;opacity:1!important}
+  .dock .main,.dock.dock-compact .main{display:flex!important;align-items:center!important;justify-content:center!important;grid-column:2!important;grid-row:1!important;order:2!important;width:100%!important;min-width:0!important;height:42px!important;padding:0 14px!important;font-size:10px!important;opacity:1!important;visibility:visible!important}
+  .dock .legal-link,.dock.dock-compact .legal-link{display:grid!important;place-items:center!important;grid-column:3!important;grid-row:1!important;order:3!important;width:42px!important;height:42px!important;opacity:1!important;visibility:visible!important}
+  .dock a,.dock button{height:42px!important}
+
+  /* Download gate */
+  .nova-dl-gate,.dlov{padding:14px!important;align-items:flex-end!important}
+  .nova-dl-gate-card,.dlbox{width:100%!important;max-width:100%!important;border-radius:24px 24px 18px 18px!important;padding:28px 20px calc(24px + env(safe-area-inset-bottom))!important;max-height:86svh!important;overflow:auto!important}
+  .nova-dl-gate input,.dlbox input{font-size:16px!important}
+
+  @media (hover:none){.plan:hover,.black-btn:hover,.dock a:hover,.dock button:hover{transform:none!important}}
+}
+
+@media (max-width: 430px){
+  .manifesto h1,.chapter h2{font-size:clamp(44px,14vw,60px)!important}
+  .pricing>h2,.usecases h2,.faq>h2{font-size:clamp(42px,13vw,58px)!important}
+  .chapter{padding-top:78px!important;padding-bottom:96px!important}
+  .chapter-inner,.manifesto-inner,.scene-inner{padding-left:16px!important;padding-right:16px!important}
+  .words{width:calc(100vw - 30px)!important;gap:11px 16px!important}
+  .hero-note{width:calc(100vw - 30px)!important}
+  .cinema-copy>*{max-width:49vw!important;font-size:20px!important}
+  .billing-switch{max-width:calc(100vw - 24px)!important;transform:scale(.86)!important}
+  .pricing .plan{padding:22px 18px!important}
+  .price{font-size:44px!important}
+  .dock{grid-template-columns:40px minmax(150px,182px) 40px!important;grid-template-rows:40px!important}
+  .dock #soundBtn,.dock.dock-compact #soundBtn{width:40px!important;height:40px!important;min-width:40px!important;min-height:40px!important}
+  .dock .legal-link,.dock.dock-compact .legal-link{width:40px!important;height:40px!important}
+  .dock .main,.dock.dock-compact .main{height:40px!important;font-size:9.5px!important}
+}

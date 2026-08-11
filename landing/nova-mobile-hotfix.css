@@ -1,0 +1,67 @@
+/* Production mobile hotfix: keep the cinematic pastel section stable from first paint. */
+@media (max-width:768px){
+  html body .cinema{
+    position:relative!important;
+    min-height:82svh!important;
+    height:82svh!important;
+    overflow:hidden!important;
+    isolation:isolate!important;
+    background:#fff!important;
+  }
+
+  /* The color field is visible immediately, but fades into white instead of
+     starting/ending on a hard rectangular edge. */
+  html body .cinema .cinema-media{
+    position:absolute!important;
+    inset:0!important;
+    width:100%!important;
+    height:100%!important;
+    min-height:0!important;
+    transform:none!important;
+    border-radius:0!important;
+    opacity:1!important;
+    visibility:visible!important;
+    z-index:1!important;
+    will-change:auto!important;
+    -webkit-mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.18) 5%,rgba(0,0,0,.72) 14%,#000 25%,#000 75%,rgba(0,0,0,.72) 86%,rgba(0,0,0,.18) 95%,transparent 100%)!important;
+    mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.18) 5%,rgba(0,0,0,.72) 14%,#000 25%,#000 75%,rgba(0,0,0,.72) 86%,rgba(0,0,0,.18) 95%,transparent 100%)!important;
+  }
+
+  html body .cinema .cinema-media::before{
+    animation:none!important;
+    transform:none!important;
+    filter:blur(32px)!important;
+    opacity:.9!important;
+  }
+
+  html body .cinema .cinema-media::after{
+    background:linear-gradient(180deg,#fff 0,rgba(255,255,255,.82) 5%,rgba(255,255,255,.38) 13%,rgba(255,255,255,0) 25%,rgba(255,255,255,0) 75%,rgba(255,255,255,.38) 87%,rgba(255,255,255,.82) 95%,#fff 100%)!important;
+  }
+
+  /* Keep the secondary pastel atmosphere from creating its own hard edge. */
+  html body .cinema::before{
+    inset:0!important;
+    opacity:.72!important;
+    filter:blur(42px)!important;
+    -webkit-mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.16) 7%,rgba(0,0,0,.7) 18%,#000 30%,#000 72%,rgba(0,0,0,.6) 86%,transparent 100%)!important;
+    mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.16) 7%,rgba(0,0,0,.7) 18%,#000 30%,#000 72%,rgba(0,0,0,.6) 86%,transparent 100%)!important;
+  }
+
+  /* Never wait for a desktop reveal/morph state on phone. */
+  html body .cinema .cinema-copy,
+  html body .cinema .cinema-copy p,
+  html body .cinema .cinema-copy small{
+    opacity:1!important;
+    visibility:visible!important;
+    filter:none!important;
+  }
+
+  html body .cinema .cinema-copy{
+    transform:none!important;
+    z-index:8!important;
+  }
+
+  html body .cinema .cinema-shape{
+    animation:none!important;
+  }
+}

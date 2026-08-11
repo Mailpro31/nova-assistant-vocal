@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1120" viewBox="0 0 900 1120" role="img" aria-labelledby="title desc">
+<title id="title">Sasha, Founder of Nova</title>
+<desc id="desc">Dotted portrait of Sasha with a short founder note.</desc>
+<rect width="900" height="1120" fill="#fff"/>
+<g>__SVG_DOTS__</g>
+<g font-family="Arial Nova, Helvetica Neue, Arial, sans-serif" text-anchor="middle" fill="#404044">
+  <text x="450" y="790" font-size="34" font-weight="400">I like Rick and Morty.</text>
+  <text x="450" y="850" font-size="34" font-weight="400">I like saving time.</text>
+  <text x="450" y="910" font-size="34" font-weight="400">The rest, you’ll see by trying it.</text>
+  <text x="450" y="995" font-size="24" fill="#9b9ba1">Sasha, Founder</text>
+</g>
+</svg>
