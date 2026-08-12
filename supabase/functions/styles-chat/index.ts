@@ -59,18 +59,39 @@ const PUB_BYTES = Uint8Array.from(atob(PUBLIC_KEY_B64), (c) => c.charCodeAt(0));
 
 const un64 = (s: string) =>
   Uint8Array.from(
-    atob(s.replace(/-/g, "+").replace(/_/g, "/") +
-      "=".repeat((4 - s.length % 4) % 4)),
+    atob(
+      s.replace(/-/g, "+").replace(/_/g, "/") +
+        "=".repeat((4 - (s.length % 4)) % 4),
+    ),
     (c) => c.charCodeAt(0),
   );
 
-async function verifyToken(tok: string): Promise<Record<string, unknown> | null> {
+// Les premières licences NOVA1 distribuées par Nova étaient signées et
+// expirables, mais ne portaient pas encore l'identifiant machine `m`. Elles
+// restent authentiques : on leur attribue une identité de quota stable dérivée
+// du jeton signé au lieu de les rejeter. Aucune donnée personnelle n'est créée
+// et deux licences historiques ne partagent pas leur compteur.
+async function legacyMachineId(tok: string): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(tok),
+  );
+  const hex = Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+  return `legacy-${hex}`;
+}
+
+async function verifyToken(
+  tok: string,
+): Promise<Record<string, unknown> | null> {
   const m = /^NOVA1\.([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)$/.exec(tok || "");
   if (!m) return null;
   // décodage + vérif + parse sous une seule garde : un segment base64 ou un
   // JSON invalide renvoie null (→ 401), jamais une exception non gérée (→ 500)
   try {
-    const payload = un64(m[1]), sig = un64(m[2]);
+    const payload = un64(m[1]),
+      sig = un64(m[2]);
     if (!(await ed.verifyAsync(sig, payload, PUB_BYTES))) return null;
     return JSON.parse(new TextDecoder().decode(payload));
   } catch {
@@ -84,11 +105,16 @@ async function verifyToken(tok: string): Promise<Record<string, unknown> | null>
 // Sans ça, un utilisateur EN ESSAI n'a aucun jeton NOVA1 à présenter : le
 // cloud lui répondait 401 et l'app retombait sur le moteur local (lent) —
 // exactement à l'opposé de la démonstration qu'on veut faire pendant l'essai.
-async function verifyDeviceToken(tok: string): Promise<Record<string, unknown> | null> {
-  const m = /^(NOVAT1|NOVAF1)\.([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)$/.exec(tok || "");
+async function verifyDeviceToken(
+  tok: string,
+): Promise<Record<string, unknown> | null> {
+  const m = /^(NOVAT1|NOVAF1)\.([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)$/.exec(
+    tok || "",
+  );
   if (!m) return null;
   try {
-    const payload = un64(m[2]), sig = un64(m[3]);
+    const payload = un64(m[2]),
+      sig = un64(m[3]);
     if (!(await ed.verifyAsync(sig, payload, PUB_BYTES))) return null;
     const data = JSON.parse(new TextDecoder().decode(payload));
     const kind = m[1] === "NOVAT1" ? "trial" : "free";
@@ -105,8 +131,11 @@ async function verifyDeviceToken(tok: string): Promise<Record<string, unknown> |
 let anthropicKey = "";
 async function serverAnthropicKey(): Promise<string> {
   if (anthropicKey) return anthropicKey;
-  const { data } = await supa.from("server_secrets").select("value")
-    .eq("name", "anthropic_api_key").maybeSingle();
+  const { data } = await supa
+    .from("server_secrets")
+    .select("value")
+    .eq("name", "anthropic_api_key")
+    .maybeSingle();
   anthropicKey = data?.value || "";
   return anthropicKey;
 }
@@ -115,17 +144,23 @@ async function serverAnthropicKey(): Promise<string> {
 // refuse QUE si TOUTES les licences de la machine sont résiliées/expirées.
 async function licenseRevoked(machine: string): Promise<boolean> {
   try {
-    const { data: acts } = await supa.from("activations")
-      .select("license_id").eq("machine_hash", machine);
+    const { data: acts } = await supa
+      .from("activations")
+      .select("license_id")
+      .eq("machine_hash", machine);
     if (!acts || !acts.length) return false;
     const ids = acts.map((a) => a.license_id);
-    const { data: lics } = await supa.from("licenses")
-      .select("status,current_period_end").in("id", ids);
+    const { data: lics } = await supa
+      .from("licenses")
+      .select("status,current_period_end")
+      .in("id", ids);
     if (!lics || !lics.length) return false;
     const now = Date.now();
     const anyValid = lics.some((l) => {
       if (l.status === "canceled") return false;
-      const end = l.current_period_end ? new Date(l.current_period_end).getTime() : 0;
+      const end = l.current_period_end
+        ? new Date(l.current_period_end).getTime()
+        : 0;
       if (end && now > end + GRACE_MS) return false;
       return true;
     });
@@ -138,7 +173,8 @@ async function licenseRevoked(machine: string): Promise<boolean> {
 Deno.serve(async (req: Request) => {
   try {
     if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
-    if (req.method !== "POST") return json(404, { ok: false, error: "Introuvable." });
+    if (req.method !== "POST")
+      return json(404, { ok: false, error: "Introuvable." });
 
     // L'app poste sur {base_url}/chat/completions (format OpenAI)
     if (!new URL(req.url).pathname.endsWith("/chat/completions")) {
@@ -149,12 +185,19 @@ Deno.serve(async (req: Request) => {
     //   tous SIGNÉS Ed25519 par le serveur. Le vieux NOVAFREE non signé était
     //   forgeable à volonté (pentest 2026-08-11) : rejeté. Les apps à jour
     //   obtiennent un NOVAF1 via trial-check. —
-    const tok = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+    const tok = (req.headers.get("Authorization") || "").replace(
+      /^Bearer\s+/i,
+      "",
+    );
     let machine: string;
     let cap: number;
     if (tok.startsWith("NOVAT1.")) {
       const t = await verifyDeviceToken(tok);
-      if (!t) return json(401, { ok: false, error: "Essai expiré ou jeton invalide." });
+      if (!t)
+        return json(401, {
+          ok: false,
+          error: "Essai expiré ou jeton invalide.",
+        });
       machine = String(t.m);
       cap = TRIAL_DAILY_CAP;
     } else if (tok.startsWith("NOVAF1.")) {
@@ -167,7 +210,10 @@ Deno.serve(async (req: Request) => {
     } else if (tok.startsWith("NOVAFREE.")) {
       // Ancien format non signé : REFUSÉ (forgeable). L'app ≥1.0.32 utilise
       // NOVAF1 ; les versions antérieures retombent sur l'Intelligence privée.
-      return json(401, { ok: false, error: "Jeton invalide — mettez Nova à jour." });
+      return json(401, {
+        ok: false,
+        error: "Jeton invalide — mettez Nova à jour.",
+      });
     } else {
       const p = await verifyToken(tok);
       const tier = String(p?.t || "");
@@ -177,9 +223,12 @@ Deno.serve(async (req: Request) => {
       if (!p.x || Date.now() / 1000 > Number(p.x)) {
         return json(401, { ok: false, error: "Licence expirée." });
       }
-      machine = String(p.m || "");
-      if (!machine) return json(401, { ok: false, error: "Jeton invalide." });
-      if (await licenseRevoked(machine)) {
+      const boundMachine = String(p.m || "");
+      machine = boundMachine || (await legacyMachineId(tok));
+      // La révocation temps réel repose sur la table d'activations et ne peut
+      // donc s'appliquer qu'aux nouveaux jetons liés à une machine. Les anciens
+      // restent bornés par leur signature, leur expiration et leur fair-use.
+      if (boundMachine && (await licenseRevoked(boundMachine))) {
         return json(403, { ok: false, error: "Abonnement résilié." });
       }
       cap = DAILY_CAP[tier];
@@ -211,11 +260,16 @@ Deno.serve(async (req: Request) => {
     let freeConsumed = false;
     if (cap === -1) {
       const { data, error } = await supa.rpc("styles_free_consume_capped", {
-        p_machine: machine, p_cap: FREE_LIFETIME_CAP });
+        p_machine: machine,
+        p_cap: FREE_LIFETIME_CAP,
+      });
       if (error) {
         // RPC absente (migration en retard) → repli legacy fail-open
-        const { data: u } = await supa.from("styles_free_usage").select("count")
-          .eq("machine_hash", machine).maybeSingle();
+        const { data: u } = await supa
+          .from("styles_free_usage")
+          .select("count")
+          .eq("machine_hash", machine)
+          .maybeSingle();
         if ((u?.count || 0) + 1 > FREE_LIFETIME_CAP) {
           return json(429, { ok: false, error: "quota" });
         }
@@ -226,12 +280,19 @@ Deno.serve(async (req: Request) => {
       }
     } else {
       const { data, error } = await supa.rpc("styles_consume_capped", {
-        p_machine: machine, p_count: 1, p_cap: cap });
+        p_machine: machine,
+        p_count: 1,
+        p_cap: cap,
+      });
       if (error) {
         // RPC absente (migration en retard) → repli legacy fail-open
         const today = new Date().toISOString().slice(0, 10);
-        const { data: u } = await supa.from("styles_usage").select("count")
-          .eq("machine_hash", machine).eq("day", today).maybeSingle();
+        const { data: u } = await supa
+          .from("styles_usage")
+          .select("count")
+          .eq("machine_hash", machine)
+          .eq("day", today)
+          .maybeSingle();
         if ((u?.count || 0) + 1 > cap) {
           return json(429, { ok: false, error: "quota" });
         }
@@ -255,12 +316,14 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify({
         model: ANTHROPIC_MODEL,
         max_tokens: Math.min(4096, Math.max(256, Math.ceil(text.length * 1.5))),
-        system: system ||
+        system:
+          system ||
           "Reformule le texte dicté selon les consignes. Réponds UNIQUEMENT avec le texte reformulé, sans préambule ni commentaire.",
         messages: [{ role: "user", content: text }],
-        temperature: typeof body.temperature === "number"
-          ? Math.min(1, Math.max(0, body.temperature))
-          : 0.3,
+        temperature:
+          typeof body.temperature === "number"
+            ? Math.min(1, Math.max(0, body.temperature))
+            : 0.3,
       }),
       signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
     });
@@ -270,9 +333,15 @@ Deno.serve(async (req: Request) => {
         await supa.rpc("styles_consume", { p_machine: machine, p_count: -1 });
       }
       if (freeConsumed) {
-        await supa.rpc("styles_free_consume", { p_machine: machine, p_count: -1 });
+        await supa.rpc("styles_free_consume", {
+          p_machine: machine,
+          p_count: -1,
+        });
       }
-      return json(502, { ok: false, error: "Service momentanément indisponible." });
+      return json(502, {
+        ok: false,
+        error: "Service momentanément indisponible.",
+      });
     }
     const out = await r.json();
     const content = String(out?.content?.[0]?.text || "").trim();
@@ -281,7 +350,10 @@ Deno.serve(async (req: Request) => {
         await supa.rpc("styles_consume", { p_machine: machine, p_count: -1 });
       }
       if (freeConsumed) {
-        await supa.rpc("styles_free_consume", { p_machine: machine, p_count: -1 });
+        await supa.rpc("styles_free_consume", {
+          p_machine: machine,
+          p_count: -1,
+        });
       }
       return json(502, { ok: false, error: "Réponse vide." });
     }
