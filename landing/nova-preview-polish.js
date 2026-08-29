@@ -47,8 +47,9 @@ document.querySelectorAll(staggerGroups.join(',')).forEach(group=>{
 /* Add a discreet choice label without changing the pricing structure. */
 const featured=document.querySelector('.plan.featured');
 if(featured&&!featured.querySelector('.plan-badge')){
-  const badgeFr=document.createElement('span');badgeFr.className='plan-badge fr';badgeFr.textContent='Le plus choisi';
-  const badgeEn=document.createElement('span');badgeEn.className='plan-badge en';badgeEn.textContent='Most popular';
+  const audienceMode=document.querySelector('.pricing.audiences');
+  const badgeFr=document.createElement('span');badgeFr.className='plan-badge fr';badgeFr.textContent=audienceMode?'Programme pilote':'Le plus choisi';
+  const badgeEn=document.createElement('span');badgeEn.className='plan-badge en';badgeEn.textContent=audienceMode?'Pilot program':'Most popular';
   featured.prepend(badgeEn);featured.prepend(badgeFr);
 }
 

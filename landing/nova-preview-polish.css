@@ -106,3 +106,25 @@ body.ready .scroll-cue.show{opacity:.72;translate:-50% 0}
 }
 @media(hover:none){.enter,.black-btn,.dock a,.dock button,.logo-top{translate:0 0!important}.plan::after{display:none}}
 @media(prefers-reduced-motion:reduce){body::before,.scroll-cue{display:none!important}.intro .orb::after,.intro-inner::before{animation:none!important}.enter,.black-btn,.dock a,.dock button,.logo-top{translate:0 0!important}}
+
+/* New product story, expressed in Nova's original visual language. */
+.app-rail{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;width:min(760px,94vw);margin-top:-5px}
+.app-rail span{padding:8px 12px;border:1px solid rgba(17,18,23,.065);border-radius:999px;background:rgba(255,255,255,.72);box-shadow:0 8px 24px rgba(70,82,122,.055);color:#747985;font-size:9px;font-weight:650;letter-spacing:.07em;white-space:nowrap}
+.style-card .result b{font-weight:650;color:#3c4049}
+.pricing.audiences .price{font-size:clamp(38px,4.2vw,58px)!important;line-height:1!important;overflow-wrap:anywhere}
+.pricing.audiences .plan h3{color:#969aa4;font-size:12px!important;letter-spacing:.08em!important;text-transform:uppercase}
+.pricing.audiences .plan-badge{margin-bottom:14px!important}
+.final-content{width:min(900px,calc(100vw - 40px))}
+.final-note{margin:28px auto 0;color:#777b84;font-size:15px;line-height:1.6}
+.final-actions{display:flex;align-items:center;justify-content:center;gap:18px;margin-top:28px}
+.final-link{color:#343741;font-size:12px;font-weight:650;text-decoration:none;border-bottom:1px solid rgba(52,55,65,.24);padding:10px 2px;transition:border-color .25s ease,color .25s ease}
+.final-link:hover{color:#6478b8;border-color:#6478b8}
+
+@media(max-width:680px){
+  .app-rail{gap:6px;width:100%}
+  .app-rail span{padding:7px 9px;font-size:8px}
+  .pricing.audiences .price{font-size:42px!important}
+  .final-content{margin-top:12vh}
+  .final-note{font-size:13px}
+  .final-actions{flex-direction:column;gap:8px}
+}

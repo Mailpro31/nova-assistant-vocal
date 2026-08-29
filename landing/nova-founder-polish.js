@@ -156,6 +156,7 @@
 
   document.querySelectorAll('.founder-story').forEach(el=>el.remove());
   const pricing=document.querySelector('.pricing');
+  const audienceMode=pricing?.classList.contains('audiences');
   if(pricing){
     const section=document.createElement('section');
     section.className='founder-story';
@@ -168,11 +169,15 @@
     section.appendChild(img);
     pricing.before(section);
 
-    const heading=pricing.querySelector(':scope > h2');
-    const intro=pricing.querySelector(':scope > p');
-    if(heading) heading.innerHTML='Start free.<br>Unlock the full Nova.';
-    if(intro) intro.textContent='Free covers the essentials. Pro removes every local limit and adds true personalization — vocabulary, variables, shortcuts, all yours. Ultra brings Nova’s full intelligence: unlimited Turbo, automatic meeting notes and real context awareness.';
+    if(!audienceMode){
+      const heading=pricing.querySelector(':scope > h2');
+      const intro=pricing.querySelector(':scope > p');
+      if(heading) heading.innerHTML='Start free.<br>Unlock the full Nova.';
+      if(intro) intro.textContent='Free covers the essentials. Pro removes every local limit and adds true personalization — vocabulary, variables, shortcuts, all yours. Ultra brings Nova’s full intelligence: unlimited Turbo, automatic meeting notes and real context awareness.';
+    }
   }
+
+  if(audienceMode)return;
 
   const pricingCopy={
     title:['Free','Nova Pro','Nova Ultra'],
