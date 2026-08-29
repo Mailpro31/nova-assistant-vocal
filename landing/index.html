@@ -18,7 +18,7 @@
   <meta name="twitter:image" content="https://novaspeak.app/og-en.png">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <meta name="theme-color" content="#ffffff">
-  <link rel="stylesheet" href="/site-v2.css?v=1">
+  <link rel="stylesheet" href="/site-v2.css?v=2">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -31,6 +31,8 @@
       <a href="#product">Product</a>
       <a href="#solutions">Solutions</a>
       <a href="#privacy">Privacy</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#resources">Resources</a>
     </nav>
     <div class="header-actions">
       <a class="header-link" href="/business">Request a demo</a>
@@ -45,6 +47,8 @@
     <a href="#product">Product</a>
     <a href="#solutions">Solutions</a>
     <a href="#privacy">Privacy</a>
+    <a href="#pricing">Pricing</a>
+    <a href="#resources">Resources</a>
     <a href="/business">Request a demo</a>
   </nav>
 
@@ -139,7 +143,7 @@
         <p class="eyebrow">Privacy, by architecture</p>
         <h2 id="privacy-title">Your words are<br>not our data.</h2>
         <p>Nova is built to process what you say for the task at hand — while keeping ownership and control with you.</p>
-        <a class="text-link" href="/privacy.html">Explore Nova privacy <span aria-hidden="true">↗</span></a>
+        <a class="text-link" href="/security">Explore Nova privacy <span aria-hidden="true">↗</span></a>
       </div>
       <div class="privacy-flow" aria-label="Voice is processed into text and returned to the user">
         <div><small>Yours</small><strong>Your voice</strong></div>
@@ -151,11 +155,128 @@
       </div>
     </section>
 
-    <section class="slice-next" id="solutions" aria-label="More Nova solutions are coming in the next milestone">
-      <p>Personal Free · 3 Styles <span>·</span> Campus <span>·</span> Business</p>
+    <section class="context-story section-shell" aria-labelledby="context-title">
+      <div class="section-heading section-heading-wide">
+        <p class="eyebrow">Automatic Style</p>
+        <h2 id="context-title">Nova understands<br>where you’re writing.</h2>
+        <p>One voice. A result shaped for the app, the recipient and the task in front of you.</p>
+      </div>
+      <div class="context-stage">
+        <div class="context-apps" aria-label="Example application contexts">
+          <button type="button" class="context-app is-active" data-story-context="message"><span>S</span><strong>Message</strong><small>Warm · concise</small></button>
+          <button type="button" class="context-app" data-story-context="email"><span>M</span><strong>Email</strong><small>Polished · structured</small></button>
+          <button type="button" class="context-app" data-story-context="prompt"><span>C</span><strong>Prompt</strong><small>Explicit · actionable</small></button>
+        </div>
+        <div class="context-result" aria-live="polite">
+          <div class="result-bar"><span data-story-label>Message</span><small>Automatic Style</small></div>
+          <p data-story-copy>Hey Lucas — can you send me the file when you have a minute? Thanks!</p>
+          <div class="tone-tags" data-story-tags><span>Warm</span><span>Concise</span><span>Ready to send</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="capabilities section-shell" aria-labelledby="capabilities-title">
+      <div class="section-heading">
+        <p class="eyebrow">One voice interface</p>
+        <h2 id="capabilities-title">Less typing.<br>More finished work.</h2>
+      </div>
+      <div class="capability-grid">
+        <article class="capability-card card-blue"><span class="capability-index">01</span><h3>Voice</h3><p>Hold a key, speak naturally, and place clean text directly at your cursor.</p><div class="mini-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div></article>
+        <article class="capability-card card-lilac"><span class="capability-index">02</span><h3>Styles</h3><p>Turn the same thought into an email, a message, notes, a task or an AI prompt.</p><div class="style-pills" aria-hidden="true"><span>Email</span><span>Notes</span><span>Prompt</span></div></article>
+        <article class="capability-card card-mint"><span class="capability-index">03</span><h3>Commands</h3><p>Rewrite, summarize and translate without breaking your flow or changing apps.</p><div class="command-line" aria-hidden="true"><span>/</span> Make this clearer</div></article>
+        <article class="capability-card card-warm"><span class="capability-index">04</span><h3>Local mode</h3><p>Run dictation and rewriting on your Windows PC when privacy matters most.</p><div class="local-badge" aria-hidden="true"><i></i> On this device</div></article>
+      </div>
+    </section>
+
+    <section class="privacy-deep section-shell" aria-labelledby="privacy-deep-title">
+      <div class="section-heading section-heading-wide">
+        <p class="eyebrow">Private by choice, clear by design</p>
+        <h2 id="privacy-deep-title">Your data.<br>Your mode. Your control.</h2>
+        <p>Nova makes the processing choice visible. Use Local mode on your PC, or enable Turbo when you want cloud speed and intelligence.</p>
+      </div>
+      <div class="privacy-modes">
+        <article>
+          <span class="mode-label">Personal · Local</span>
+          <h3>Keep the work on your PC.</h3>
+          <p>In Local mode, dictation, rewriting, vocabulary and history stay on your Windows computer.</p>
+          <ul><li>Local transcription</li><li>Local rewriting</li><li>Local history</li><li>Windows-protected secrets</li></ul>
+        </article>
+        <article class="mode-cloud">
+          <span class="mode-label">Personal · Turbo</span>
+          <h3>Cloud only when you choose it.</h3>
+          <p>Turbo is opt-in. Content is sent only for the requested processing; Nova does not use it to build a content history.</p>
+          <ul><li>Explicit mode choice</li><li>Task-bound processing</li><li>No Nova content archive</li><li>Local fallback available</li></ul>
+        </article>
+        <article class="mode-org">
+          <span class="mode-label">Campus · Business pilots</span>
+          <h3>A private runtime, scoped with you.</h3>
+          <p>Organization pilots can be designed around a dedicated processing environment and documented data boundaries.</p>
+          <ul><li>Architecture review</li><li>Defined data flows</li><li>Deployment scoping</li><li>Pilot before rollout</li></ul>
+        </article>
+      </div>
+      <p class="privacy-caveat">Cloud provider processing terms can apply when cloud features are enabled. Organization capabilities are scoped and validated during a pilot.</p>
+    </section>
+
+    <section class="solutions section-shell" id="solutions" aria-labelledby="solutions-title">
+      <div class="section-heading section-heading-wide">
+        <p class="eyebrow">One Nova</p>
+        <h2 id="solutions-title">Built for different<br>ways of working.</h2>
+      </div>
+      <div class="solution-grid">
+        <article class="solution-card solution-personal">
+          <span class="solution-orb" aria-hidden="true"></span><p class="eyebrow">Personal</p><h3>Your voice, everywhere you write.</h3><p>For students, creators, developers and professionals who want to move faster without giving up control.</p>
+          <ul><li>Free, Pro and Ultra</li><li>Automatic Style</li><li>Local mode on Windows</li></ul><a class="text-link" href="/personal">Explore Personal <span aria-hidden="true">→</span></a>
+        </article>
+        <article class="solution-card solution-campus">
+          <span class="solution-orb" aria-hidden="true"></span><p class="eyebrow">Campus</p><h3>AI fluency, in the flow of learning.</h3><p>A scoped pilot for students, educators and IT teams exploring responsible voice-first AI.</p>
+          <ul><li>Student experience</li><li>Educator workflows</li><li>Private deployment discovery</li></ul><a class="text-link" href="/campus">Request a Campus Pilot <span aria-hidden="true">→</span></a>
+        </article>
+        <article class="solution-card solution-business">
+          <span class="solution-orb" aria-hidden="true"></span><p class="eyebrow">Business</p><h3>Voice productivity, with organization control.</h3><p>Bring faster writing to teams while defining the deployment and data boundaries together.</p>
+          <ul><li>Team vocabulary and Styles</li><li>Multi-seat licensing</li><li>Private runtime discovery</li></ul><a class="text-link" href="/business">Book a demo <span aria-hidden="true">→</span></a>
+        </article>
+      </div>
+    </section>
+
+    <section class="pricing section-shell" id="pricing" aria-labelledby="pricing-title">
+      <div class="section-heading section-heading-wide">
+        <p class="eyebrow">Personal pricing</p>
+        <h2 id="pricing-title">Start free.<br>Keep your momentum.</h2>
+        <p>Choose the level of intelligence and personalization that fits the way you work.</p>
+      </div>
+      <div class="pricing-grid">
+        <article class="price-card"><div class="plan-top"><h3>Free</h3><span>For getting started</span></div><p class="price">0 €</p><ul><li>Unlimited local dictation</li><li>90+ languages</li><li>3 essential Styles</li><li>20 Turbo rewrites, once</li></ul><a class="button button-light" href="https://github.com/Mailpro31/nova-releases/releases/latest/download/Nova-Setup.exe">Download</a></article>
+        <article class="price-card featured"><div class="plan-top"><h3>Pro</h3><span>Most popular</span></div><p class="price">4.99 € <small>/ month</small></p><ul><li>Unlimited dictation and rewriting</li><li>All Styles, including Automatic</li><li>Personal vocabulary and glossary</li><li>Smart variables and shortcuts</li><li>Unlimited history and export</li></ul><a class="button button-dark" href="https://buy.stripe.com/9B68wO1Wif1g3Kfg7YefC09">Try Pro</a></article>
+        <article class="price-card"><div class="plan-top"><h3>Ultra</h3><span>Nova at full power</span></div><p class="price">14.99 € <small>/ month</small></p><ul><li>Everything in Pro</li><li>Nova Turbo, unlimited</li><li>Meeting mode</li><li>Context awareness</li><li>Build your own Styles</li></ul><a class="button button-light" href="https://buy.stripe.com/4gM28qfN8aL0cgL4pgefC0b">Get Ultra</a></article>
+      </div>
+      <p class="pricing-note">Organization plans are scoped separately. <a href="/business">Talk to Nova</a>.</p>
+    </section>
+
+    <section class="faq section-shell" id="resources" aria-labelledby="faq-title">
+      <div class="section-heading"><p class="eyebrow">Questions</p><h2 id="faq-title">Clear answers.</h2></div>
+      <div class="faq-list">
+        <details><summary>Does Nova work without an internet connection?<span aria-hidden="true">+</span></summary><p>Yes. Local dictation and rewriting can run directly on your computer. Cloud features such as Turbo require a connection and are opt-in.</p></details>
+        <details><summary>What computer do I need?<span aria-hidden="true">+</span></summary><p>A 64-bit Windows 10 or 11 PC, a microphone and at least 8 GB of RAM.</p></details>
+        <details><summary>Does Nova keep my dictations?<span aria-hidden="true">+</span></summary><p>In Local mode, audio, text, vocabulary and history stay on your computer. When cloud features are enabled, content is sent for the requested processing and Nova does not build a content archive from it.</p></details>
+        <details><summary>Are Campus and Business available now?<span aria-hidden="true">+</span></summary><p>Nova is opening scoped Campus and Business pilots. Deployment, private runtime and data boundaries are validated with each organization before rollout.</p></details>
+        <details><summary>Are the application brands shown Nova partners?<span aria-hidden="true">+</span></summary><p>No. They illustrate where Nova can be used. They do not imply partnership, endorsement or customer status.</p></details>
+      </div>
+    </section>
+
+    <section class="final-cta" aria-labelledby="final-title">
+      <span class="final-orb" aria-hidden="true"></span><p class="eyebrow">Ready when you are</p><h2 id="final-title">Say it.<br>Nova takes it from here.</h2>
+      <div class="hero-actions"><a class="button button-dark" href="https://github.com/Mailpro31/nova-releases/releases/latest/download/Nova-Setup.exe">Download Nova</a><a class="button button-light" href="/business">Request a demo</a></div>
     </section>
   </main>
 
-  <script src="/site-v2.js?v=1"></script>
+  <footer class="site-footer">
+    <div class="footer-brand"><a href="/" class="brand" aria-label="Nova home"><span class="brand-orb" aria-hidden="true"></span><span>Nova</span></a><p>Private voice intelligence for the way you work.</p></div>
+    <div><strong>Product</strong><a href="/personal">Personal</a><a href="#product">Automatic Style</a><a href="#pricing">Pricing</a></div>
+    <div><strong>Organization</strong><a href="/campus">Campus</a><a href="/business">Business</a><a href="/security">Privacy</a></div>
+    <div><strong>Legal</strong><a href="/privacy.html">Privacy policy</a><a href="/terms.html">Terms</a><a href="/legal.html">Legal</a></div>
+    <p class="footer-bottom">© 2026 Nova. Built for Windows.</p>
+  </footer>
+
+  <script src="/site-v2.js?v=2"></script>
 </body>
 </html>
