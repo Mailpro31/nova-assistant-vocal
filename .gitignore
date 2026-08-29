@@ -72,3 +72,6 @@ nova.log.1
 
 # Local Supabase CLI state
 supabase/.temp/
+
+.vercel
+.env*
