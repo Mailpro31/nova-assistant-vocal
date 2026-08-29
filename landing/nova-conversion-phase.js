@@ -65,6 +65,38 @@ if(demo){
   restartCycle();
 }
 
+const personalPricing=document.querySelector('[data-personal-pricing]');
+if(personalPricing){
+  const offers={
+    annual:{
+      pro:{price:'49 €',href:'https://buy.stripe.com/3cI6oG7gCg5k0y3090efC0a'},
+      ultra:{price:'149 €',href:'https://buy.stripe.com/6oUeVc1Wi4mCcgLaNEefC0c'},
+      period:'/ year',note:'2 months free'
+    },
+    monthly:{
+      pro:{price:'4.99 €',href:'https://buy.stripe.com/9B68wO1Wif1g3Kfg7YefC09'},
+      ultra:{price:'14.99 €',href:'https://buy.stripe.com/4gM28qfN8aL0cgL4pgefC0b'},
+      period:'/ month',note:'Cancel anytime'
+    }
+  };
+  const billingButtons=[...personalPricing.querySelectorAll('[data-personal-billing]')];
+  function setBilling(period,userInitiated=false){
+    const offer=offers[period];
+    billingButtons.forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.personalBilling===period)));
+    ['pro','ultra'].forEach(plan=>{
+      personalPricing.querySelector(`[data-plan-price="${plan}"]`).textContent=offer[plan].price;
+      personalPricing.querySelector(`[data-plan-note="${plan}"]`).textContent=offer.note;
+      const checkout=personalPricing.querySelector(`[data-plan-checkout="${plan}"]`);
+      checkout.href=offer[plan].href;
+      checkout.dataset.billing=period;
+    });
+    personalPricing.querySelectorAll('[data-plan-period]').forEach(element=>element.textContent=offer.period);
+    if(userInitiated)emitNovaEvent('billing_change',{billing:period});
+  }
+  billingButtons.forEach(button=>button.addEventListener('click',()=>setBilling(button.dataset.personalBilling,true)));
+  setBilling('annual');
+}
+
 function emitNovaEvent(name,properties={}){
   const detail={event:name,page:location.pathname,...properties};
   window.dispatchEvent(new CustomEvent('nova:conversion',{detail}));
@@ -81,10 +113,10 @@ document.querySelectorAll('a').forEach(link=>{
   if(!eventName&&href.includes('/privacy-by-design'))eventName='privacy_story_click';
   if(!eventName&&href==='/privacy.html')eventName='privacy_policy_click';
   if(!eventName&&href.includes('/personal'))eventName='personal_cta';
-  if(eventName)link.addEventListener('click',()=>emitNovaEvent(eventName,{label:link.textContent.trim()}));
+  if(eventName)link.addEventListener('click',()=>emitNovaEvent(eventName,{label:link.textContent.trim(),plan:link.dataset.planCheckout||link.dataset.plan||undefined,billing:link.dataset.billing||undefined}));
 });
 
-const observedEvents=[['#tarifs','pricing_view'],['#local','security_view'],['.privacy-section','security_view'],['.privacy-choice','privacy_story_view']];
+const observedEvents=[['#tarifs','pricing_view'],['[data-personal-pricing]','pricing_view'],['#local','security_view'],['.privacy-section','security_view'],['.privacy-choice','privacy_story_view']];
 observedEvents.forEach(([selector,eventName])=>{
   const element=document.querySelector(selector);
   if(!element)return;
