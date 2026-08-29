@@ -77,11 +77,14 @@ document.querySelectorAll('a').forEach(link=>{
   if(!eventName&&href.includes('Nova-Setup.exe'))eventName='download_click';
   if(!eventName&&href.includes('Nova%20Campus%20Pilot'))eventName='campus_pilot_click';
   if(!eventName&&href.includes('Nova%20Business%20Demo'))eventName='business_demo_click';
+  if(!eventName&&href.includes('Nova%20Organization%20Demo'))eventName='organization_demo_click';
+  if(!eventName&&href.includes('/privacy-by-design'))eventName='privacy_story_click';
+  if(!eventName&&href==='/privacy.html')eventName='privacy_policy_click';
   if(!eventName&&href.includes('/personal'))eventName='personal_cta';
   if(eventName)link.addEventListener('click',()=>emitNovaEvent(eventName,{label:link.textContent.trim()}));
 });
 
-const observedEvents=[['#tarifs','pricing_view'],['#local','security_view'],['.privacy-section','security_view']];
+const observedEvents=[['#tarifs','pricing_view'],['#local','security_view'],['.privacy-section','security_view'],['.privacy-choice','privacy_story_view']];
 observedEvents.forEach(([selector,eventName])=>{
   const element=document.querySelector(selector);
   if(!element)return;
