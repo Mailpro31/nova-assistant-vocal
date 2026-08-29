@@ -5,68 +5,19 @@ const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const mobileCinema=matchMedia('(max-width: 768px)').matches;
 const clamp=(n,min=0,max=1)=>Math.min(max,Math.max(min,n));
 
-/* Always start from a clean entrance state. This also protects desktop browsers
-   restoring a previous DOM snapshot from the back/forward cache. */
-intro.classList.remove('done','leaving','loaded');
-document.body.classList.remove('ready');
-intro.style.display='grid';
-intro.style.visibility='visible';
-intro.style.opacity='1';
-intro.style.zIndex='5000';
-intro.style.background='#fff';
-document.body.style.overflow='hidden';
-let loaded=false;
-let opened=false;
+/* Enter the experience immediately. The original intro remains in the DOM so
+   the established visual system can keep evolving without a loading gate. */
+intro.classList.add('done');
+intro.style.display='none';
+document.body.classList.add('ready');
+document.body.style.overflow='';
+let loaded=true;
+let opened=true;
 
-function finishLoading(){
-  if(loaded)return;
-  loaded=true;
-  count.textContent='100 %';
-  count.style.setProperty('--load',1);
-  intro.classList.add('loaded');
-  enter.style.opacity='1';
-  enter.style.transform='none';
-  enter.style.pointerEvents='auto';
-  setTimeout(()=>enter.focus({preventScroll:true}),120);
-}
-
-if(reduce){
-  finishLoading();
-}else{
-  const start=performance.now();
-  const duration=980;
-  const tick=now=>{
-    const p=clamp((now-start)/duration);
-    const eased=1-Math.pow(1-p,3);
-    const value=Math.min(100,Math.round(eased*100));
-    count.textContent=value+' %';
-    count.style.setProperty('--load',value/100);
-    if(p<1)requestAnimationFrame(tick);else finishLoading();
-  };
-  requestAnimationFrame(tick);
-}
-
-function openExperience(){
-  if(opened||!loaded)return;
-  opened=true;
-  intro.style.removeProperty('opacity');
-  intro.style.removeProperty('visibility');
-  intro.style.removeProperty('display');
-  enter.style.removeProperty('opacity');
-  enter.style.removeProperty('transform');
-  enter.style.removeProperty('pointer-events');
-  intro.classList.add('leaving');
-  setTimeout(()=>{
-    intro.classList.add('done');
-    document.body.classList.add('ready');
-    document.body.style.overflow='';
-    const words=document.querySelector('.words');
-    if(words)requestAnimationFrame(()=>words.classList.add('words-live'));
-  },650);
-}
-enter.addEventListener('click',openExperience);
-intro.addEventListener('click',e=>{if(e.target===intro&&loaded)openExperience()});
-addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&loaded&&!opened){e.preventDefault();openExperience()}});
+function finishLoading(){}
+function openExperience(){}
+const openingWords=document.querySelector('.words');
+if(openingWords)requestAnimationFrame(()=>openingWords.classList.add('words-live'));
 addEventListener('pageshow',e=>{if(e.persisted)location.reload()});
 
 const revealObserver=new IntersectionObserver(entries=>{
