@@ -1,6 +1,6 @@
 # `api/` — fonctions serverless du site
 
-## `demo-request.js`
+## `demo-request.mjs`
 
 Reçoit les demandes de démonstration des pages Campus / Business
 (`/demo.html` et `/demonstration.html`).
@@ -30,3 +30,11 @@ le formulaire.
 - Corps de requête plafonné à 64 ko, chaque champ borné en longueur.
 - `next` (redirection sans JS) restreint aux chemins internes.
 - Aucun secret ni adresse en clair dans le dépôt.
+
+### Pourquoi `.mjs` et non `.js`
+
+Le dépôt n'a pas de `package.json` à la racine (projet Python). Sans
+`"type": "module"`, Vercel traiterait un `.js` contenant `export default`
+comme du CommonJS : le build passerait, la fonction casserait à l'exécution.
+L'extension `.mjs` lève l'ambiguïté sans imposer un `package.json` à un dépôt
+qui n'en a pas besoin.
