@@ -1,4 +1,9 @@
-const demoData={
+// La démonstration suit la langue déclarée par la page.
+const demoData=document.documentElement.lang==='fr'?{
+  slack:{label:'Slack / Message direct',title:'Rapide, naturel, prêt à envoyer.',text:'Salut Lucas — tu peux m’envoyer le fichier dès que tu as une minute ? Merci !'},
+  email:{label:'Courriel / Nouveau message',title:'Soigné sans sonner artificiel.',text:'Bonjour Lucas,\n\nPourriez-vous m’envoyer le fichier dès que vous avez un moment ?\n\nMerci d’avance.'},
+  task:{label:'Tâche / Tableau de projet',title:'La même idée, devenue actionnable.',text:'Envoyer le fichier\nResponsable : Lucas\nPriorité : Normale'}
+}:{
   slack:{label:'Slack / Direct message',title:'Fast, natural, ready to send.',text:'Hey Lucas — could you send me the file when you get a minute? Thanks!'},
   email:{label:'Email / New message',title:'Polished without sounding artificial.',text:'Hi Lucas,\n\nCould you send me the file when you have a moment?\n\nThanks in advance.'},
   task:{label:'Task / Project board',title:'The same thought, now actionable.',text:'Send the file\nOwner: Lucas\nPriority: Normal'}

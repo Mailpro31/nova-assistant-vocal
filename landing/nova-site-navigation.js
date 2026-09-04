@@ -4,7 +4,7 @@
   // (le lien d'en-tête est masqué sous 680 px).
   const isFr=document.documentElement.lang==='fr';
   const routes=isFr?[
-    {label:'Accueil',href:'/'},
+    {label:'Accueil',href:'/accueil.html'},
     {label:'Particuliers',href:'/particuliers.html'},
     {label:'Campus',href:'/etablissements.html'},
     {label:'Entreprise',href:'/entreprises.html'},
