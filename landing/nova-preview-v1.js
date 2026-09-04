@@ -134,7 +134,7 @@ if(soundBtn){
 dots.forEach((dot,index)=>dot.addEventListener('click',()=>dots.forEach((d,i)=>d.classList.toggle('on',i===index))));
 
 /* nova-preview-polish.js, nova-compact-ui.js, nova-tekiyo-refine.js,
-   nova-scroll-buttons-fix.js, nova-founder-embedded.js, nova-final-fixes.js
+   nova-scroll-buttons-fix.js, nova-final-fixes.js
    and nova-founder-polish.js used to be injected here at runtime (a 2-level
    waterfall discovered only after this script executed, plus a duplicate,
    stale nova-mobile.css?v=6 re-fetch that could shadow the real ?v=8 one).
