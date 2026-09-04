@@ -5,7 +5,22 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="google-site-verification" content="w-1W3jhEAWExnrkCQzyE_DJz1DjKhfuADBZt82HHMgI">
 <meta name="robots" content="noindex">
-<title>Nova — your license</title>
+<title>Nova</title>
+<script>
+/* Résolution de langue AVANT le premier rendu. Le script est en <head>, inline
+   et bloquant : il s'exécute avant que <body> ne soit analysé, donc avant toute
+   peinture. La CSS ci-dessous n'affiche ensuite qu'une seule des deux variantes
+   statiques — aucune bascule visible. Sans JavaScript, aucun data-lang n'est
+   posé et l'anglais s'affiche, comme le x-default du reste du site. */
+(function(){
+  var l=null; try{ l=localStorage.getItem("nova-lang"); }catch(e){}
+  if(l!=="fr"&&l!=="en") l="en";
+  window.__novaLang=l;
+  document.documentElement.lang=l;
+  document.documentElement.setAttribute("data-lang",l);
+  document.title = l==="fr" ? "Nova — votre licence" : "Nova — your license";
+})();
+</script>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <style>
   :root{--font:-apple-system,"SF Pro Display","SF Pro Text","Segoe UI",Inter,system-ui,sans-serif}
@@ -13,6 +28,11 @@
   /* l'attribut hidden doit TOUJOURS gagner (sinon .btn2{display:inline-block}
      montre « Télécharger Nova » avant la vérification de la clé) */
   [hidden]{display:none!important}
+  /* Variantes de langue du contenu statique : le choix est déjà fait par le
+     script de <head>, donc rien ne clignote. Repli sans JavaScript : anglais. */
+  .i18n-fr{display:none}
+  html[data-lang="fr"] .i18n-fr{display:inline}
+  html[data-lang="fr"] .i18n-en{display:none}
   body{min-height:100vh;display:flex;align-items:center;justify-content:center;
     background:#1F1F22;color:#F2F2F4;font-family:var(--font);padding:20px}
   .card{background:#2C2C30;border:1px solid rgba(255,255,255,.07);border-radius:13px;
@@ -40,13 +60,14 @@
 <div class="card">
   <div class="dot" aria-hidden="true"></div>
   <h1>Nova</h1>
-  <p class="sub" id="sub">Récupération de votre clé de licence…</p>
+  <p class="sub" id="sub"><span class="i18n-fr">Récupération de votre clé de licence…</span><span class="i18n-en">Retrieving your license key…</span></p>
   <div class="key" id="k">…</div>
   <button class="btn" id="copy" style="display:none">Copier la clé</button>
   <a class="btn2" id="dl" hidden
     href="https://github.com/Mailpro31/nova-releases/releases/latest/download/Nova-Setup.exe">Télécharger Nova</a>
-  <p class="foot" id="foot">This page requires JavaScript. If nothing appears,
-    <a href="mailto:contact@novaspeak.app">write to us</a> with your Stripe receipt.</p>
+  <p class="foot" id="foot"><span class="i18n-fr">Cette page nécessite JavaScript. Si rien ne s’affiche,
+    <a href="mailto:contact@novaspeak.app">écrivez-nous</a> avec votre reçu Stripe.</span><span class="i18n-en">This page requires JavaScript. If nothing appears,
+    <a href="mailto:contact@novaspeak.app">write to us</a> with your Stripe receipt.</span></p>
 </div>
 <script>
 const API = "https://cvpucqsxgjczkdskohte.supabase.co/functions/v1/license/key";
@@ -86,15 +107,11 @@ const M = {
       "<a href='mailto:contact@novaspeak.app'>write to us</a> with your Stripe receipt."
   }
 };
-let lang = null;
-try { lang = localStorage.getItem("nova-lang"); } catch (_e) { /* privé */ }
-if (lang !== "fr" && lang !== "en") {
-  lang = "en"; // langue par défaut du site : anglais, quel que soit le navigateur
-}
+// La langue a déjà été résolue par le script de <head>, avant le premier
+// rendu. On la relit au lieu de refaire le calcul — et surtout on ne réécrit
+// plus #sub ni #foot : leur variante statique est déjà la bonne.
+const lang = window.__novaLang === "fr" ? "fr" : "en";
 const L = M[lang];
-document.documentElement.lang = lang;
-document.title = L.title;
-$("sub").textContent = L.loading;
 $("copy").textContent = L.copy;
 $("dl").textContent = L.dl;
 
