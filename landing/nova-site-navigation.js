@@ -3,6 +3,12 @@
   // endroit où l'on retrouve le lien vers l'autre version linguistique
   // (le lien d'en-tête est masqué sous 680 px).
   const isFr=document.documentElement.lang==='fr';
+
+  // On mémorise la langue de la page consultée. merci.html et legal.html sont
+  // servies hors du site (retour de paiement, page légale commune) et n'ont
+  // aucun moyen de deviner la langue : elles relisent cette clé. Elle existait
+  // déjà côté lecture dans merci.html, personne ne l'écrivait.
+  try{ localStorage.setItem('nova-lang', isFr?'fr':'en'); }catch(_e){ /* navigation privée */ }
   const routes=isFr?[
     {label:'Accueil',href:'/accueil.html'},
     {label:'Particuliers',href:'/particuliers.html'},
