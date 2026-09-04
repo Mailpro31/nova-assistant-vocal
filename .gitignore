@@ -75,3 +75,6 @@ supabase/.temp/
 
 .vercel
 .env*
+
+# Captures de vérification produites par les scripts Playwright de session
+undefined/
