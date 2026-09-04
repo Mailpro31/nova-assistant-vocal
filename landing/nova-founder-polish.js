@@ -13,14 +13,16 @@
     rail:['Local','Styles','Contexte','Voix'],
     words:['DICTER','ÉCRIRE','RÉPONDRE','REFORMULER','RÉSUMER','TRADUIRE','WINDOWS','LOCAL','PRIVÉ','CONTEXTE','STYLE','CONTRÔLE'],
     intro:['DICTER','COMPRENDRE','REFORMULER','ÉCRIRE'],
-    founderAlt:'Portrait pointilliste de Sasha, fondateur de Nova, accompagné d’une courte note personnelle.'
+    founderAlt:'Portrait pointilliste de Sasha, fondateur de Nova, accompagné d’une courte note personnelle.',
+    founderNote:'Note du fondateur'
   }:{
     legal:'Legal, Terms & Privacy',
     progress:'Progress',
     rail:['Local','Styles','Context','Voice'],
     words:['DICTATE','WRITE','REPLY','REWRITE','SUMMARIZE','TRANSLATE','WINDOWS','LOCAL','PRIVATE','CONTEXT','STYLE','CONTROL'],
     intro:['DICTATE','UNDERSTAND','REWRITE','WRITE'],
-    founderAlt:'Dotted portrait of Sasha, founder of Nova, with a short personal note.'
+    founderAlt:'Dotted portrait of Sasha, founder of Nova, with a short personal note.',
+    founderNote:'Founder note'
   };
 
   const legacyLang=document.getElementById('langBtn');
@@ -181,7 +183,7 @@
   if(pricing){
     const section=document.createElement('section');
     section.className='founder-story';
-    section.setAttribute('aria-label','Founder note');
+    section.setAttribute('aria-label',T.founderNote);
     const img=document.createElement('img');
     img.src='/sasha-founder.svg?v=8';
     img.alt=T.founderAlt;
