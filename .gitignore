@@ -72,3 +72,9 @@ nova.log.1
 
 # Local Supabase CLI state
 supabase/.temp/
+
+.vercel
+.env*
+
+# Captures de vérification produites par les scripts Playwright de session
+undefined/

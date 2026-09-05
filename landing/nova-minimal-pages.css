@@ -1,0 +1,26 @@
+/* A shorter, clearer rhythm for the three audience pages. */
+.minimal-route .route-hero{min-height:100svh;padding-top:132px;padding-bottom:100px}
+.minimal-route .route-hero h1{max-width:1120px}
+.minimal-route .route-hero p{max-width:610px}
+.minimal-route .route-chapter{min-height:88svh;padding-top:120px;padding-bottom:120px}
+.minimal-route .chapter-grid{gap:clamp(52px,8vw,120px)}
+.minimal-route .chapter-copy p{max-width:510px}
+.minimal-route .privacy-section,.minimal-route .proof-section{padding-top:130px;padding-bottom:140px}
+.minimal-route .proof-section>p,.minimal-route .privacy-section>p{max-width:540px;margin-left:auto;margin-right:auto}
+.minimal-route .proof-grid{margin-top:64px}
+.minimal-route .proof-card{min-height:270px;padding:28px}
+.minimal-route .proof-card h3{margin-top:42px}
+.minimal-route .privacy-map{margin-top:64px}
+.minimal-route .personal-pricing{padding-top:140px;padding-bottom:150px}
+
+@media(max-width:900px){
+  .minimal-route .route-chapter{min-height:auto}
+}
+@media(max-width:680px){
+  .minimal-route .route-hero{min-height:auto;padding-top:108px;padding-bottom:88px}
+  .minimal-route .route-chapter{padding-top:92px;padding-bottom:96px}
+  .minimal-route .privacy-section,.minimal-route .proof-section{padding-top:96px;padding-bottom:104px}
+  .minimal-route .proof-grid,.minimal-route .privacy-map{margin-top:48px}
+  .minimal-route .proof-card{min-height:0}
+  .minimal-route .personal-pricing{padding-top:104px;padding-bottom:116px}
+}

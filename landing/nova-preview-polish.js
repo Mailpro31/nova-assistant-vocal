@@ -47,9 +47,17 @@ document.querySelectorAll(staggerGroups.join(',')).forEach(group=>{
 /* Add a discreet choice label without changing the pricing structure. */
 const featured=document.querySelector('.plan.featured');
 if(featured&&!featured.querySelector('.plan-badge')){
-  const badgeFr=document.createElement('span');badgeFr.className='plan-badge fr';badgeFr.textContent='Le plus choisi';
-  const badgeEn=document.createElement('span');badgeEn.className='plan-badge en';badgeEn.textContent='Most popular';
-  featured.prepend(badgeEn);featured.prepend(badgeFr);
+  const audienceMode=document.querySelector('.pricing.audiences');
+  // Un seul badge, dans la langue de la page. L'ancienne paire .fr/.en
+  // s'appuyait sur .en{display:none}, que le display:inline-flex!important de
+  // nova-founder-polish.js écrase : sur l'accueil « audiences » les deux
+  // s'affichaient l'un sous l'autre, dans les deux langues.
+  const isFr=document.documentElement.lang==='fr';
+  const badge=document.createElement('span');badge.className='plan-badge';
+  badge.textContent=audienceMode
+    ? (isFr?'Programme pilote':'Pilot program')
+    : (isFr?'Le plus choisi':'Most popular');
+  featured.prepend(badge);
 }
 
 /* Pointer light for cards and the cinematic canvas. */
@@ -71,7 +79,7 @@ if(cinemaMedia){
 /* Scroll cue appears after the intro and disappears as soon as the user moves. */
 const scrollCue=document.createElement('div');
 scrollCue.className='scroll-cue';
-scrollCue.innerHTML='<i></i><span class="fr">Faire défiler</span><span class="en">Scroll</span>';
+scrollCue.innerHTML='<i></i><span>'+(document.documentElement.lang==='fr'?'Faire défiler':'Scroll')+'</span>';
 document.body.appendChild(scrollCue);
 let cueHidden=false;
 function showCue(){if(!cueHidden){scrollCue.classList.add('show');setTimeout(()=>scrollCue.classList.remove('show'),4200)}}

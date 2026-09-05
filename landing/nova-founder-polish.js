@@ -1,6 +1,29 @@
 (()=>{
-  document.documentElement.lang='en';
-  document.body.classList.add('english');
+  // La page déclare sa langue dans <html lang> : on la respecte au lieu de la
+  // forcer. L'accueil anglaise déclare lang="en" et retrouve donc exactement le
+  // comportement d'avant ; l'accueil française déclare lang="fr" et le garde.
+  const isFr=document.documentElement.lang==='fr';
+  if(!isFr){
+    document.documentElement.lang='en';
+    document.body.classList.add('english');
+  }
+  const T=isFr?{
+    legal:'Mentions légales et confidentialité',
+    progress:'Progression',
+    rail:['Local','Styles','Contexte','Voix'],
+    words:['DICTER','ÉCRIRE','RÉPONDRE','REFORMULER','RÉSUMER','TRADUIRE','WINDOWS','LOCAL','PRIVÉ','CONTEXTE','STYLE','CONTRÔLE'],
+    intro:['DICTER','COMPRENDRE','REFORMULER','ÉCRIRE'],
+    founderAlt:'Portrait pointilliste de Sasha, fondateur de Nova, accompagné d’une courte note personnelle.',
+    founderNote:'Note du fondateur'
+  }:{
+    legal:'Legal, Terms & Privacy',
+    progress:'Progress',
+    rail:['Local','Styles','Context','Voice'],
+    words:['DICTATE','WRITE','REPLY','REWRITE','SUMMARIZE','TRANSLATE','WINDOWS','LOCAL','PRIVATE','CONTEXT','STYLE','CONTROL'],
+    intro:['DICTATE','UNDERSTAND','REWRITE','WRITE'],
+    founderAlt:'Dotted portrait of Sasha, founder of Nova, with a short personal note.',
+    founderNote:'Founder note'
+  };
 
   const legacyLang=document.getElementById('langBtn');
   if(legacyLang) legacyLang.remove();
@@ -10,7 +33,7 @@
     const legal=document.createElement('a');
     legal.className='circle legal-link';
     legal.href='/legal.html';
-    legal.setAttribute('aria-label','Legal, Terms & Privacy');
+    legal.setAttribute('aria-label',T.legal);
     legal.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M10 12h6M10 16h6"/></svg>';
     dock.appendChild(legal);
   }
@@ -142,37 +165,42 @@
   const rail=document.querySelector('.dots');
   if(rail){
     rail.classList.add('chapter-rail');
-    rail.setAttribute('aria-label','Progress');
+    rail.setAttribute('aria-label',T.progress);
     [...rail.querySelectorAll('a')].forEach((link,index)=>{
       link.textContent='';
-      link.setAttribute('aria-label',['Local','Styles','Context','Voice'][index]||`Section ${index+1}`);
+      link.setAttribute('aria-label',T.rail[index]||`Section ${index+1}`);
     });
   }
 
-  const words=['DICTATE','WRITE','REPLY','REWRITE','SUMMARIZE','TRANSLATE','WINDOWS','LOCAL','PRIVATE','CONTEXT','STYLE','CONTROL'];
+  const words=T.words;
   document.querySelectorAll('.words span').forEach((el,i)=>{if(words[i]) el.textContent=words[i]});
-  const introWords=['DICTATE','UNDERSTAND','REWRITE','WRITE'];
+  const introWords=T.intro;
   document.querySelectorAll('.intro-word').forEach((el,i)=>{if(introWords[i]) el.textContent=introWords[i]});
 
   document.querySelectorAll('.founder-story').forEach(el=>el.remove());
   const pricing=document.querySelector('.pricing');
+  const audienceMode=pricing?.classList.contains('audiences');
   if(pricing){
     const section=document.createElement('section');
     section.className='founder-story';
-    section.setAttribute('aria-label','Founder note');
+    section.setAttribute('aria-label',T.founderNote);
     const img=document.createElement('img');
     img.src='/sasha-founder.svg?v=8';
-    img.alt='Dotted portrait of Sasha, founder of Nova, with a short personal note.';
+    img.alt=T.founderAlt;
     img.loading='eager';
     img.decoding='async';
     section.appendChild(img);
     pricing.before(section);
 
-    const heading=pricing.querySelector(':scope > h2');
-    const intro=pricing.querySelector(':scope > p');
-    if(heading) heading.innerHTML='Start free.<br>Unlock the full Nova.';
-    if(intro) intro.textContent='Free covers the essentials. Pro removes every local limit and adds true personalization — vocabulary, variables, shortcuts, all yours. Ultra brings Nova’s full intelligence: unlimited Turbo, automatic meeting notes and real context awareness.';
+    if(!audienceMode){
+      const heading=pricing.querySelector(':scope > h2');
+      const intro=pricing.querySelector(':scope > p');
+      if(heading) heading.innerHTML='Start free.<br>Unlock the full Nova.';
+      if(intro) intro.textContent='Free covers the essentials. Pro removes every local limit and adds true personalization — vocabulary, variables, shortcuts, all yours. Ultra brings Nova’s full intelligence: unlimited Turbo, automatic meeting notes and real context awareness.';
+    }
   }
+
+  if(audienceMode)return;
 
   const pricingCopy={
     title:['Free','Nova Pro','Nova Ultra'],
