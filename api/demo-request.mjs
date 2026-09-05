@@ -36,8 +36,17 @@ function safeNext(v, fallback) {
   return /^\/[A-Za-z0-9._~\-/]*$/.test(s) && !s.startsWith('//') ? s : fallback;
 }
 
+// Vercel analyse déjà le corps quand les helpers sont actifs — pour du JSON
+// comme pour de l'urlencoded — et pose un OBJET dans req.body. On ne peut donc
+// PAS déduire la nature de l'envoi du chemin de lecture : elle se lit dans
+// l'en-tête Content-Type, seule source fiable dans les deux cas.
+function isFormPost(req) {
+  return String(req.headers['content-type'] || '')
+    .includes('application/x-www-form-urlencoded');
+}
+
 async function readBody(req) {
-  if (req.body && typeof req.body === 'object') return { data: req.body, form: false };
+  if (req.body && typeof req.body === 'object') return req.body;
   const raw = await new Promise((resolve, reject) => {
     let buf = '';
     req.on('data', (c) => {
@@ -47,9 +56,13 @@ async function readBody(req) {
     req.on('end', () => resolve(buf));
     req.on('error', reject);
   });
-  const ct = String(req.headers['content-type'] || '');
-  if (ct.includes('application/json')) return { data: JSON.parse(raw || '{}'), form: false };
-  return { data: Object.fromEntries(new URLSearchParams(raw)), form: true };
+  if (typeof req.body === 'string') return parseRaw(req, req.body);
+  return parseRaw(req, raw);
+}
+
+function parseRaw(req, raw) {
+  if (isFormPost(req)) return Object.fromEntries(new URLSearchParams(raw));
+  return JSON.parse(raw || '{}');
 }
 
 export default async function handler(req, res) {
@@ -59,14 +72,12 @@ export default async function handler(req, res) {
   }
 
   let data;
-  let isForm;
   try {
-    const parsed = await readBody(req);
-    data = parsed.data || {};
-    isForm = parsed.form;
+    data = (await readBody(req)) || {};
   } catch {
     return res.status(400).json({ ok: false, error: 'bad_request' });
   }
+  const isForm = isFormPost(req);
 
   const lang = data.lang === 'fr' ? 'fr' : 'en';
   const back = safeNext(data.next, lang === 'fr' ? '/demonstration.html' : '/demo.html');

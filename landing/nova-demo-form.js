@@ -16,12 +16,18 @@
   };
 
   // Le formulaire natif revient avec un fragment : on affiche le même message.
-  if(location.hash==='#envoye')say('ok','ok');
-  if(location.hash==='#erreur')say('ko','ko');
+  if(location.hash==='#envoye'||location.hash==='#erreur'){
+    say(location.hash==='#envoye'?'ok':'ko', location.hash==='#envoye'?'ok':'ko');
+    // Le fragment n'est l'identifiant d'aucun élément : sans cela le visiteur
+    // revenu par l'envoi natif atterrit en haut de page, loin du message.
+    status?.scrollIntoView({block:'center'});
+  }
 
   form.addEventListener('submit',async event=>{
-    if(!form.reportValidity())return;
+    // preventDefault AVANT la validation : le formulaire porte novalidate, donc
+    // rien n'empêche l'envoi natif de partir si on rend la main sans l'annuler.
     event.preventDefault();
+    if(!form.reportValidity())return;
     submit.disabled=true;
     try{
       const res=await fetch(form.action,{
